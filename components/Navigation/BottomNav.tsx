@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Search, User, Plus } from 'lucide-react';
+import { Home, FileText, User } from 'lucide-react';
 import './BottomNav.css';
 
 export default function BottomNav() {
@@ -10,19 +10,18 @@ export default function BottomNav() {
 
   const navItems = [
     { href: '/', label: '홈', Icon: Home },
-    { href: '/explore', label: '탐색', Icon: Search },
+    { href: '/records', label: '기록', Icon: FileText },
     { href: '/profile', label: '프로필', Icon: User },
   ];
 
   return (
     <nav className="bottom-nav">
-      {navItems.map((item, index) => {
+      {navItems.map((item) => {
         const isActive = pathname === item.href;
         const { Icon } = item;
 
         return (
           <div key={item.href} className="nav-item-wrapper">
-            {index === 1 && <div className="fab-spacer" />}
             <Link
               href={item.href}
               className={`nav-item ${isActive ? 'active' : ''}`}
@@ -33,11 +32,6 @@ export default function BottomNav() {
           </div>
         );
       })}
-
-      {/* 중앙 FAB */}
-      <Link href="/create" className="fab">
-        <Plus className="fab-icon" size={32} strokeWidth={2.5} />
-      </Link>
     </nav>
   );
 }

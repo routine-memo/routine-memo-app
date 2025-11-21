@@ -1,10 +1,10 @@
-import { Search, Filter, Folder } from 'lucide-react';
+import { Search, Filter, FileText } from 'lucide-react';
 
-export default function ExplorePage() {
+export default function RecordsPage() {
   return (
     <main className="min-h-screen p-6">
       <header className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">탐색</h1>
+        <h1 className="text-3xl font-bold mb-2">기록</h1>
         <p className="text-gray-600 dark:text-gray-400">
           모든 기록을 둘러보세요
         </p>
@@ -43,7 +43,7 @@ export default function ExplorePage() {
       {/* 빈 상태 */}
       <div className="text-center py-16">
         <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-          <Folder size={48} strokeWidth={1.5} className="text-gray-400" />
+          <FileText size={48} strokeWidth={1.5} className="text-gray-400" />
         </div>
         <p className="text-gray-600 dark:text-gray-400 mb-2">
           아직 기록이 없어요
