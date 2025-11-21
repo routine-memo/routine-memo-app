@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { BottomNav } from "@/components/Navigation";
+import { BottomNavWrapper } from "@/components/Navigation";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -24,7 +24,7 @@ export default function RootLayout({
       </head>
       <body className="font-sans antialiased pb-20">
         {children}
-        <BottomNav />
+        <BottomNavWrapper />
       </body>
     </html>
   );
