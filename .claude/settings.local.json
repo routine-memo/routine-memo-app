@@ -13,7 +13,10 @@
       "Bash(npm init:*)",
       "Bash(npm install:*)",
       "Bash(npm run dev:*)",
-      "Bash(timeout:*)"
+      "Bash(timeout:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(taskkill /F /PID 28544)",
+      "Bash(taskkill //F //PID 28544)"
     ],
     "deny": [],
     "ask": []

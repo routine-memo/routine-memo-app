@@ -1,0 +1,94 @@
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 72px;
+  background: var(--background);
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  padding: 0 16px;
+  z-index: 100;
+}
+
+@media (prefers-color-scheme: dark) {
+  .bottom-nav {
+    border-top-color: rgba(255, 255, 255, 0.1);
+  }
+}
+
+.nav-item-wrapper {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+
+.fab-spacer {
+  width: 64px;
+}
+
+.nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 16px;
+  text-decoration: none;
+  color: #666;
+  transition: color 0.2s ease;
+  cursor: pointer;
+}
+
+.nav-item:hover {
+  color: #f9a825;
+}
+
+.nav-item.active {
+  color: #f9a825;
+}
+
+.nav-icon {
+  font-size: 24px;
+}
+
+.nav-label {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* FAB (Floating Action Button) */
+.fab {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f9a825 0%, #d4664a 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(249, 168, 37, 0.4);
+  text-decoration: none;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  z-index: 101;
+}
+
+.fab:hover {
+  transform: translateX(-50%) scale(1.05);
+  box-shadow: 0 6px 16px rgba(249, 168, 37, 0.5);
+}
+
+.fab:active {
+  transform: translateX(-50%) scale(0.95);
+}
+
+.fab-icon {
+  font-size: 32px;
+  color: white;
+  font-weight: 300;
+  line-height: 1;
+}
