@@ -17,7 +17,8 @@
       "Bash(npm uninstall:*)",
       "Bash(taskkill /F /PID 28544)",
       "Bash(taskkill //F //PID 28544)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Skill(claude-self-review-loop)"
     ],
     "deny": [],
     "ask": []

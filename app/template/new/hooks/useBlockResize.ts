@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { BlockPosition } from '../types';
 import { handleWidthResize, handleHeightResize } from '../resizeHandlers';
 
@@ -7,16 +7,16 @@ interface ResizingBlock {
   direction: 'right' | 'bottom';
   startX: number;
   startY: number;
-  startWidth: number;
+  startColSpan: number;
   startHeight: number;
 }
 
 export const useBlockResize = (
   blockPositions: BlockPosition[],
-  setBlockPositions: (blocks: BlockPosition[]) => void,
-  containerWidth: number
+  setBlockPositions: (blocks: BlockPosition[]) => void
 ) => {
   const [resizingBlock, setResizingBlock] = useState<ResizingBlock | null>(null);
+  const accumulatedDeltaRef = useRef<number>(0);
 
   const handleResizeStart = (
     e: React.MouseEvent | React.TouchEvent,
@@ -27,12 +27,14 @@ export const useBlockResize = (
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
 
+    accumulatedDeltaRef.current = 0;
+
     setResizingBlock({
       blockId: block.id,
       direction,
       startX: clientX,
       startY: clientY,
-      startWidth: block.width,
+      startColSpan: block.colSpan,
       startHeight: block.height,
     });
   };
@@ -40,31 +42,53 @@ export const useBlockResize = (
   const handleResizeMove = (e: MouseEvent | TouchEvent) => {
     if (!resizingBlock) return;
 
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-
     const block = blockPositions.find(b => b.id === resizingBlock.blockId);
     if (!block) return;
 
     if (resizingBlock.direction === 'right') {
+      // 가로 리사이즈: 픽셀 단위 드래그를 열 단위로 변환
+      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
       const delta = clientX - resizingBlock.startX;
-      const newWidth = Math.max(50, resizingBlock.startWidth + delta);
 
-      const result = handleWidthResize(block, newWidth, blockPositions, containerWidth);
-      if (result) {
-        setBlockPositions(result);
+      // 100px 이동마다 1열씩 증가/감소
+      const PIXELS_PER_COL = 100;
+      const colDelta = Math.floor(delta / PIXELS_PER_COL);
+
+      if (colDelta !== accumulatedDeltaRef.current) {
+        const direction = colDelta > accumulatedDeltaRef.current ? 'increase' : 'decrease';
+        const result = handleWidthResize(block, direction, blockPositions);
+        if (result) {
+          setBlockPositions(result);
+          accumulatedDeltaRef.current = colDelta;
+        }
       }
     } else {
+      // 세로 리사이즈: 140px 단위로 행 먹기
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
       const delta = clientY - resizingBlock.startY;
-      const newHeight = Math.max(60, resizingBlock.startHeight + delta);
 
-      const result = handleHeightResize(block.id, newHeight, blockPositions);
-      setBlockPositions(result);
+      // 140px 이동마다 1행씩 증가/감소
+      const PIXELS_PER_ROW = 140;
+      const rowDelta = Math.floor(delta / PIXELS_PER_ROW);
+
+      if (rowDelta !== accumulatedDeltaRef.current) {
+        // 새로운 행 개수 계산 (최소 1행)
+        const currentRows = Math.ceil(block.height / PIXELS_PER_ROW);
+        const newRows = Math.max(1, currentRows + (rowDelta - accumulatedDeltaRef.current));
+        const newHeight = newRows * PIXELS_PER_ROW;
+
+        const result = handleHeightResize(block.id, newHeight, blockPositions);
+        if (result) {
+          setBlockPositions(result);
+          accumulatedDeltaRef.current = rowDelta;
+        }
+      }
     }
   };
 
   const handleResizeEnd = () => {
     setResizingBlock(null);
+    accumulatedDeltaRef.current = 0;
   };
 
   useEffect(() => {

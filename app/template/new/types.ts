@@ -1,17 +1,18 @@
 import { LucideIcon } from 'lucide-react';
 
 export type BlockType =
+  | 'timeline'
   | 'text'
   | 'image'
-  | 'number'
+  | 'checklist'
+  | 'emotion'
   | 'date'
-  | 'checkbox'
-  | 'select'
-  | 'rating'
-  | 'time'
-  | 'location'
+  | 'weather'
+  | 'data'
+  | 'chart'
+  | 'video'
   | 'link'
-  | 'todo'
+  | 'file'
   | 'map';
 
 export type Step = 'name' | 'blocks' | 'notification';
@@ -19,10 +20,9 @@ export type Step = 'name' | 'blocks' | 'notification';
 export interface BlockPosition {
   id: string;
   type: BlockType;
-  row: number;       // 행 번호
-  x: number;         // 행 내에서의 수평 위치 (픽셀, 0부터 시작)
-  y: number;         // 행 내에서의 수직 위치 (픽셀, 0부터 시작)
-  width: number;     // 블록의 너비 (픽셀)
+  row: number;       // 행 번호 (0부터 시작)
+  colStart: number;  // 시작 열 (0-5, 6열 시스템)
+  colSpan: number;   // 차지하는 열 개수 (기본 2, 범위: 1-6)
   height: number;    // 블록의 높이 (픽셀, 기본 120)
 }
 

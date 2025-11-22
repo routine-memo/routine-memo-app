@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Bell } from 'lucide-react';
 import { NotificationSettings } from '@/types/template';
@@ -9,11 +9,10 @@ import { NotificationSettings } from '@/types/template';
 import { BlockPosition, BlockType, DropTarget, Step } from './types';
 import { iconMap } from './iconMap';
 import { blockPalette } from './blockPalette';
-import { getAllRows, getBlocksByRow } from './blockUtils';
+import { getAllRows, getRowBlocks, getRowMaxHeight } from './blockUtils';
 import { handleDrop as processDrop } from './dragDropHandlers';
 import { createBlock, deleteBlock } from './blockManagement';
 import { calculateDropPosition } from './dragOverHandler';
-import { useContainerWidth } from './hooks/useContainerWidth';
 import { useBlockResize } from './hooks/useBlockResize';
 import { BlockRenderer } from './components/BlockRenderer';
 import { BlockPalette } from './components/BlockPalette';
@@ -31,37 +30,91 @@ export default function NewTemplatePage() {
   });
 
   // Custom hooks
-  const containerWidth = useContainerWidth(blockPositions.length);
-  const { handleResizeStart } = useBlockResize(blockPositions, setBlockPositions, containerWidth);
+  const { handleResizeStart } = useBlockResize(blockPositions, setBlockPositions);
 
   // 블록 추가
-  const addBlock = (type: BlockType) => {
-    const newBlock = createBlock(type, blockPositions, containerWidth);
+  const addBlock = useCallback((type: BlockType) => {
+    const newBlock = createBlock(type, blockPositions);
     setBlockPositions([...blockPositions, newBlock]);
     setShowPalette(false);
-  };
+  }, [blockPositions]);
 
   // 블록 삭제
-  const removeBlock = (id: string) => {
+  const removeBlock = useCallback((id: string) => {
     const updatedBlocks = deleteBlock(id, blockPositions);
     setBlockPositions(updatedBlocks);
-  };
+  }, [blockPositions]);
 
   // 드래그 시작
-  const handleDragStart = (block: BlockPosition) => {
+  const handleDragStart = useCallback((block: BlockPosition) => {
     setDraggedBlock(block);
-  };
+  }, []);
 
-  // 드롭 처리
-  const handleDrop = (e: React.DragEvent, targetBlock: BlockPosition) => {
-    e.preventDefault();
+  // 터치 무브 (모바일 드래그)
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!draggedBlock) return;
+
+    const touch = e.touches[0];
+
+    // 터치 위치에서 모든 블록 엘리먼트 찾기
+    const elements = document.elementsFromPoint(touch.clientX, touch.clientY);
+    const blockElement = elements.find(el => el.getAttribute('data-block-id'));
+
+    if (!blockElement) {
+      setDropTarget(null);
+      return;
+    }
+
+    const targetBlockId = blockElement.getAttribute('data-block-id');
+    const targetBlock = blockPositions.find(b => b.id === targetBlockId);
+
+    if (!targetBlock || targetBlock.id === draggedBlock.id) {
+      return;
+    }
+
+    // 블록 내에서의 상대 위치 계산
+    const rect = blockElement.getBoundingClientRect();
+    const x = touch.clientX - rect.left;
+    const y = touch.clientY - rect.top;
+
+    const threshold = 30;
+    let position: DropTarget['position'];
+
+    if (y < threshold) {
+      position = 'above';
+    } else if (y > rect.height - threshold) {
+      position = 'below';
+    } else if (x < rect.width / 2) {
+      position = 'left';
+    } else {
+      position = 'right';
+    }
+
+    const newTarget = { blockId: targetBlock.id, position };
+    setDropTarget(newTarget);
+  }, [draggedBlock, blockPositions]);
+
+  // 터치 엔드 (모바일 드롭)
+  const handleTouchEnd = useCallback(() => {
+    if (!draggedBlock || !dropTarget) {
+      setDraggedBlock(null);
+      setDropTarget(null);
+      return;
+    }
+
+    // dropTarget에서 타겟 블록 찾기
+    const targetBlock = blockPositions.find(b => b.id === dropTarget.blockId);
+    if (!targetBlock) {
+      setDraggedBlock(null);
+      setDropTarget(null);
+      return;
+    }
 
     const result = processDrop(
       draggedBlock,
       dropTarget,
       targetBlock,
-      blockPositions,
-      containerWidth
+      blockPositions
     );
 
     if (result) {
@@ -70,28 +123,47 @@ export default function NewTemplatePage() {
 
     setDraggedBlock(null);
     setDropTarget(null);
-  };
+  }, [draggedBlock, dropTarget, blockPositions]);
 
-  // 드래그 종료
-  const handleDragEnd = () => {
+  // 드롭 처리 (데스크톱)
+  const handleDrop = useCallback((e: React.DragEvent, targetBlock: BlockPosition) => {
+    e.preventDefault();
+
+    const result = processDrop(
+      draggedBlock,
+      dropTarget,
+      targetBlock,
+      blockPositions
+    );
+
+    if (result) {
+      setBlockPositions(result);
+    }
+
     setDraggedBlock(null);
     setDropTarget(null);
-  };
+  }, [draggedBlock, dropTarget, blockPositions]);
 
-  // 드래그 오버 (드롭 위치 표시)
-  const handleDragOver = (e: React.DragEvent, targetBlock: BlockPosition) => {
+  // 드래그 종료
+  const handleDragEnd = useCallback(() => {
+    setDraggedBlock(null);
+    setDropTarget(null);
+  }, []);
+
+  // 드래그 오버 (데스크톱 드롭 위치 표시)
+  const handleDragOver = useCallback((e: React.DragEvent, targetBlock: BlockPosition) => {
     e.preventDefault();
     const target = calculateDropPosition(e, targetBlock, draggedBlock);
     if (target) {
       setDropTarget(target);
     }
-  };
+  }, [draggedBlock]);
 
   // 단계별 렌더링
   if (step === 'name') {
     return (
-      <main className="min-h-screen bg-white px-4 py-6">
-        <div className="max-w-md mx-auto">
+      <main className="fixed inset-0 bg-white flex items-center justify-center">
+        <div className="w-full max-w-md px-4">
           <button onClick={() => router.back()} className="mb-6 text-gray-900">
             <ArrowLeft className="w-6 h-6" />
           </button>
@@ -123,9 +195,9 @@ export default function NewTemplatePage() {
 
   if (step === 'blocks') {
     return (
-      <main className="min-h-screen bg-gray-50">
+      <main className="fixed inset-0 flex flex-col bg-gray-50">
         {/* 헤더 */}
-        <div className="sticky top-0 bg-white/95 backdrop-blur-sm border-b border-gray-200 px-4 py-3 flex items-center justify-between z-10">
+        <div className="flex-none bg-white/95 backdrop-blur-sm border-b border-gray-200 px-4 py-3 flex items-center justify-between">
           <button onClick={() => setStep('name')} className="text-gray-900">
             <ArrowLeft className="w-6 h-6" />
           </button>
@@ -139,7 +211,7 @@ export default function NewTemplatePage() {
         </div>
 
         {/* 블록 영역 */}
-        <div className="px-4 py-6">
+        <div className="flex-1 overflow-y-auto px-4 py-6 pb-24" style={{ WebkitOverflowScrolling: 'touch' }}>
           {blockPositions.length === 0 ? (
             <div className="h-full flex items-center justify-center">
               <div className="text-center">
@@ -149,13 +221,20 @@ export default function NewTemplatePage() {
               </div>
             </div>
           ) : (
-            <div id="blocks-container" className="space-y-3">
+            <div id="blocks-container" className="flex flex-col gap-3">
               {getAllRows(blockPositions).map((row) => {
-                const rowBlocks = getBlocksByRow(blockPositions, row);
-                const maxHeight = Math.max(...rowBlocks.map(b => b.y + b.height));
+                const rowBlocks = getRowBlocks(blockPositions, row);
+                const maxHeight = getRowMaxHeight(rowBlocks);
 
                 return (
-                  <div key={row} className="relative" style={{ height: `${maxHeight}px`, minHeight: '120px' }}>
+                  <div
+                    key={row}
+                    className="grid gap-3"
+                    style={{
+                      gridTemplateColumns: 'repeat(6, 1fr)',
+                      minHeight: `${maxHeight}px`
+                    }}
+                  >
                     {rowBlocks.map((block) => {
                       const isDragging = draggedBlock?.id === block.id;
                       const isDropTarget = dropTarget?.blockId === block.id;
@@ -173,6 +252,8 @@ export default function NewTemplatePage() {
                           onDragEnd={handleDragEnd}
                           onDragOver={(e) => handleDragOver(e, block)}
                           onDrop={(e) => handleDrop(e, block)}
+                          onTouchMove={handleTouchMove}
+                          onTouchEnd={handleTouchEnd}
                           onRemove={() => removeBlock(block.id)}
                           onResizeStart={(e, direction) => handleResizeStart(e, block, direction)}
                         />
@@ -198,8 +279,8 @@ export default function NewTemplatePage() {
 
   // notification step
   return (
-    <main className="min-h-screen bg-white px-4 py-6">
-      <div className="max-w-md mx-auto">
+    <main className="fixed inset-0 bg-white flex items-center justify-center">
+      <div className="w-full max-w-md px-4">
         <button onClick={() => setStep('blocks')} className="mb-6 text-gray-900">
           <ArrowLeft className="w-6 h-6" />
         </button>
