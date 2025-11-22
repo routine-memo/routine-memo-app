@@ -41,8 +41,8 @@ export const BlockRenderer = ({
       onDragEnd={onDragEnd}
       onDragOver={onDragOver}
       onDrop={onDrop}
-      className={`bg-white border-2 rounded-lg transition-all ${
-        isDragging ? 'opacity-50 border-gray-300' : 'border-black'
+      className={`bg-white border-2 rounded-lg transition-all shadow-sm ${
+        isDragging ? 'opacity-50 border-gray-300' : 'border-gray-900'
       }`}
       style={{
         position: 'absolute',
@@ -54,29 +54,29 @@ export const BlockRenderer = ({
     >
       {/* 드롭 인디케이터 */}
       {isDropTarget && dropTarget?.position === 'above' && (
-        <div className="absolute -top-2 left-0 right-0 h-1 bg-blue-500 rounded-full z-10 pointer-events-none" />
+        <div className="absolute -top-2 left-0 right-0 h-1 bg-gray-900 rounded-full z-10 pointer-events-none" />
       )}
       {isDropTarget && dropTarget?.position === 'below' && (
-        <div className="absolute -bottom-2 left-0 right-0 h-1 bg-blue-500 rounded-full z-10 pointer-events-none" />
+        <div className="absolute -bottom-2 left-0 right-0 h-1 bg-gray-900 rounded-full z-10 pointer-events-none" />
       )}
       {isDropTarget && dropTarget?.position === 'left' && (
-        <div className="absolute -left-2 top-0 bottom-0 w-1 bg-blue-500 rounded-full z-10 pointer-events-none" />
+        <div className="absolute -left-2 top-0 bottom-0 w-1 bg-gray-900 rounded-full z-10 pointer-events-none" />
       )}
       {isDropTarget && dropTarget?.position === 'right' && (
-        <div className="absolute -right-2 top-0 bottom-0 w-1 bg-blue-500 rounded-full z-10 pointer-events-none" />
+        <div className="absolute -right-2 top-0 bottom-0 w-1 bg-gray-900 rounded-full z-10 pointer-events-none" />
       )}
 
       <div className="p-3 h-full flex flex-col">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <Icon className="w-4 h-4 text-gray-600" />
-            <span className="text-sm font-medium text-gray-700">
+            <Icon className="w-4 h-4 text-gray-700" />
+            <span className="text-sm font-medium text-gray-900">
               {paletteItems.find(p => p.type === block.type)?.label}
             </span>
           </div>
           <button
             onClick={onRemove}
-            className="text-gray-400 hover:text-red-500"
+            className="text-gray-400 hover:text-red-600 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -85,12 +85,12 @@ export const BlockRenderer = ({
 
       {/* 리사이즈 핸들 */}
       <div
-        className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-blue-200 rounded-r-lg"
+        className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-gray-300 rounded-r-lg transition-colors"
         onMouseDown={(e) => onResizeStart(e, 'right')}
         onTouchStart={(e) => onResizeStart(e, 'right')}
       />
       <div
-        className="absolute bottom-0 left-0 right-0 h-2 cursor-ns-resize hover:bg-blue-200 rounded-b-lg"
+        className="absolute bottom-0 left-0 right-0 h-2 cursor-ns-resize hover:bg-gray-300 rounded-b-lg transition-colors"
         onMouseDown={(e) => onResizeStart(e, 'bottom')}
         onTouchStart={(e) => onResizeStart(e, 'bottom')}
       />

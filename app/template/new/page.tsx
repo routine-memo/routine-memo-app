@@ -90,14 +90,14 @@ export default function NewTemplatePage() {
   // 단계별 렌더링
   if (step === 'name') {
     return (
-      <main className="min-h-screen bg-gradient-to-b from-amber-50 to-orange-50 px-4 py-6">
+      <main className="min-h-screen bg-white px-4 py-6">
         <div className="max-w-md mx-auto">
-          <button onClick={() => router.back()} className="mb-6 text-amber-900">
+          <button onClick={() => router.back()} className="mb-6 text-gray-900">
             <ArrowLeft className="w-6 h-6" />
           </button>
 
-          <h1 className="text-2xl font-bold text-amber-900 mb-2">템플릿 이름</h1>
-          <p className="text-sm text-amber-700 mb-6">
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">템플릿 이름</h1>
+          <p className="text-sm text-gray-600 mb-6">
             어떤 기록을 만들까요?
           </p>
 
@@ -106,13 +106,13 @@ export default function NewTemplatePage() {
             value={templateName}
             onChange={(e) => setTemplateName(e.target.value)}
             placeholder="예: 턱걸이 기록, 여행 일지, 공부 노트"
-            className="w-full px-4 py-3 rounded-lg border-2 border-amber-200 focus:border-amber-400 focus:outline-none"
+            className="w-full px-4 py-3 rounded-lg border-2 border-gray-200 focus:border-gray-900 focus:outline-none"
           />
 
           <button
             onClick={() => setStep('blocks')}
             disabled={!templateName.trim()}
-            className="w-full mt-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full mt-6 py-3 bg-gray-900 text-white rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-800 transition-colors"
           >
             다음
           </button>
@@ -123,16 +123,16 @@ export default function NewTemplatePage() {
 
   if (step === 'blocks') {
     return (
-      <main className="min-h-screen bg-gradient-to-b from-amber-50 to-orange-50">
+      <main className="min-h-screen bg-gray-50">
         {/* 헤더 */}
-        <div className="sticky top-0 bg-white/80 backdrop-blur-sm border-b border-amber-100 px-4 py-3 flex items-center justify-between z-10">
-          <button onClick={() => setStep('name')} className="text-amber-900">
+        <div className="sticky top-0 bg-white/95 backdrop-blur-sm border-b border-gray-200 px-4 py-3 flex items-center justify-between z-10">
+          <button onClick={() => setStep('name')} className="text-gray-900">
             <ArrowLeft className="w-6 h-6" />
           </button>
-          <h1 className="text-lg font-semibold text-amber-900">{templateName}</h1>
+          <h1 className="text-lg font-semibold text-gray-900">{templateName}</h1>
           <button
             onClick={() => setStep('notification')}
-            className="px-4 py-2 text-sm font-semibold text-amber-700"
+            className="px-4 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
           >
             다음
           </button>
@@ -198,21 +198,21 @@ export default function NewTemplatePage() {
 
   // notification step
   return (
-    <main className="min-h-screen bg-gradient-to-b from-amber-50 to-orange-50 px-4 py-6">
+    <main className="min-h-screen bg-white px-4 py-6">
       <div className="max-w-md mx-auto">
-        <button onClick={() => setStep('blocks')} className="mb-6 text-amber-900">
+        <button onClick={() => setStep('blocks')} className="mb-6 text-gray-900">
           <ArrowLeft className="w-6 h-6" />
         </button>
 
-        <h1 className="text-2xl font-bold text-amber-900 mb-2">알림 설정</h1>
-        <p className="text-sm text-amber-700 mb-6">
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">알림 설정</h1>
+        <p className="text-sm text-gray-600 mb-6">
           기록 알림을 받고 싶으신가요?
         </p>
 
-        <div className="bg-white rounded-2xl p-6 mb-6">
+        <div className="bg-gray-50 rounded-2xl p-6 mb-6 border border-gray-200">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <Bell className="w-5 h-5 text-amber-600" />
+              <Bell className="w-5 h-5 text-gray-700" />
               <span className="font-medium text-gray-900">알림 받기</span>
             </div>
             <label className="relative inline-block w-12 h-6">
@@ -222,7 +222,7 @@ export default function NewTemplatePage() {
                 onChange={(e) => setNotification({ ...notification, enabled: e.target.checked })}
                 className="sr-only peer"
               />
-              <div className="w-full h-full bg-gray-200 rounded-full peer peer-checked:bg-amber-500 transition-colors" />
+              <div className="w-full h-full bg-gray-200 rounded-full peer peer-checked:bg-gray-900 transition-colors" />
               <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform peer-checked:translate-x-6" />
             </label>
           </div>
@@ -233,7 +233,7 @@ export default function NewTemplatePage() {
             // TODO: 템플릿 저장 로직
             router.push('/');
           }}
-          className="w-full py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg font-semibold"
+          className="w-full py-3 bg-gray-900 text-white rounded-lg font-semibold hover:bg-gray-800 transition-colors"
         >
           완료
         </button>
