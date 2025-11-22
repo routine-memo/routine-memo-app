@@ -63,7 +63,7 @@ export const useBlockResize = (
         }
       }
     } else {
-      // 세로 리사이즈: 140px 단위로 행 먹기
+      // 세로 리사이즈: 140px 단위로 행 먹기 (가로와 동일한 방식)
       const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
       const delta = clientY - resizingBlock.startY;
 
@@ -72,12 +72,8 @@ export const useBlockResize = (
       const rowDelta = Math.floor(delta / PIXELS_PER_ROW);
 
       if (rowDelta !== accumulatedDeltaRef.current) {
-        // 새로운 행 개수 계산 (최소 1행)
-        const currentRows = Math.ceil(block.height / PIXELS_PER_ROW);
-        const newRows = Math.max(1, currentRows + (rowDelta - accumulatedDeltaRef.current));
-        const newHeight = newRows * PIXELS_PER_ROW;
-
-        const result = handleHeightResize(block.id, newHeight, blockPositions);
+        const direction = rowDelta > accumulatedDeltaRef.current ? 'increase' : 'decrease';
+        const result = handleHeightResize(block.id, direction, blockPositions);
         if (result) {
           setBlockPositions(result);
           accumulatedDeltaRef.current = rowDelta;

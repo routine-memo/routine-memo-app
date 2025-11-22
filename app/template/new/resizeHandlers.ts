@@ -50,104 +50,107 @@ export const handleWidthResize = (
   }
 };
 
-// 높이 리사이즈 (다른 행을 "먹기")
+// 높이 리사이즈 (다른 행을 "먹기") - 행을 먹는 방식으로 동작
 export const handleHeightResize = (
   blockId: string,
-  newHeight: number,
+  direction: 'increase' | 'decrease',
   blockPositions: BlockPosition[]
-): BlockPosition[] => {
-  const MIN_HEIGHT = 80;
-  const ROW_HEIGHT_UNIT = 140; // 한 행을 먹는 기준 높이 (120px 블록 + 20px gap)
-
+): BlockPosition[] | null => {
   const block = blockPositions.find(b => b.id === blockId);
-  if (!block) return blockPositions;
+  if (!block) return null;
 
-  const finalHeight = Math.max(MIN_HEIGHT, newHeight);
+  // 블록이 현재 차지하는 행 수 계산
+  const currentRows = Math.ceil((block.height || 120) / 120);
 
-  // 몇 개의 행을 차지할지 계산
-  const rowsToOccupy = Math.ceil(finalHeight / ROW_HEIGHT_UNIT);
+  console.log(`📏 세로 리사이즈: ${direction}, 블록 ${blockId}, 현재 ${currentRows}개 행 차지`);
 
-  if (rowsToOccupy <= 1) {
-    // 1개 행만 차지 - 그냥 높이만 변경
-    return blockPositions.map(b =>
-      b.id === blockId ? { ...b, height: finalHeight } : b
-    );
-  }
+  if (direction === 'increase') {
+    // 1. 새로운 행 번호 계산 (현재 블록 바로 아래)
+    const newRowToEat = block.row + currentRows;
+    console.log(`🍽️ ${newRowToEat}행을 먹으려고 시도`);
 
-  // 여러 행을 차지하는 경우
-  const rowsToEat = rowsToOccupy - 1; // 추가로 먹을 행 개수
-  const maxRowToEat = block.row + rowsToEat; // 마지막으로 먹을 행 번호
+    // 2. 그 행에 열이 겹치는 블록이 있는지 확인
+    const blockColEnd = block.colStart + block.colSpan;
+    const blocksInNewRow = blockPositions.filter(b => {
+      // 블록이 차지하는 행 범위 계산
+      const bRows = Math.ceil((b.height || 120) / 120);
+      const bStartRow = b.row;
+      const bEndRow = b.row + bRows - 1;
 
-  console.log(`📏 세로 리사이즈: ${block.row}행 블록이 ${rowsToOccupy}개 행 차지 (높이: ${finalHeight}px)`);
+      // newRowToEat이 블록의 행 범위에 포함되는지 확인
+      return newRowToEat >= bStartRow && newRowToEat <= bEndRow;
+    });
 
-  // 먹힐 행들의 블록들 찾기
-  const affectedRows: number[] = [];
-  for (let r = block.row + 1; r <= maxRowToEat; r++) {
-    affectedRows.push(r);
-  }
-
-  console.log('🍴 먹힐 행들:', affectedRows);
-
-  // 먹힐 행의 블록들 중 현재 블록과 겹치는 열을 가진 블록들 찾기
-  const blockColEnd = block.colStart + block.colSpan;
-
-  return blockPositions.map(b => {
-    // 리사이즈 대상 블록: 높이만 변경
-    if (b.id === blockId) {
-      return { ...b, height: finalHeight };
-    }
-
-    // 먹힐 행에 있는 블록들 - 행은 유지하고 열만 조정
-    if (affectedRows.includes(b.row)) {
+    const overlappingBlocks = blocksInNewRow.filter(b => {
       const bColEnd = b.colStart + b.colSpan;
+      return block.colStart < bColEnd && blockColEnd > b.colStart;
+    });
 
-      // 현재 블록과 열이 겹치는지 확인
-      const isOverlapping = block.colStart < bColEnd && blockColEnd > b.colStart;
+    console.log(`🔍 ${newRowToEat}행의 겹치는 블록:`, overlappingBlocks.map(b => b.id));
 
-      if (isOverlapping) {
-        console.log(`🔻 블록 ${b.id} (${b.row}행) 열 크기 축소 - 행은 유지`);
+    // 3. 겹치는 블록들을 아래로 밀기
+    let updatedBlocks = blockPositions;
+    if (overlappingBlocks.length > 0) {
+      console.log('🔻 겹치는 블록들을 아래로 밀기');
+      const affectedBlockIds = new Set(overlappingBlocks.map(b => b.id));
 
-        // 새 시작 위치와 크기 계산
-        let newColStart = b.colStart;
-        let newColSpan = b.colSpan;
-
-        // 완전히 겹치면 오른쪽으로 이동
-        if (b.colStart >= block.colStart && bColEnd <= blockColEnd) {
-          // 완전히 겹침 - 오른쪽으로 이동하고 원래 크기 유지
-          newColStart = blockColEnd;
-          newColSpan = Math.min(b.colSpan, GRID_COLS - blockColEnd);
-        } else if (b.colStart < block.colStart && bColEnd > blockColEnd) {
-          // 블록이 양쪽으로 넘어감 - 왼쪽 부분만 유지
-          newColStart = b.colStart;
-          newColSpan = block.colStart - b.colStart;
-        } else if (b.colStart < block.colStart) {
-          // 왼쪽에 걸침 - 겹치는 부분만큼 줄임
-          newColStart = b.colStart;
-          newColSpan = block.colStart - b.colStart;
-        } else {
-          // 오른쪽에 걸침 - 오른쪽으로 밀고 원래 크기 유지
-          newColStart = blockColEnd;
-          newColSpan = Math.min(b.colSpan, GRID_COLS - blockColEnd);
+      updatedBlocks = blockPositions.map(b => {
+        if (affectedBlockIds.has(b.id)) {
+          console.log(`  블록 ${b.id}: ${b.row}행 → ${b.row + 1}행`);
+          return { ...b, row: b.row + 1 };
         }
-
-        // 최소 크기 보장
-        newColSpan = Math.max(1, newColSpan);
-
-        // 범위 체크
-        if (newColStart < 0) newColStart = 0;
-        if (newColStart + newColSpan > GRID_COLS) {
-          newColSpan = GRID_COLS - newColStart;
-        }
-
-        return {
-          ...b,
-          colStart: newColStart,
-          colSpan: newColSpan
-          // row는 그대로 유지 (행 번호 변경 없음!)
-        };
-      }
+        return b;
+      });
     }
 
-    return b;
-  });
+    // 4. 현재 블록이 새 행을 먹음 (높이를 120px 증가)
+    const newHeight = (currentRows + 1) * 120;
+    console.log(`📈 블록 ${blockId} 높이 증가: ${block.height}px → ${newHeight}px (${currentRows}행 → ${currentRows + 1}행)`);
+
+    return updatedBlocks.map(b =>
+      b.id === blockId ? { ...b, height: newHeight } : b
+    );
+
+  } else {
+    // decrease: 블록이 차지하는 행 1개 줄이기
+    if (currentRows <= 1) {
+      console.log('❌ 1개 행만 차지 - 감소 불가');
+      return null;
+    }
+
+    // 1. 새로운 행 수 계산
+    const newRows = currentRows - 1;
+    const newHeight = newRows * 120;
+
+    console.log(`📉 블록 ${blockId} 높이 감소: ${block.height}px → ${newHeight}px (${currentRows}행 → ${newRows}행)`);
+
+    // 2. 밀려난 블록 중 복귀할 블록 찾기
+    const freedRow = block.row + newRows; // 방금 자유로워진 행
+    const blockColEnd = block.colStart + block.colSpan;
+
+    // 방금 자유로워진 행 바로 아래에 있는 블록들 중 열이 겹치는 것들 찾기
+    const blocksToReturn = blockPositions.filter(b => {
+      if (b.id === blockId) return false;
+      if (b.row !== freedRow + 1) return false; // 바로 아래 행에 있는 블록만
+
+      const bColEnd = b.colStart + b.colSpan;
+      return block.colStart < bColEnd && blockColEnd > b.colStart;
+    });
+
+    console.log(`⬆️ ${freedRow + 1}행에서 ${freedRow}행으로 복귀할 블록:`, blocksToReturn.map(b => b.id));
+
+    // 3. 블록들을 위로 올리고 현재 블록 높이 줄이기
+    const returningBlockIds = new Set(blocksToReturn.map(b => b.id));
+
+    return blockPositions.map(b => {
+      if (b.id === blockId) {
+        return { ...b, height: newHeight };
+      }
+      if (returningBlockIds.has(b.id)) {
+        console.log(`  블록 ${b.id}: ${b.row}행 → ${b.row - 1}행`);
+        return { ...b, row: b.row - 1 };
+      }
+      return b;
+    });
+  }
 };

@@ -2,17 +2,23 @@ import { BlockPosition } from './types';
 
 const GRID_COLS = 6; // 전체 열 개수
 
-// 특정 행의 블록들 가져오기
+// 특정 행의 블록들 가져오기 (해당 행에서 시작하는 블록만)
 export const getRowBlocks = (blockPositions: BlockPosition[], row: number): BlockPosition[] => {
   return blockPositions
     .filter(b => b.row === row)
     .sort((a, b) => a.colStart - b.colStart);
 };
 
-// 전체 행 배열 생성
+// 전체 행 배열 생성 (블록이 차지하는 모든 행 포함)
 export const getAllRows = (blockPositions: BlockPosition[]): number[] => {
   if (blockPositions.length === 0) return [];
-  const maxRow = Math.max(...blockPositions.map(b => b.row));
+
+  // 각 블록이 차지하는 마지막 행 계산
+  const maxRow = Math.max(...blockPositions.map(b => {
+    const rows = Math.ceil((b.height || 120) / 120);
+    return b.row + rows - 1;
+  }));
+
   return Array.from({ length: maxRow + 1 }, (_, i) => i);
 };
 

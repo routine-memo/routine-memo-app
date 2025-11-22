@@ -9,7 +9,7 @@ import { NotificationSettings } from '@/types/template';
 import { BlockPosition, BlockType, DropTarget, Step } from './types';
 import { iconMap } from './iconMap';
 import { blockPalette } from './blockPalette';
-import { getAllRows, getRowBlocks, getRowMaxHeight } from './blockUtils';
+import { getAllRows, getRowBlocks } from './blockUtils';
 import { handleDrop as processDrop } from './dragDropHandlers';
 import { createBlock, deleteBlock } from './blockManagement';
 import { calculateDropPosition } from './dragOverHandler';
@@ -224,17 +224,39 @@ export default function NewTemplatePage() {
             <div id="blocks-container" className="flex flex-col gap-3">
               {getAllRows(blockPositions).map((row) => {
                 const rowBlocks = getRowBlocks(blockPositions, row);
-                const maxHeight = getRowMaxHeight(rowBlocks);
+                // 각 행의 고정 높이는 120px (행이 늘어나지 않고 블록이 gridRow로 여러 행을 차지)
+                const rowHeight = 120;
 
                 return (
                   <div
                     key={row}
-                    className="grid gap-3"
+                    className="grid gap-3 relative"
                     style={{
                       gridTemplateColumns: 'repeat(6, 1fr)',
-                      minHeight: `${maxHeight}px`
+                      height: `${rowHeight}px` // minHeight → height로 변경하여 고정 높이 유지
                     }}
                   >
+                    {/* 디버깅용 그리드 선 */}
+                    <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 100 }}>
+                      {/* 세로 선 (열 구분) */}
+                      {[0, 1, 2, 3, 4, 5].map((col) => (
+                        <div
+                          key={`col-${col}`}
+                          className="absolute top-0 bottom-0 w-px bg-red-300"
+                          style={{
+                            left: `calc(${(col / 6) * 100}% ${col > 0 ? '+ 6px' : ''})`
+                          }}
+                        />
+                      ))}
+                      {/* 가로 선 (행 표시) */}
+                      <div className="absolute top-0 left-0 right-0 h-px bg-blue-300" />
+                      <div className="absolute bottom-0 left-0 right-0 h-px bg-blue-300" />
+                      {/* 행 번호 표시 */}
+                      <div className="absolute top-1 left-1 text-xs text-blue-600 font-bold bg-white px-1">
+                        행 {row}
+                      </div>
+                    </div>
+
                     {rowBlocks.map((block) => {
                       const isDragging = draggedBlock?.id === block.id;
                       const isDropTarget = dropTarget?.blockId === block.id;

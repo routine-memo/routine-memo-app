@@ -38,6 +38,8 @@ export const BlockRenderer = ({
 }: BlockRendererProps) => {
   const Icon = iconMap[paletteItems.find(p => p.type === block.type)?.icon || 'Type'];
   const blockRef = useRef<HTMLDivElement>(null);
+  const mouseDownTimeRef = useRef<number>(0);
+  const isDraggingRef = useRef<boolean>(false);
 
   // 네이티브 터치 이벤트 리스너 등록 (passive: false로 preventDefault 가능하게)
   useEffect(() => {
@@ -49,6 +51,10 @@ export const BlockRenderer = ({
       e.preventDefault();
       e.stopPropagation();
 
+      mouseDownTimeRef.current = Date.now();
+      isDraggingRef.current = false;
+      console.log('📱 터치 시작 - 타이머 시작');
+
       const touch = e.touches[0];
       const rect = element.getBoundingClientRect();
       const x = touch.clientX - rect.left;
@@ -57,6 +63,7 @@ export const BlockRenderer = ({
       // X 버튼 영역 체크 (상단 40px 내, 오른쪽 40px)
       const isDeleteButton = y < 40 && x > rect.width - 40;
       if (isDeleteButton) {
+        console.log('🗑️ 삭제 버튼 터치');
         // X 버튼 클릭 처리
         onRemove();
         return;
@@ -67,6 +74,7 @@ export const BlockRenderer = ({
       const isBottomEdge = y > rect.height - 10;
 
       if (isRightEdge || isBottomEdge) {
+        console.log(`📏 리사이즈 영역 터치: ${isRightEdge ? '오른쪽' : '아래쪽'}`);
         // 리사이즈 처리
         const direction = isRightEdge ? 'right' : 'bottom';
         const reactEvent = {
@@ -78,7 +86,16 @@ export const BlockRenderer = ({
         return;
       }
 
-      onDragStart();
+      // 일반 터치 - 200ms 후에 드래그 시작
+      console.log('✋ 일반 블록 터치');
+      setTimeout(() => {
+        const timeDiff = Date.now() - mouseDownTimeRef.current;
+        if (timeDiff >= 200) {
+          console.log('✅ 드래그 판정! (200ms 경과)');
+          isDraggingRef.current = true;
+          onDragStart();
+        }
+      }, 200);
     };
 
     const handleNativeTouchMove = (e: TouchEvent) => {
@@ -94,6 +111,52 @@ export const BlockRenderer = ({
     };
 
     const handleNativeTouchEnd = (e: TouchEvent) => {
+      const timeDiff = Date.now() - mouseDownTimeRef.current;
+      console.log(`🏁 터치 종료 - 경과 시간: ${timeDiff}ms, 드래그 중: ${isDraggingRef.current}`);
+
+      // 빠른 탭 (< 200ms)이고 드래그 중이 아니면 블록 정보 표시
+      if (timeDiff < 200 && !isDraggingRef.current) {
+        console.log('✅ 클릭 판정! (200ms 미만 터치)');
+
+        const touch = e.changedTouches[0];
+        const rect = element.getBoundingClientRect();
+        const x = touch.clientX - rect.left;
+        const y = touch.clientY - rect.top;
+
+        // 리사이즈 영역이나 삭제 버튼 탭은 무시
+        const isRightEdge = x > rect.width - 10;
+        const isBottomEdge = y > rect.height - 10;
+        const isDeleteButton = y < 40 && x > rect.width - 40;
+
+        if (isRightEdge || isBottomEdge || isDeleteButton) {
+          console.log('❌ 특수 영역 탭 (리사이즈/삭제 버튼)');
+        } else {
+          // 블록이 차지하는 행 수 계산
+          const rowsOccupied = Math.ceil(block.height / 140);
+          const endRow = block.row + rowsOccupied - 1;
+          const endCol = block.colStart + block.colSpan - 1;
+
+          console.log('📦 블록 정보:', {
+            'RAW 블록 객체': block,
+            '---계산된 정보---': '---',
+            id: block.id,
+            type: block.type,
+            '현재 행 (row)': block.row,
+            '시작 열 (colStart)': block.colStart,
+            '열 크기 (colSpan)': block.colSpan,
+            '마지막 열': endCol,
+            '높이 (height px)': block.height,
+            '차지하는 행 수': rowsOccupied,
+            '마지막 행': endRow,
+            '행 범위': `${block.row} ~ ${endRow}`,
+            '열 범위': `${block.colStart} ~ ${endCol}`,
+          });
+        }
+      }
+
+      // 드래그 상태 리셋
+      isDraggingRef.current = false;
+
       if (onTouchEnd) {
         const reactEvent = {
           touches: e.touches,
@@ -115,28 +178,108 @@ export const BlockRenderer = ({
     };
   }, [onDragStart, onTouchMove, onTouchEnd, onResizeStart, onRemove]);
 
+  const handleMouseDown = (e: React.MouseEvent) => {
+    mouseDownTimeRef.current = Date.now();
+    isDraggingRef.current = false;
+    console.log('🖱️ 마우스 다운 - 타이머 시작');
+  };
+
   const handleDragStart = (e: React.DragEvent) => {
-    onDragStart();
+    const timeDiff = Date.now() - mouseDownTimeRef.current;
+    console.log(`⏱️ 드래그 시작 시도 - 경과 시간: ${timeDiff}ms`);
+
+    // 200ms 이상 누르면 드래그 시작
+    if (timeDiff >= 200) {
+      isDraggingRef.current = true;
+      console.log('✅ 드래그 판정! (200ms 이상)');
+      onDragStart();
+    } else {
+      // 짧게 누르면 드래그 방지
+      console.log('❌ 드래그 방지 (200ms 미만)');
+      e.preventDefault();
+      isDraggingRef.current = false;
+    }
   };
 
   const handleDragEnd = (e: React.DragEvent) => {
+    console.log('🏁 드래그 종료');
     onDragEnd();
+    isDraggingRef.current = false;
   };
+
+  const handleClick = (e: React.MouseEvent) => {
+    const timeDiff = Date.now() - mouseDownTimeRef.current;
+    console.log(`👆 클릭 이벤트 - 경과 시간: ${timeDiff}ms, 드래그 중: ${isDraggingRef.current}`);
+
+    // 드래그 중이었으면 클릭 무시
+    if (isDraggingRef.current) {
+      console.log('❌ 드래그 중이므로 클릭 무시');
+      return;
+    }
+
+    // 200ms 미만의 짧은 클릭만 처리
+    if (timeDiff < 200) {
+      console.log('✅ 클릭 판정! (200ms 미만)');
+
+      // 리사이즈 영역이나 삭제 버튼 클릭은 무시
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      const isRightEdge = x > rect.width - 10;
+      const isBottomEdge = y > rect.height - 10;
+      const isDeleteButton = y < 40 && x > rect.width - 40;
+
+      if (isRightEdge || isBottomEdge || isDeleteButton) {
+        console.log('❌ 특수 영역 클릭 (리사이즈/삭제 버튼)');
+        return;
+      }
+
+      // 블록이 차지하는 행 수 계산
+      const rowsOccupied = Math.ceil(block.height / 140);
+      const endRow = block.row + rowsOccupied - 1;
+      const endCol = block.colStart + block.colSpan - 1;
+
+      console.log('📦 블록 정보:', {
+        'RAW 블록 객체': block,
+        '---계산된 정보---': '---',
+        id: block.id,
+        type: block.type,
+        '현재 행 (row)': block.row,
+        '시작 열 (colStart)': block.colStart,
+        '열 크기 (colSpan)': block.colSpan,
+        '마지막 열': endCol,
+        '높이 (height px)': block.height,
+        '차지하는 행 수': rowsOccupied,
+        '마지막 행': endRow,
+        '행 범위': `${block.row} ~ ${endRow}`,
+        '열 범위': `${block.colStart} ~ ${endCol}`,
+      });
+    } else {
+      console.log('❌ 클릭 무시 (200ms 이상)');
+    }
+  };
+
+  // 블록이 차지하는 행 수 계산
+  const rowsOccupied = Math.ceil((block.height || 120) / 120);
 
   return (
     <div
       ref={blockRef}
       data-block-id={block.id}
       draggable
+      onMouseDown={handleMouseDown}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       onDragOver={onDragOver}
       onDrop={onDrop}
+      onClick={handleClick}
       className={`relative bg-white border-2 rounded-lg transition-all shadow-sm cursor-move ${
         isDragging ? 'opacity-50 border-gray-300' : 'border-gray-900'
       }`}
       style={{
         gridColumn: `${block.colStart + 1} / span ${block.colSpan}`,
+        gridRow: `1 / span ${rowsOccupied}`, // 여러 행을 차지
         height: `${block.height}px`,
         touchAction: 'none', // 터치 제스처 비활성화
       }}
