@@ -76,15 +76,22 @@ export default function NewTemplatePage() {
   // 컨테이너 너비 측정
   useEffect(() => {
     const updateContainerWidth = () => {
-      const width = window.innerWidth - 32; // padding 제외
-      setContainerWidth(width);
+      const container = document.getElementById('blocks-container');
+      if (container) {
+        const width = container.clientWidth;
+        setContainerWidth(width);
+      } else {
+        // fallback: 컨테이너가 아직 없으면 기본 계산
+        const width = window.innerWidth - 32;
+        setContainerWidth(width);
+      }
     };
 
     updateContainerWidth();
     window.addEventListener('resize', updateContainerWidth);
 
     return () => window.removeEventListener('resize', updateContainerWidth);
-  }, []);
+  }, [blockPositions.length]); // blockPositions가 변경되면 재측정
 
   // 블록 추가 (새 행에 전체 너비로 추가)
   const addBlock = (type: BlockType) => {
@@ -95,7 +102,7 @@ export default function NewTemplatePage() {
       row: maxRow + 1,
       x: 0,
       y: 0,
-      width: containerWidth - 12, // gap 제외한 전체 너비
+      width: containerWidth, // 전체 너비
       height: 120, // 기본 높이
     };
 
@@ -176,45 +183,6 @@ export default function NewTemplatePage() {
     return true;
   };
 
-  // 특정 x, width에서 배치 가능한 y 위치 찾기
-  const findAvailableY = (
-    blocks: BlockPosition[],
-    row: number,
-    x: number,
-    width: number,
-    height: number,
-    preferredY: number = 0,
-    excludeBlockId?: string
-  ): number => {
-    // 먼저 선호하는 y 위치에 배치 가능한지 체크
-    if (canPlaceBlock(blocks, row, x, preferredY, width, height, excludeBlockId)) {
-      return preferredY;
-    }
-
-    // 안되면 y=0부터 시작해서 사용 가능한 위치 찾기
-    const rowBlocks = blocks.filter(b => b.row === row && b.id !== excludeBlockId);
-
-    // x 범위와 겹치는 블록들만 고려
-    const overlappingBlocks = rowBlocks.filter(b => {
-      const horizontalOverlap = x < b.x + b.width && x + width > b.x;
-      return horizontalOverlap;
-    }).sort((a, b) => a.y - b.y);
-
-    // 블록 사이의 빈 공간 찾기
-    let candidateY = 0;
-    for (const block of overlappingBlocks) {
-      if (candidateY + height + 12 <= block.y) {
-        // 현재 candidateY 위치에 배치 가능
-        return candidateY;
-      }
-      // 다음 후보 위치는 현재 블록 아래
-      candidateY = Math.max(candidateY, block.y + block.height + 12);
-    }
-
-    // 모든 블록 아래에 배치
-    return candidateY;
-  };
-
   // 드래그 시작
   const handleDragStart = (block: BlockPosition) => {
     setDraggedBlock(block);
@@ -236,31 +204,59 @@ export default function NewTemplatePage() {
 
     const minBlockWidth = 70; // 최소 블록 너비 (3개까지 가능하도록: 70*3 + 12*2 = 234px)
 
-    if (dropTarget.position === 'above' || dropTarget.position === 'below') {
-      // 위/아래 배치: 새 행을 생성
-      const isAbove = dropTarget.position === 'above';
-
-      // 모든 블록의 row를 업데이트
+    if (dropTarget.position === 'above') {
+      // 위 배치: 새 행을 생성
       updatedBlocks = updatedBlocks.map(block => {
-        if (isAbove && block.row >= targetBlock.row) {
-          return { ...block, row: block.row + 1 };
-        } else if (!isAbove && block.row > targetBlock.row) {
+        if (block.row >= targetBlock.row) {
           return { ...block, row: block.row + 1 };
         }
         return block;
       });
 
-      const newRow = isAbove ? targetBlock.row : targetBlock.row + 1;
       // 새 행에는 항상 전체 너비로 배치, 위치는 (0, 0)에서 시작
       newBlock = {
         id: draggedBlock.id,
         type: draggedBlock.type,
-        row: newRow,
+        row: targetBlock.row,
         x: 0,
         y: 0,
-        width: containerWidth - 12,
+        width: containerWidth,
         height: draggedBlock.height // 높이만 유지
       };
+    } else if (dropTarget.position === 'below') {
+      // 아래 배치: 타겟 블록 바로 밑에 배치 시도 (같은 행, 같은 x/width)
+      const newY = targetBlock.y + targetBlock.height + 12;
+
+      // 타겟과 같은 x, width로 바로 밑에 배치 가능한지 확인
+      if (canPlaceBlock(updatedBlocks, targetBlock.row, targetBlock.x, newY, targetBlock.width, draggedBlock.height, draggedBlock.id)) {
+        newBlock = {
+          id: draggedBlock.id,
+          type: draggedBlock.type,
+          row: targetBlock.row,
+          x: targetBlock.x,
+          y: newY,
+          width: targetBlock.width,
+          height: draggedBlock.height
+        };
+      } else {
+        // 배치 불가능하면 새 행 생성
+        updatedBlocks = updatedBlocks.map(block => {
+          if (block.row > targetBlock.row) {
+            return { ...block, row: block.row + 1 };
+          }
+          return block;
+        });
+
+        newBlock = {
+          id: draggedBlock.id,
+          type: draggedBlock.type,
+          row: targetBlock.row + 1,
+          x: 0,
+          y: 0,
+          width: containerWidth,
+          height: draggedBlock.height
+        };
+      }
     } else {
       // 같은 행에 배치 (왼쪽/오른쪽)
       const rowBlocks = updatedBlocks.filter(b => b.row === targetBlock.row).sort((a, b) => a.x - b.x);
@@ -268,7 +264,7 @@ export default function NewTemplatePage() {
 
       // 행의 실제 사용 가능한 공간 계산
       const totalUsedWidth = rowBlocks.reduce((sum, b) => sum + b.width + 12, 0) - 12; // 마지막 gap 제외
-      const availableSpace = containerWidth - 12 - totalUsedWidth;
+      const availableSpace = containerWidth - totalUsedWidth;
 
       if (dropTarget.position === 'left') {
         // 왼쪽에 배치
@@ -286,22 +282,11 @@ export default function NewTemplatePage() {
           : Infinity; // 아래에 블록이 없으면 무한대
 
         if (leftSpace >= minBlockWidth + 12) {
-          // 왼쪽에 공간이 있으면 거기에 배치 (충돌 검사 포함)
+          // 왼쪽에 공간이 있으면 거기에 배치 (가로 배치는 항상 y=0)
           const newBlockWidth = Math.min(leftSpace - 12, draggedBlock.width);
           const newX = targetBlock.x - newBlockWidth - 12;
 
-          // 사용 가능한 y 위치 찾기 (타겟의 y를 선호)
-          const finalY = findAvailableY(
-            updatedBlocks,
-            targetBlock.row,
-            newX,
-            newBlockWidth,
-            draggedBlock.height,
-            targetBlock.y,
-            draggedBlock.id
-          );
-
-          newBlock = { ...draggedBlock, row: targetBlock.row, x: newX, y: finalY, width: newBlockWidth };
+          newBlock = { ...draggedBlock, row: targetBlock.row, x: newX, y: 0, width: newBlockWidth };
         } else if (targetBlock.width >= minBlockWidth + 12) {
           // 왼쪽 공간이 없지만 타겟 블록을 나눌 수 있으면 나눔
           // 새 블록 크기는 최소 너비와 타겟의 절반 중 작은 값
@@ -311,7 +296,7 @@ export default function NewTemplatePage() {
           if (remainingWidth >= minBlockWidth) {
             updatedBlocks = updatedBlocks.map(block => {
               if (block.id === targetBlock.id) {
-                return { ...block, x: block.x + newBlockWidth + 12, width: remainingWidth };
+                return { ...block, x: block.x + newBlockWidth + 12, width: remainingWidth, y: 0 };
               }
               if (block.row === targetBlock.row && block.x > targetBlock.x) {
                 return { ...block, x: block.x + newBlockWidth + 12 };
@@ -319,17 +304,7 @@ export default function NewTemplatePage() {
               return block;
             });
 
-            const finalY = findAvailableY(
-              updatedBlocks,
-              targetBlock.row,
-              targetBlock.x,
-              newBlockWidth,
-              draggedBlock.height,
-              targetBlock.y,
-              draggedBlock.id
-            );
-
-            newBlock = { ...draggedBlock, row: targetBlock.row, x: targetBlock.x, y: finalY, width: newBlockWidth };
+            newBlock = { ...draggedBlock, row: targetBlock.row, x: targetBlock.x, y: 0, width: newBlockWidth };
             console.log('Split target block and placed on left', newBlock);
           } else {
             // 나눌 수 없으면 새 행 생성
@@ -339,7 +314,7 @@ export default function NewTemplatePage() {
               }
               return block;
             });
-            newBlock = { ...draggedBlock, row: targetBlock.row + 1, x: 0, y: 0, width: containerWidth - 12 };
+            newBlock = { ...draggedBlock, row: targetBlock.row + 1, x: 0, y: 0, width: containerWidth };
           }
         } else if (spaceBelow >= draggedBlock.height + 12) {
           // 타겟 블록 아래에 세로로 쌓기
@@ -356,7 +331,7 @@ export default function NewTemplatePage() {
               }
               return block;
             });
-            newBlock = { ...draggedBlock, row: targetBlock.row + 1, x: 0, y: 0, width: containerWidth - 12 };
+            newBlock = { ...draggedBlock, row: targetBlock.row + 1, x: 0, y: 0, width: containerWidth };
           }
         } else if (availableSpace >= minBlockWidth) {
           // 행 끝에 여유 공간이 있으면 타겟 블록 축소하고 왼쪽에 배치
@@ -380,7 +355,7 @@ export default function NewTemplatePage() {
               }
               return block;
             });
-            newBlock = { ...draggedBlock, row: targetBlock.row + 1, x: 0, y: 0, width: containerWidth - 12 };
+            newBlock = { ...draggedBlock, row: targetBlock.row + 1, x: 0, y: 0, width: containerWidth };
           }
         } else {
           // 공간이 부족하면 새 행 생성
@@ -390,14 +365,14 @@ export default function NewTemplatePage() {
             }
             return block;
           });
-          newBlock = { ...draggedBlock, row: targetBlock.row + 1, x: 0, y: 0, width: containerWidth - 12 };
+          newBlock = { ...draggedBlock, row: targetBlock.row + 1, x: 0, y: 0, width: containerWidth };
         }
       } else {
         // 오른쪽에 배치
         // 오른쪽 여유 공간 확인
         const rightEdge = targetBlock.x + targetBlock.width;
         const nextBlock = rowBlocks[targetIndex + 1];
-        const rightSpace = nextBlock ? nextBlock.x - rightEdge - 12 : containerWidth - 12 - rightEdge;
+        const rightSpace = nextBlock ? nextBlock.x - rightEdge - 12 : containerWidth - rightEdge;
 
         console.log('Right drop attempt', {
           rightEdge,
@@ -422,22 +397,11 @@ export default function NewTemplatePage() {
         console.log('Space below check', { sameXBlocks, spaceBelow, draggedBlockHeight: draggedBlock.height });
 
         if (rightSpace >= minBlockWidth) {
-          // 오른쪽에 공간이 있으면 거기에 배치 (충돌 검사 포함)
+          // 오른쪽에 공간이 있으면 거기에 배치 (가로 배치는 항상 y=0)
           const newBlockWidth = Math.min(rightSpace, draggedBlock.width);
           const newX = rightEdge + 12;
 
-          // 사용 가능한 y 위치 찾기 (타겟의 y를 선호)
-          const finalY = findAvailableY(
-            updatedBlocks,
-            targetBlock.row,
-            newX,
-            newBlockWidth,
-            draggedBlock.height,
-            targetBlock.y,
-            draggedBlock.id
-          );
-
-          newBlock = { ...draggedBlock, row: targetBlock.row, x: newX, y: finalY, width: newBlockWidth };
+          newBlock = { ...draggedBlock, row: targetBlock.row, x: newX, y: 0, width: newBlockWidth };
           console.log('Placed on right', newBlock);
         } else if (targetBlock.width >= minBlockWidth + 12) {
           // 오른쪽 공간이 없지만 타겟 블록을 나눌 수 있으면 나눔
@@ -448,22 +412,12 @@ export default function NewTemplatePage() {
           if (remainingWidth >= minBlockWidth) {
             updatedBlocks = updatedBlocks.map(block => {
               if (block.id === targetBlock.id) {
-                return { ...block, width: remainingWidth };
+                return { ...block, width: remainingWidth, y: 0 };
               }
               return block;
             });
 
-            const finalY = findAvailableY(
-              updatedBlocks,
-              targetBlock.row,
-              targetBlock.x + remainingWidth + 12,
-              newBlockWidth,
-              draggedBlock.height,
-              targetBlock.y,
-              draggedBlock.id
-            );
-
-            newBlock = { ...draggedBlock, row: targetBlock.row, x: targetBlock.x + remainingWidth + 12, y: finalY, width: newBlockWidth };
+            newBlock = { ...draggedBlock, row: targetBlock.row, x: targetBlock.x + remainingWidth + 12, y: 0, width: newBlockWidth };
             console.log('Split target block and placed on right', newBlock);
           } else {
             // 나눌 수 없으면 새 행 생성
@@ -473,7 +427,7 @@ export default function NewTemplatePage() {
               }
               return block;
             });
-            newBlock = { ...draggedBlock, row: targetBlock.row + 1, x: 0, y: 0, width: containerWidth - 12 };
+            newBlock = { ...draggedBlock, row: targetBlock.row + 1, x: 0, y: 0, width: containerWidth };
           }
         } else if (spaceBelow >= draggedBlock.height + 12) {
           // 타겟 블록 아래에 세로로 쌓기
@@ -494,7 +448,7 @@ export default function NewTemplatePage() {
               }
               return block;
             });
-            newBlock = { ...draggedBlock, row: targetBlock.row + 1, x: 0, y: 0, width: containerWidth - 12 };
+            newBlock = { ...draggedBlock, row: targetBlock.row + 1, x: 0, y: 0, width: containerWidth };
           }
         } else if (availableSpace >= minBlockWidth) {
           // 행 끝에 여유 공간이 있으면 타겟 블록 축소하고 오른쪽에 배치
@@ -515,7 +469,7 @@ export default function NewTemplatePage() {
               }
               return block;
             });
-            newBlock = { ...draggedBlock, row: targetBlock.row + 1, x: 0, y: 0, width: containerWidth - 12 };
+            newBlock = { ...draggedBlock, row: targetBlock.row + 1, x: 0, y: 0, width: containerWidth };
           }
         } else {
           // 공간이 부족하면 새 행 생성
@@ -525,7 +479,7 @@ export default function NewTemplatePage() {
             }
             return block;
           });
-          newBlock = { ...draggedBlock, row: targetBlock.row + 1, x: 0, y: 0, width: containerWidth - 12 };
+          newBlock = { ...draggedBlock, row: targetBlock.row + 1, x: 0, y: 0, width: containerWidth };
         }
       }
     }
@@ -757,7 +711,7 @@ export default function NewTemplatePage() {
         }
       } else {
         // 오른쪽에 블록이 없으면 컨테이너 너비 내에서 자유롭게 증가
-        const maxWidth = containerWidth - 12 - block.x;
+        const maxWidth = containerWidth - block.x;
         const finalWidth = Math.min(newWidth, maxWidth);
         setBlockPositions(blockPositions.map(b =>
           b.id === block.id ? { ...b, width: finalWidth } : b
@@ -960,7 +914,7 @@ export default function NewTemplatePage() {
               </div>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div id="blocks-container" className="space-y-3">
               {getAllRows().map((row) => {
                 const rowBlocks = getBlocksByRow(row);
                 // 행의 전체 높이 = 각 블록의 (y + height) 중 최대값
