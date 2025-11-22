@@ -1,6 +1,13 @@
 import { BlockPosition } from './types';
 
 const GRID_COLS = 6; // 전체 열 개수
+const ROW_HEIGHT = 120; // 각 행의 높이 (px)
+const ROW_GAP = 12; // 행 사이 간격 (gap-3 = 12px)
+
+// 블록 높이로부터 차지하는 행 수 계산
+export const calculateRows = (height: number): number => {
+  return Math.ceil((height + ROW_GAP) / (ROW_HEIGHT + ROW_GAP));
+};
 
 // 특정 행의 블록들 가져오기 (해당 행에서 시작하는 블록만)
 export const getRowBlocks = (blockPositions: BlockPosition[], row: number): BlockPosition[] => {
@@ -15,7 +22,7 @@ export const getAllRows = (blockPositions: BlockPosition[]): number[] => {
 
   // 각 블록이 차지하는 마지막 행 계산
   const maxRow = Math.max(...blockPositions.map(b => {
-    const rows = Math.ceil((b.height || 120) / 120);
+    const rows = calculateRows(b.height || ROW_HEIGHT);
     return b.row + rows - 1;
   }));
 

@@ -2,6 +2,7 @@ import { useRef, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { BlockPosition, DropTarget, IconMap } from '../types';
 import { blockPalette } from '../blockPalette';
+import { calculateRows } from '../blockUtils';
 
 interface BlockRendererProps {
   block: BlockPosition;
@@ -132,7 +133,7 @@ export const BlockRenderer = ({
           console.log('❌ 특수 영역 탭 (리사이즈/삭제 버튼)');
         } else {
           // 블록이 차지하는 행 수 계산
-          const rowsOccupied = Math.ceil(block.height / 140);
+          const rowsOccupied = calculateRows(block.height);
           const endRow = block.row + rowsOccupied - 1;
           const endCol = block.colStart + block.colSpan - 1;
 
@@ -236,7 +237,7 @@ export const BlockRenderer = ({
       }
 
       // 블록이 차지하는 행 수 계산
-      const rowsOccupied = Math.ceil(block.height / 140);
+      const rowsOccupied = calculateRows(block.height);
       const endRow = block.row + rowsOccupied - 1;
       const endCol = block.colStart + block.colSpan - 1;
 
@@ -261,7 +262,7 @@ export const BlockRenderer = ({
   };
 
   // 블록이 차지하는 행 수 계산
-  const rowsOccupied = Math.ceil((block.height || 120) / 120);
+  const rowsOccupied = calculateRows(block.height || 120);
 
   return (
     <div

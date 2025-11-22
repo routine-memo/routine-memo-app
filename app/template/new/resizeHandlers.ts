@@ -2,6 +2,22 @@ import { BlockPosition } from './types';
 import { getRowBlocks } from './blockUtils';
 
 const GRID_COLS = 6; // 전체 열 개수
+const ROW_HEIGHT = 120; // 각 행의 높이 (px)
+const ROW_GAP = 12; // 행 사이 간격 (gap-3 = 12px)
+
+// 행 수로부터 실제 블록 높이 계산 (gap 포함)
+const calculateHeight = (rows: number): number => {
+  return rows * ROW_HEIGHT + (rows - 1) * ROW_GAP;
+};
+
+// 블록 높이로부터 차지하는 행 수 계산
+const calculateRows = (height: number): number => {
+  // height = rows * 120 + (rows - 1) * 12
+  // height = rows * 120 + rows * 12 - 12
+  // height = rows * 132 - 12
+  // rows = (height + 12) / 132
+  return Math.ceil((height + ROW_GAP) / (ROW_HEIGHT + ROW_GAP));
+};
 
 // 가로 리사이즈 (열 단위로 "먹기")
 export const handleWidthResize = (
@@ -60,9 +76,9 @@ export const handleHeightResize = (
   if (!block) return null;
 
   // 블록이 현재 차지하는 행 수 계산
-  const currentRows = Math.ceil((block.height || 120) / 120);
+  const currentRows = calculateRows(block.height || ROW_HEIGHT);
 
-  console.log(`📏 세로 리사이즈: ${direction}, 블록 ${blockId}, 현재 ${currentRows}개 행 차지`);
+  console.log(`📏 세로 리사이즈: ${direction}, 블록 ${blockId}, 현재 ${currentRows}개 행 차지 (높이: ${block.height}px)`);
 
   if (direction === 'increase') {
     // 1. 새로운 행 번호 계산 (현재 블록 바로 아래)
@@ -73,7 +89,7 @@ export const handleHeightResize = (
     const blockColEnd = block.colStart + block.colSpan;
     const blocksInNewRow = blockPositions.filter(b => {
       // 블록이 차지하는 행 범위 계산
-      const bRows = Math.ceil((b.height || 120) / 120);
+      const bRows = calculateRows(b.height || ROW_HEIGHT);
       const bStartRow = b.row;
       const bEndRow = b.row + bRows - 1;
 
@@ -103,8 +119,8 @@ export const handleHeightResize = (
       });
     }
 
-    // 4. 현재 블록이 새 행을 먹음 (높이를 120px 증가)
-    const newHeight = (currentRows + 1) * 120;
+    // 4. 현재 블록이 새 행을 먹음 (gap 포함하여 높이 계산)
+    const newHeight = calculateHeight(currentRows + 1);
     console.log(`📈 블록 ${blockId} 높이 증가: ${block.height}px → ${newHeight}px (${currentRows}행 → ${currentRows + 1}행)`);
 
     return updatedBlocks.map(b =>
@@ -118,9 +134,9 @@ export const handleHeightResize = (
       return null;
     }
 
-    // 1. 새로운 행 수 계산
+    // 1. 새로운 행 수 계산 (gap 포함)
     const newRows = currentRows - 1;
-    const newHeight = newRows * 120;
+    const newHeight = calculateHeight(newRows);
 
     console.log(`📉 블록 ${blockId} 높이 감소: ${block.height}px → ${newHeight}px (${currentRows}행 → ${newRows}행)`);
 
