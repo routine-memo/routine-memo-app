@@ -188,6 +188,47 @@ export default function NewTemplatePage() {
     setDraggedBlock(block);
   };
 
+  // 레이아웃 재정렬: 세로 스택의 빈 공간만 제거 (가로 배치는 건드리지 않음)
+  const compactLayout = (blocks: BlockPosition[]): BlockPosition[] => {
+    let compactedBlocks = [...blocks];
+
+    // 행별로 처리
+    const rows = [...new Set(blocks.map(b => b.row))].sort((a, b) => a - b);
+
+    rows.forEach(row => {
+      const rowBlocks = compactedBlocks.filter(b => b.row === row);
+
+      // y=0인 블록들의 (x, width) 조합을 찾기 (가로 배치된 블록들)
+      const baseBlocks = rowBlocks.filter(b => b.y === 0);
+
+      // 각 가로 블록 아래의 세로 스택 압축
+      baseBlocks.forEach(baseBlock => {
+        // 같은 x, width를 가진 블록들 찾기 (세로 스택)
+        const stackBlocks = rowBlocks
+          .filter(b => b.x === baseBlock.x && b.width === baseBlock.width)
+          .sort((a, b) => a.y - b.y);
+
+        // 세로 스택이 2개 이상일 때만 압축
+        if (stackBlocks.length > 1) {
+          let currentY = 0;
+
+          stackBlocks.forEach(block => {
+            compactedBlocks = compactedBlocks.map(b => {
+              if (b.id === block.id) {
+                const updated = { ...b, y: currentY };
+                currentY += b.height + 12;
+                return updated;
+              }
+              return b;
+            });
+          });
+        }
+      });
+    });
+
+    return compactedBlocks;
+  };
+
   // 드롭 처리
   const handleDrop = (e: React.DragEvent, targetBlock: BlockPosition) => {
     e.preventDefault();
@@ -205,24 +246,53 @@ export default function NewTemplatePage() {
     const minBlockWidth = 70; // 최소 블록 너비 (3개까지 가능하도록: 70*3 + 12*2 = 234px)
 
     if (dropTarget.position === 'above') {
-      // 위 배치: 새 행을 생성
-      updatedBlocks = updatedBlocks.map(block => {
-        if (block.row >= targetBlock.row) {
-          return { ...block, row: block.row + 1 };
-        }
-        return block;
-      });
+      // 위 배치: 타겟 블록과 같은 x, width를 가진 블록들을 y 좌표 기준으로 밀어내기
+      const newY = 0; // 맨 위에 배치
+      const pushDownAmount = draggedBlock.height + 12; // 밀어낼 높이
 
-      // 새 행에는 항상 전체 너비로 배치, 위치는 (0, 0)에서 시작
-      newBlock = {
-        id: draggedBlock.id,
-        type: draggedBlock.type,
-        row: targetBlock.row,
-        x: 0,
-        y: 0,
-        width: containerWidth,
-        height: draggedBlock.height // 높이만 유지
-      };
+      // 타겟과 같은 x, width를 가진 블록들을 찾아서 아래로 밀기
+      const sameColumnBlocks = updatedBlocks.filter(
+        b => b.row === targetBlock.row && b.x === targetBlock.x && b.width === targetBlock.width
+      );
+
+      if (sameColumnBlocks.length > 0) {
+        // 같은 열에 블록들이 있으면 모두 아래로 밀기
+        updatedBlocks = updatedBlocks.map(block => {
+          if (block.row === targetBlock.row && block.x === targetBlock.x && block.width === targetBlock.width) {
+            return { ...block, y: block.y + pushDownAmount };
+          }
+          return block;
+        });
+
+        // 새 블록을 맨 위(y=0)에 배치
+        newBlock = {
+          id: draggedBlock.id,
+          type: draggedBlock.type,
+          row: targetBlock.row,
+          x: targetBlock.x,
+          y: newY,
+          width: targetBlock.width,
+          height: draggedBlock.height
+        };
+      } else {
+        // 같은 열에 블록이 없으면 새 행 생성
+        updatedBlocks = updatedBlocks.map(block => {
+          if (block.row >= targetBlock.row) {
+            return { ...block, row: block.row + 1 };
+          }
+          return block;
+        });
+
+        newBlock = {
+          id: draggedBlock.id,
+          type: draggedBlock.type,
+          row: targetBlock.row,
+          x: 0,
+          y: 0,
+          width: containerWidth,
+          height: draggedBlock.height
+        };
+      }
     } else if (dropTarget.position === 'below') {
       // 아래 배치: 타겟 블록 바로 밑에 배치 시도 (같은 행, 같은 x/width)
       const newY = targetBlock.y + targetBlock.height + 12;
@@ -499,8 +569,12 @@ export default function NewTemplatePage() {
     }
 
     updatedBlocks.push(newBlock);
-    console.log('Final state before setBlockPositions', { updatedBlocks, newBlock });
-    setBlockPositions(updatedBlocks);
+
+    // 레이아웃 재정렬: 빈 공간 제거
+    const compactedBlocks = compactLayout(updatedBlocks);
+
+    console.log('Final state before setBlockPositions', { compactedBlocks, newBlock });
+    setBlockPositions(compactedBlocks);
 
     // 상태 업데이트 직후 확인
     setTimeout(() => {
@@ -679,17 +753,31 @@ export default function NewTemplatePage() {
 
   // 가로 넓이 조정 로직
   const handleWidthResize = (block: BlockPosition, newWidth: number) => {
-    const rowBlocks = blockPositions.filter(b => b.row === block.row).sort((a, b) => a.x - b.x);
-    const blockIndex = rowBlocks.findIndex(b => b.id === block.id);
+    // 같은 행에서 y=0인 블록들만 (가로 배치된 블록들)
+    const horizontalBlocks = blockPositions
+      .filter(b => b.row === block.row && b.y === 0)
+      .sort((a, b) => a.x - b.x);
+
+    // 리사이즈하려는 블록이 세로 스택(y>0)이면 y=0인 블록 찾기
+    let targetBlock = block;
+    if (block.y > 0) {
+      const baseBlock = blockPositions.find(
+        b => b.row === block.row && b.x === block.x && b.width === block.width && b.y === 0
+      );
+      if (!baseBlock) return; // y=0인 기준 블록이 없으면 리사이즈 불가
+      targetBlock = baseBlock;
+    }
+
+    const blockIndex = horizontalBlocks.findIndex(b => b.id === targetBlock.id);
 
     if (blockIndex === -1) return;
 
-    const widthDelta = newWidth - block.width;
+    const widthDelta = newWidth - targetBlock.width;
     const minBlockWidth = 50;
 
     if (widthDelta > 0) {
       // 넓이 증가
-      const rightBlocks = rowBlocks.slice(blockIndex + 1);
+      const rightBlocks = horizontalBlocks.slice(blockIndex + 1);
 
       if (rightBlocks.length > 0) {
         // 오른쪽 블록이 있으면 첫 번째 블록의 넓이를 줄임
@@ -698,11 +786,17 @@ export default function NewTemplatePage() {
 
         if (newRightWidth >= minBlockWidth) {
           // 오른쪽 블록을 줄일 수 있음 - 바로 인접한 블록만 영향받음
+          // 세로로 쌓인 블록들도 함께 조정
           const updatedBlocks = blockPositions.map(b => {
-            if (b.id === block.id) {
+            // targetBlock과 같은 x, width를 가진 블록들 (세로 스택) 모두 조정
+            if (b.row === targetBlock.row && b.x === targetBlock.x && b.width === targetBlock.width) {
               return { ...b, width: newWidth };
             }
             if (b.id === firstRightBlock.id) {
+              return { ...b, x: b.x + widthDelta, width: newRightWidth };
+            }
+            // 오른쪽 블록과 같은 x, width를 가진 블록들도 함께 조정
+            if (b.row === targetBlock.row && b.x === firstRightBlock.x && b.width === firstRightBlock.width) {
               return { ...b, x: b.x + widthDelta, width: newRightWidth };
             }
             return b;
@@ -711,25 +805,34 @@ export default function NewTemplatePage() {
         }
       } else {
         // 오른쪽에 블록이 없으면 컨테이너 너비 내에서 자유롭게 증가
-        const maxWidth = containerWidth - block.x;
+        const maxWidth = containerWidth - targetBlock.x;
         const finalWidth = Math.min(newWidth, maxWidth);
-        setBlockPositions(blockPositions.map(b =>
-          b.id === block.id ? { ...b, width: finalWidth } : b
-        ));
+        const updatedBlocks = blockPositions.map(b => {
+          if (b.row === targetBlock.row && b.x === targetBlock.x && b.width === targetBlock.width) {
+            return { ...b, width: finalWidth };
+          }
+          return b;
+        });
+        setBlockPositions(updatedBlocks);
       }
     } else if (widthDelta < 0) {
       // 넓이 감소
       if (newWidth >= minBlockWidth) {
-        const rightBlocks = rowBlocks.slice(blockIndex + 1);
+        const rightBlocks = horizontalBlocks.slice(blockIndex + 1);
 
         if (rightBlocks.length > 0) {
           // 오른쪽 블록이 있으면 그 블록의 너비를 늘림 - 바로 인접한 블록만 영향받음
           const firstRightBlock = rightBlocks[0];
           const updatedBlocks = blockPositions.map(b => {
-            if (b.id === block.id) {
+            // targetBlock과 같은 x, width를 가진 블록들 (세로 스택) 모두 조정
+            if (b.row === targetBlock.row && b.x === targetBlock.x && b.width === targetBlock.width) {
               return { ...b, width: newWidth };
             }
             if (b.id === firstRightBlock.id) {
+              return { ...b, x: b.x + widthDelta, width: b.width - widthDelta };
+            }
+            // 오른쪽 블록과 같은 x, width를 가진 블록들도 함께 조정
+            if (b.row === targetBlock.row && b.x === firstRightBlock.x && b.width === firstRightBlock.width) {
               return { ...b, x: b.x + widthDelta, width: b.width - widthDelta };
             }
             return b;
@@ -737,9 +840,13 @@ export default function NewTemplatePage() {
           setBlockPositions(updatedBlocks);
         } else {
           // 오른쪽에 블록이 없으면 그냥 줄임
-          setBlockPositions(blockPositions.map(b =>
-            b.id === block.id ? { ...b, width: newWidth } : b
-          ));
+          const updatedBlocks = blockPositions.map(b => {
+            if (b.row === targetBlock.row && b.x === targetBlock.x && b.width === targetBlock.width) {
+              return { ...b, width: newWidth };
+            }
+            return b;
+          });
+          setBlockPositions(updatedBlocks);
         }
       }
     }

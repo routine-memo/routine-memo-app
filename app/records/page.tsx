@@ -1,15 +1,9 @@
-import { Search, Filter, FileText } from 'lucide-react';
+import { Search, Filter, Plus } from 'lucide-react';
+import Link from 'next/link';
 
 export default function RecordsPage() {
   return (
-    <main className="min-h-screen p-6">
-      <header className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">기록</h1>
-        <p className="text-gray-600 dark:text-gray-400">
-          모든 기록을 둘러보세요
-        </p>
-      </header>
-
+    <main className="min-h-screen p-6 bg-white relative">
       {/* 검색 바 */}
       <div className="relative mb-6">
         <Search
@@ -20,38 +14,56 @@ export default function RecordsPage() {
         <input
           type="text"
           placeholder="기록 검색..."
-          className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-amber"
+          className="w-full pl-12 pr-4 py-3 rounded-lg border-2 border-gray-300 bg-white text-black placeholder-gray-400 focus:outline-none focus:border-black"
         />
         <button className="absolute right-4 top-1/2 transform -translate-y-1/2">
-          <Filter size={20} strokeWidth={2} className="text-gray-400" />
+          <Filter size={20} strokeWidth={2} className="text-gray-400 hover:text-black" />
         </button>
       </div>
 
       {/* 필터 */}
       <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-        <button className="px-4 py-2 rounded-full bg-amber text-white text-sm font-medium whitespace-nowrap">
+        <button className="px-4 py-2 rounded-full border-2 border-black bg-black text-white text-sm font-medium whitespace-nowrap">
           전체
         </button>
-        <button className="px-4 py-2 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm font-medium whitespace-nowrap">
+        <button className="px-4 py-2 rounded-full border-2 border-gray-300 bg-white text-black text-sm font-medium whitespace-nowrap hover:border-black">
           최근 7일
         </button>
-        <button className="px-4 py-2 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm font-medium whitespace-nowrap">
+        <button className="px-4 py-2 rounded-full border-2 border-gray-300 bg-white text-black text-sm font-medium whitespace-nowrap hover:border-black">
           이번 달
         </button>
       </div>
 
-      {/* 빈 상태 */}
-      <div className="text-center py-16">
-        <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-          <FileText size={48} strokeWidth={1.5} className="text-gray-400" />
+      {/* 카테고리 카드들 */}
+      <div className="space-y-3 mb-20">
+        <div className="rounded-xl border-2 border-black p-4 bg-white hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] transition-all cursor-pointer">
+          <h3 className="text-lg font-bold text-black mb-1">Personality Quiz</h3>
+          <p className="text-sm text-gray-500">3개 기록</p>
         </div>
-        <p className="text-gray-600 dark:text-gray-400 mb-2">
-          아직 기록이 없어요
-        </p>
-        <p className="text-sm text-gray-500 dark:text-gray-500">
-          첫 기록을 만들어보세요
-        </p>
+
+        <div className="rounded-xl border-2 border-black p-4 bg-white hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] transition-all cursor-pointer">
+          <h3 className="text-lg font-bold text-black mb-1">Good Morning</h3>
+          <p className="text-sm text-gray-500">12개 기록</p>
+        </div>
+
+        <div className="rounded-xl border-2 border-black p-4 bg-white hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] transition-all cursor-pointer">
+          <h3 className="text-lg font-bold text-black mb-1">Brainstorming Presents</h3>
+          <p className="text-sm text-gray-500">5개 기록</p>
+        </div>
+
+        <div className="rounded-xl border-2 border-black p-4 bg-white hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] transition-all cursor-pointer">
+          <h3 className="text-lg font-bold text-black mb-1">Brunch Recipe Ideas</h3>
+          <p className="text-sm text-gray-500">8개 기록</p>
+        </div>
       </div>
+
+      {/* FAB 버튼 - 붉은 낙엽색 */}
+      <Link
+        href="/create"
+        className="fixed bottom-24 right-6 w-14 h-14 rounded-full bg-black hover:bg-gray-800 text-white border-2 border-black flex items-center justify-center shadow-[3px_3px_0px_0px_rgba(0,0,0,0.3)] transition-all hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,0.3)] active:shadow-none"
+      >
+        <Plus size={24} strokeWidth={2} />
+      </Link>
     </main>
   );
 }

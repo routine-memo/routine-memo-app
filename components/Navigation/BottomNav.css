@@ -4,8 +4,8 @@
   left: 0;
   right: 0;
   height: 72px;
-  background: var(--background);
-  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  background: #FFFFFF;
+  border-top: 2px solid #000000;
   display: flex;
   justify-content: space-around;
   align-items: center;
@@ -15,7 +15,8 @@
 
 @media (prefers-color-scheme: dark) {
   .bottom-nav {
-    border-top-color: rgba(255, 255, 255, 0.1);
+    background: #FFFFFF;
+    border-top-color: #000000;
   }
 }
 
@@ -32,17 +33,17 @@
   gap: 4px;
   padding: 8px 16px;
   text-decoration: none;
-  color: #666;
+  color: #737373;
   transition: color 0.2s ease;
   cursor: pointer;
 }
 
 .nav-item:hover {
-  color: #f9a825;
+  color: #000000;
 }
 
 .nav-item.active {
-  color: #f9a825;
+  color: #000000;
 }
 
 .nav-icon {
@@ -52,4 +53,8 @@
 .nav-label {
   font-size: 12px;
   font-weight: 500;
+}
+
+.nav-item.active .nav-label {
+  font-weight: 600;
 }
