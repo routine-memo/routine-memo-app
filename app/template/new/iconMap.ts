@@ -1,0 +1,36 @@
+import {
+  Clock,
+  Type,
+  Image,
+  CheckSquare,
+  Smile,
+  Calendar,
+  Cloud,
+  ChevronDown,
+  TrendingUp,
+  BarChart,
+  GitBranch,
+  AlertCircle,
+  Link as LinkIcon,
+  ListTodo,
+  Map,
+} from 'lucide-react';
+import { IconMap } from './types';
+
+export const iconMap: IconMap = {
+  Clock,
+  Type,
+  Image,
+  CheckSquare,
+  Smile,
+  Calendar,
+  Cloud,
+  ChevronDown,
+  TrendingUp,
+  BarChart,
+  GitBranch,
+  AlertCircle,
+  Link: LinkIcon,
+  ListTodo,
+  Map,
+};
