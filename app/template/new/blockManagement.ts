@@ -1,5 +1,5 @@
 import { BlockPosition, BlockType } from './types';
-import { getRowBlocks, getTotalColSpan, calculateRows } from './blockUtils';
+import { getRowBlocks, getTotalColSpan, calculateRows, getBlocksOccupyingRow, redistributeRow } from './blockUtils';
 
 const GRID_COLS = 6; // 전체 열 개수
 const DEFAULT_COL_SPAN = 2; // 기본 블록 크기 (3단 레이아웃)
@@ -55,51 +55,28 @@ export const deleteBlock = (
     lastRow: removedBlockLastRow
   });
 
-  // 삭제된 블록의 시작 행에 다른 블록이 있는지 확인
-  const rowBlocks = getRowBlocks(updatedBlocks, blockToRemove.row);
+  // 삭제된 블록이 차지했던 모든 행에 대해 재분배 수행
+  for (let row = blockToRemove.row; row <= removedBlockLastRow; row++) {
+    // 해당 행을 차지하는 모든 블록 찾기 (멀티행 블록 포함)
+    const occupyingBlocks = getBlocksOccupyingRow(updatedBlocks, row);
 
-  if (rowBlocks.length === 0) {
-    // 삭제된 블록의 행이 비었으면 아래 행들을 삭제된 블록이 차지했던 행 수만큼 올림
-    updatedBlocks = updatedBlocks.map(block => {
-      // 삭제된 블록보다 아래에 있는 블록들만 올림
-      if (block.row > removedBlockLastRow) {
-        return { ...block, row: block.row - removedBlockRows };
-      }
-      return block;
-    });
-
-    console.log(`📍 빈 행 ${removedBlockRows}개 제거, 아래 블록들 ${removedBlockRows}칸 올림`);
-  } else {
-    // 같은 행에 블록이 남아있으면 남은 블록들을 재정렬
-    const totalSpan = getTotalColSpan(rowBlocks);
-
-    if (totalSpan < GRID_COLS) {
-      // 행이 꽉 차지 않으면 남은 블록들을 확장
-      const extraCols = GRID_COLS - totalSpan;
-      const blocksToExpand = rowBlocks.length;
-      const colsPerBlock = Math.floor(extraCols / blocksToExpand);
-      const remainder = extraCols % blocksToExpand;
-
+    if (occupyingBlocks.length === 0) {
+      // 행이 완전히 비었으면 아래 행들을 올림
       updatedBlocks = updatedBlocks.map(block => {
-        if (block.row !== blockToRemove.row) return block;
-
-        const blockIndex = rowBlocks.findIndex(b => b.id === block.id);
-        const extraSpan = colsPerBlock + (blockIndex < remainder ? 1 : 0);
-
-        // colStart 재계산
-        let newColStart = 0;
-        for (let i = 0; i < blockIndex; i++) {
-          const prevBlock = rowBlocks[i];
-          const prevExtra = colsPerBlock + (i < remainder ? 1 : 0);
-          newColStart += prevBlock.colSpan + prevExtra;
+        if (block.row > removedBlockLastRow) {
+          return { ...block, row: block.row - removedBlockRows };
         }
-
-        return {
-          ...block,
-          colStart: newColStart,
-          colSpan: block.colSpan + extraSpan
-        };
+        return block;
       });
+      console.log(`📍 빈 행 ${row} 제거, 아래 블록들 올림`);
+    } else {
+      // 해당 행에 블록이 남아있으면 재분배
+      const totalSpan = getTotalColSpan(occupyingBlocks);
+
+      if (totalSpan < GRID_COLS) {
+        console.log(`🔄 행 ${row} 재분배 실행 (현재 ${totalSpan}열 → ${GRID_COLS}열)`);
+        updatedBlocks = redistributeRow(updatedBlocks, row, blockToRemove);
+      }
     }
   }
 

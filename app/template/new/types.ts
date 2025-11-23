@@ -36,6 +36,7 @@ export interface DropTarget {
   blockId: string;
   position: 'above' | 'below' | 'left' | 'right';
   secondaryPosition?: 'left' | 'right'; // above/below 드롭 시 좌/우 위치 정보
+  targetRow?: number; // 멀티행 블록의 경우 어느 행에 드롭하는지
 }
 
 export interface IconMap {

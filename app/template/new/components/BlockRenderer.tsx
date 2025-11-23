@@ -304,12 +304,50 @@ export const BlockRenderer = ({
       {isDropTarget && dropTarget?.position === 'below' && (
         <div className="absolute -bottom-2 left-0 right-0 h-1 bg-gray-900 rounded-full z-30 pointer-events-none" />
       )}
-      {isDropTarget && dropTarget?.position === 'left' && (
-        <div className="absolute -left-2 top-0 bottom-0 w-1 bg-gray-900 rounded-full z-30 pointer-events-none" />
-      )}
-      {isDropTarget && dropTarget?.position === 'right' && (
-        <div className="absolute -right-2 top-0 bottom-0 w-1 bg-gray-900 rounded-full z-30 pointer-events-none" />
-      )}
+      {isDropTarget && dropTarget?.position === 'left' && (() => {
+        // targetRow가 있으면 해당 행에만 인디케이터 표시
+        if (dropTarget.targetRow !== undefined) {
+          const relativeRow = dropTarget.targetRow - block.row;
+          const ROW_HEIGHT = 120;
+          const ROW_GAP = 12;
+          const topOffset = relativeRow * (ROW_HEIGHT + ROW_GAP);
+          return (
+            <div
+              className="absolute -left-2 w-1 bg-gray-900 rounded-full z-30 pointer-events-none"
+              style={{
+                top: `${topOffset}px`,
+                height: `${ROW_HEIGHT}px`
+              }}
+            />
+          );
+        }
+        // targetRow가 없으면 전체 높이
+        return (
+          <div className="absolute -left-2 top-0 bottom-0 w-1 bg-gray-900 rounded-full z-30 pointer-events-none" />
+        );
+      })()}
+      {isDropTarget && dropTarget?.position === 'right' && (() => {
+        // targetRow가 있으면 해당 행에만 인디케이터 표시
+        if (dropTarget.targetRow !== undefined) {
+          const relativeRow = dropTarget.targetRow - block.row;
+          const ROW_HEIGHT = 120;
+          const ROW_GAP = 12;
+          const topOffset = relativeRow * (ROW_HEIGHT + ROW_GAP);
+          return (
+            <div
+              className="absolute -right-2 w-1 bg-gray-900 rounded-full z-30 pointer-events-none"
+              style={{
+                top: `${topOffset}px`,
+                height: `${ROW_HEIGHT}px`
+              }}
+            />
+          );
+        }
+        // targetRow가 없으면 전체 높이
+        return (
+          <div className="absolute -right-2 top-0 bottom-0 w-1 bg-gray-900 rounded-full z-30 pointer-events-none" />
+        );
+      })()}
 
       {/* 블록 헤더 */}
       <div className="absolute top-0 left-0 right-0 h-10 flex items-center justify-between px-3 pointer-events-none">

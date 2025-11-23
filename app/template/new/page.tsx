@@ -72,26 +72,18 @@ export default function NewTemplatePage() {
       return;
     }
 
-    // 블록 내에서의 상대 위치 계산
-    const rect = blockElement.getBoundingClientRect();
-    const x = touch.clientX - rect.left;
-    const y = touch.clientY - rect.top;
+    // calculateDropPosition 사용 (터치 이벤트를 드래그 이벤트로 변환)
+    const syntheticEvent = {
+      currentTarget: blockElement,
+      clientX: touch.clientX,
+      clientY: touch.clientY,
+      preventDefault: () => {},
+    } as any;
 
-    const threshold = 30;
-    let position: DropTarget['position'];
-
-    if (y < threshold) {
-      position = 'above';
-    } else if (y > rect.height - threshold) {
-      position = 'below';
-    } else if (x < rect.width / 2) {
-      position = 'left';
-    } else {
-      position = 'right';
+    const target = calculateDropPosition(syntheticEvent, targetBlock, draggedBlock);
+    if (target) {
+      setDropTarget(target);
     }
-
-    const newTarget = { blockId: targetBlock.id, position };
-    setDropTarget(newTarget);
   }, [draggedBlock, blockPositions]);
 
   // 터치 엔드 (모바일 드롭)
