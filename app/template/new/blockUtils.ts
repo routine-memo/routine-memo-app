@@ -439,6 +439,12 @@ export const moveBlockToRow = (
     destinationRow
   });
 
+  // 드래그 중인 블록이 이미 목표 행에 있으면 아무것도 하지 않음
+  if (draggedBlock.row === destinationRow) {
+    console.log('⚠️ 드래그 블록이 이미 목표 행에 있음 → 변경 없음');
+    return blocks;
+  }
+
   // ===== STEP 2: 현재 존재하는 최대 행 확인 =====
   const blocksExcludingDragged = blocks.filter(b => b.id !== draggedBlock.id);
 
@@ -450,17 +456,34 @@ export const moveBlockToRow = (
       }))
     : -1;
 
+  // below 드롭 시: 목표 행에 블록이 있는지 확인 (드래그 중인 블록 제외)
+  const destinationRowStartingBlocks = getRowBlocks(blocksExcludingDragged, destinationRow);
+  const hasBlocksStartingAtDestination = destinationRowStartingBlocks.length > 0;
+
+  // 드래그 중인 블록이 원래 목표 행에 있었는지 확인
+  const draggedBlockWasAtDestination = draggedBlock.row === destinationRow;
+
+  // above 드롭의 경우 목표 행(= targetBlock.row)에 블록을 삽입하고 기존 블록들을 밀어내야 함
+  // below 드롭의 경우:
+  //   - 목표 행에 다른 블록이 있으면 새 행 삽입
+  //   - 단, 드래그 중인 블록이 원래 그 행에 있었다면 제외
+  const needNewRowInsertion = position === 'below' && hasBlocksStartingAtDestination && !draggedBlockWasAtDestination;
+
   console.log('📊 현재 상태:', {
     destinationRow,
     currentMaxRow,
-    isNewRow: destinationRow > currentMaxRow
+    position,
+    hasBlocksStartingAtDestination,
+    startingBlocks: destinationRowStartingBlocks.map(b => ({ id: b.id, row: b.row })),
+    needNewRowInsertion,
+    isNewRow: destinationRow > currentMaxRow || needNewRowInsertion
   });
 
-  // 목표 행이 현재 존재하지 않는 새 행이면 바로 새 행 생성
-  if (destinationRow > currentMaxRow) {
-    console.log('🆕 목표 행이 존재하지 않음 → 새 행 생성');
+  // 목표 행이 현재 존재하지 않거나, below 드롭 시 이미 블록이 있으면 새 행 생성
+  if (destinationRow > currentMaxRow || needNewRowInsertion) {
+    console.log('🆕 새 행 삽입 필요 (이유:', destinationRow > currentMaxRow ? '최대행 초과' : 'below 드롭 시 충돌', ')');
 
-    // 원래 행 정리만 수행
+    // 원래 행 정리 수행
     let updatedBlocks = blocksExcludingDragged;
     const originalRowOccupyingBlocks = getBlocksOccupyingRow(updatedBlocks, draggedBlock.row);
 
@@ -488,6 +511,17 @@ export const moveBlockToRow = (
       updatedBlocks = redistributeRow(updatedBlocks, draggedBlock.row, draggedBlock);
 
       console.log('✅ 원래 행 재정렬 완료 (새 행 생성 케이스)');
+    }
+
+    // 목표 행 이상의 블록들을 아래로 밀기 (새 행 삽입)
+    if (needNewRowInsertion) {
+      console.log(`🔽 행 ${destinationRow} 이상의 블록들을 아래로 밀기`);
+      updatedBlocks = updatedBlocks.map(b => {
+        if (b.row >= destinationRow) {
+          return { ...b, row: b.row + 1 };
+        }
+        return b;
+      });
     }
 
     // 새 행에 블록 배치
