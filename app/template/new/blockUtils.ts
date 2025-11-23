@@ -360,95 +360,154 @@ export const moveBlockToRowSide = (
   const draggedBlockRows = calculateRows(draggedBlock.height || ROW_HEIGHT);
 
   if (draggedBlockRows > 1) {
-    // 멀티행 블록: 각 차지 행마다 해당 행을 차지하는 블록들과 열 균등 분배
-    console.log(`🔍 멀티행 블록 (${draggedBlockRows}행) 배치 - 각 행별 열 균등 분배 시작`);
+    // 멀티행 블록: 연결된 모든 블록들을 추적하여 일관된 열 분배
+    console.log(`🔍 멀티행 블록 (${draggedBlockRows}행) 배치 - 연결된 블록 그룹 추적 시작`);
 
-    // 첫 번째 행: insertIndex 위치에 삽입하여 열 균등 분배
-    const blocksInOrder = [
-      ...occupyingBlocks.slice(0, insertIndex),
-      { ...draggedBlock, row: adjustedTargetRow, colStart: 0, colSpan: 1 }, // 임시 작은 값
-      ...occupyingBlocks.slice(insertIndex)
-    ];
+    // 1단계: 드롭한 블록이 차지할 모든 행 수집
+    const movedBlockRows = new Set<number>();
+    for (let i = 0; i < draggedBlockRows; i++) {
+      movedBlockRows.add(adjustedTargetRow + i);
+    }
+    console.log(`  드롭 블록이 차지할 행:`, Array.from(movedBlockRows));
 
-    // 열 균등 분배
-    const avgColSpan = Math.floor(GRID_COLS / blocksInOrder.length);
-    const remainder = GRID_COLS % blocksInOrder.length;
+    // 2단계: 연결된 모든 블록들을 재귀적으로 수집
+    const connectedBlockIds = new Set<string>();
+    const rowsToCheck = new Set(movedBlockRows);
 
-    let currentColStart = 0;
-    const initialDistribution = blocksInOrder.map((block, index) => {
-      const colSpan = avgColSpan + (index < remainder ? 1 : 0);
-      const updated = {
-        ...block,
-        row: block.id === draggedBlock.id ? adjustedTargetRow : block.row,
-        colStart: currentColStart,
-        colSpan: colSpan
-      };
-      currentColStart += colSpan;
-      return updated;
-    });
+    // 재귀적으로 연결된 블록들 찾기
+    let previousConnectedSize = 0;
+    let previousRowsSize = 0;
 
-    // 초기 분배된 블록들을 updatedBlocks에 적용
-    const redistributedIds = new Set(initialDistribution.map(b => b.id));
-    let finalBlocks = [
-      ...updatedBlocks.filter(b => !redistributedIds.has(b.id)),
-      ...initialDistribution
-    ];
+    while (connectedBlockIds.size !== previousConnectedSize || rowsToCheck.size !== previousRowsSize) {
+      previousConnectedSize = connectedBlockIds.size;
+      previousRowsSize = rowsToCheck.size;
 
-    // 초기 분배된 블록 중 movedBlock 찾기
-    let movedBlock = initialDistribution.find(b => b.id === draggedBlock.id)!;
+      const currentRowsToCheck = Array.from(rowsToCheck);
+      for (const row of currentRowsToCheck) {
+        const blocksOnRow = getBlocksOccupyingRow(updatedBlocks, row);
 
-    console.log(`  행 ${adjustedTargetRow} (첫 행): 초기 분배 완료 - colStart=${movedBlock.colStart}, colSpan=${movedBlock.colSpan}`);
+        for (const block of blocksOnRow) {
+          if (!connectedBlockIds.has(block.id)) {
+            connectedBlockIds.add(block.id);
+            console.log(`    블록 ${block.id} 추가 (행 ${block.row}에서 발견)`);
 
-    // 나머지 행들(2행부터 마지막 행까지)에 대해 열 균등 분배 수행
-    for (let rowOffset = 1; rowOffset < draggedBlockRows; rowOffset++) {
-      const checkRow = adjustedTargetRow + rowOffset;
-
-      // 해당 행을 차지하는 모든 블록 가져오기 (movedBlock 제외)
-      const rowOccupyingBlocks = getBlocksOccupyingRow(finalBlocks, checkRow).filter(b => b.id !== movedBlock.id);
-
-      console.log(`  행 ${checkRow}: 차지하는 블록 ${rowOccupyingBlocks.length}개 (movedBlock 제외)`);
-
-      if (rowOccupyingBlocks.length > 0) {
-        // 해당 행의 모든 블록들과 movedBlock을 함께 열 균등 분배
-        // movedBlock을 insertIndex 위치에 삽입 (colStart 기준으로 정렬 후)
-        const allBlocksInRow = [...rowOccupyingBlocks, movedBlock].sort((a, b) => a.colStart - b.colStart);
-
-        // 열 균등 분배
-        const rowAvgColSpan = Math.floor(GRID_COLS / allBlocksInRow.length);
-        const rowRemainder = GRID_COLS % allBlocksInRow.length;
-
-        let rowCurrentColStart = 0;
-        const rowDistribution = allBlocksInRow.map((block, index) => {
-          const colSpan = rowAvgColSpan + (index < rowRemainder ? 1 : 0);
-          const updated = {
-            ...block,
-            colStart: rowCurrentColStart,
-            colSpan: colSpan
-          };
-          rowCurrentColStart += colSpan;
-          return updated;
-        });
-
-        console.log(`    행 ${checkRow} 열 균등 분배:`, rowDistribution.map(b => ({
-          id: b.id,
-          colStart: b.colStart,
-          colSpan: b.colSpan
-        })));
-
-        // finalBlocks 업데이트
-        const rowDistributionIds = new Set(rowDistribution.map(b => b.id));
-        finalBlocks = [
-          ...finalBlocks.filter(b => !rowDistributionIds.has(b.id)),
-          ...rowDistribution
-        ];
-
-        // movedBlock 업데이트
-        const redistributedMovedBlock = rowDistribution.find(b => b.id === movedBlock.id);
-        if (redistributedMovedBlock) {
-          movedBlock = redistributedMovedBlock;
+            // 이 블록이 멀티행이면, 차지하는 다른 행들도 추가
+            const blockRows = calculateRows(block.height || ROW_HEIGHT);
+            if (blockRows > 1) {
+              for (let i = 0; i < blockRows; i++) {
+                const newRow = block.row + i;
+                if (!rowsToCheck.has(newRow)) {
+                  rowsToCheck.add(newRow);
+                  console.log(`      → 행 ${newRow} 추가 (블록이 ${blockRows}행 차지)`);
+                }
+              }
+            }
+          }
         }
       }
     }
+
+    console.log(`  연결된 블록 ID:`, Array.from(connectedBlockIds));
+    console.log(`  영향받는 행:`, Array.from(rowsToCheck).sort((a, b) => a - b));
+
+    // 3단계: 연결된 모든 블록을 colStart 순서대로 정렬하여 순서 결정
+    // 중요: 타겟 행에만 있는 블록이 아니라, 연결된 모든 블록을 포함해야 함
+    const connectedBlocks = updatedBlocks.filter(b => connectedBlockIds.has(b.id));
+
+    // colStart로 정렬 (왼쪽부터 오른쪽 순서)
+    connectedBlocks.sort((a, b) => a.colStart - b.colStart);
+
+    console.log(`  연결된 블록들 (정렬됨):`, connectedBlocks.map(b => ({
+      id: b.id,
+      row: b.row,
+      colStart: b.colStart,
+      colSpan: b.colSpan
+    })));
+
+    // 드롭되는 블록을 insertIndex 위치에 삽입
+    // insertIndex는 occupyingBlocks 기준이므로, 연결된 블록들 중에서 타겟 블록의 위치를 찾아야 함
+    const targetBlockIndexInConnected = connectedBlocks.findIndex(b => b.id === targetBlock.id);
+
+    let finalInsertIndex: number;
+    if (targetBlockIndexInConnected === -1) {
+      // 타겟 블록이 연결된 블록에 없으면 (이론상 불가능) 맨 끝에 추가
+      finalInsertIndex = connectedBlocks.length;
+    } else {
+      // position이 'left'면 타겟 앞에, 'right'면 타겟 뒤에
+      finalInsertIndex = position === 'left' ? targetBlockIndexInConnected : targetBlockIndexInConnected + 1;
+    }
+
+    console.log(`  드롭 블록 삽입 위치: ${finalInsertIndex} (타겟 블록 인덱스: ${targetBlockIndexInConnected}, position: ${position})`);
+
+    const blocksInOrder = [
+      ...connectedBlocks.slice(0, finalInsertIndex),
+      { ...draggedBlock, row: adjustedTargetRow, colStart: 0, colSpan: 1 }, // 임시값
+      ...connectedBlocks.slice(finalInsertIndex)
+    ];
+
+    // 4단계: 열 균등 분배 계산
+    const totalBlocksInFirstRow = blocksInOrder.length;
+    const avgColSpan = Math.floor(GRID_COLS / totalBlocksInFirstRow);
+    const remainder = GRID_COLS % totalBlocksInFirstRow;
+
+    console.log(`  전체 연결된 블록 수: ${totalBlocksInFirstRow}, 평균 colSpan: ${avgColSpan}`);
+
+    // 5단계: 모든 블록에 colSpan 할당
+    // blocksInOrder에는 이미 연결된 모든 블록이 포함되어 있으므로, 순서대로 열 할당만 하면 됨
+    let currentColStart = 0;
+    const blockColSpans = new Map<string, { colStart: number; colSpan: number }>();
+
+    // 연결된 모든 블록들 순서대로 열 할당
+    blocksInOrder.forEach((block, index) => {
+      const colSpan = avgColSpan + (index < remainder ? 1 : 0);
+      blockColSpans.set(block.id, {
+        colStart: currentColStart,
+        colSpan: colSpan
+      });
+      currentColStart += colSpan;
+    });
+
+    console.log(`  블록별 열 할당:`, Array.from(blockColSpans.entries()).map(([id, { colStart, colSpan }]) => ({
+      id,
+      colStart,
+      colSpan
+    })));
+
+    // 6단계: 모든 블록들(연결된 블록 + occupyingBlocks)에 일관된 colSpan 적용
+    const movedBlock = {
+      ...draggedBlock,
+      row: adjustedTargetRow,
+      colStart: blockColSpans.get(draggedBlock.id)!.colStart,
+      colSpan: blockColSpans.get(draggedBlock.id)!.colSpan
+    };
+
+    // occupyingBlocks에 있는 모든 블록 ID 수집
+    const occupyingBlockIds = new Set(occupyingBlocks.map(b => b.id));
+
+    // 연결된 블록 + occupyingBlocks의 합집합
+    const allAffectedIds = new Set([...connectedBlockIds, ...occupyingBlockIds]);
+
+    // 모든 영향받는 블록 업데이트
+    const updatedAffectedBlocks = updatedBlocks
+      .filter(b => allAffectedIds.has(b.id))
+      .map(block => {
+        const assignment = blockColSpans.get(block.id);
+        if (assignment) {
+          return {
+            ...block,
+            colStart: assignment.colStart,
+            colSpan: assignment.colSpan
+          };
+        }
+        return block;
+      });
+
+    // 7단계: finalBlocks 구성
+    const finalBlocks = [
+      ...updatedBlocks.filter(b => !allAffectedIds.has(b.id)),
+      ...updatedAffectedBlocks,
+      movedBlock
+    ];
 
     console.log(`✅ 멀티행 블록 배치 완료 - 최종: row=${movedBlock.row}, colStart=${movedBlock.colStart}, colSpan=${movedBlock.colSpan}`);
 
