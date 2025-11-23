@@ -16,6 +16,16 @@ export const getRowBlocks = (blockPositions: BlockPosition[], row: number): Bloc
     .sort((a, b) => a.colStart - b.colStart);
 };
 
+// 특정 행을 차지하고 있는 모든 블록 가져오기 (위 행에서 시작해서 여러 행을 차지하는 블록 포함)
+export const getBlocksOccupyingRow = (blockPositions: BlockPosition[], row: number): BlockPosition[] => {
+  return blockPositions.filter(b => {
+    const blockRows = calculateRows(b.height || ROW_HEIGHT);
+    const blockEndRow = b.row + blockRows - 1;
+    // 블록이 시작하는 행 <= row <= 블록이 끝나는 행
+    return b.row <= row && row <= blockEndRow;
+  }).sort((a, b) => a.colStart - b.colStart);
+};
+
 // 전체 행 배열 생성 (블록이 차지하는 모든 행 포함)
 export const getAllRows = (blockPositions: BlockPosition[]): number[] => {
   if (blockPositions.length === 0) return [];
@@ -342,127 +352,144 @@ export const moveBlockToRow = (
     position
   });
 
-  // 드래그한 블록을 원래 행에서 제거
-  let updatedBlocks = blocks.filter(b => b.id !== draggedBlock.id);
-
-  // 원래 행의 블록들 재정렬
-  const originalRowBlocks = getRowBlocks(updatedBlocks, draggedBlock.row);
-  let rowShiftAmount = 0;
-
-  if (originalRowBlocks.length > 0) {
-    updatedBlocks = redistributeRow(updatedBlocks, draggedBlock.row, draggedBlock);
-  } else {
-    // 원래 행이 비었으면 아래 행들을 올림
-    updatedBlocks = updatedBlocks.map(b => {
-      if (b.row > draggedBlock.row) {
-        return { ...b, row: b.row - 1 };
-      }
-      return b;
-    });
-
-    // 타겟이 드래그한 블록 아래에 있었으면 행이 1칸 올라감
-    if (targetBlock.row > draggedBlock.row) {
-      rowShiftAmount = 1;
-    }
-  }
-
-  // 조정된 타겟 블록 찾기
-  const adjustedTargetBlock = updatedBlocks.find(b => b.id === targetBlock.id) || targetBlock;
-
-  console.log('🔍 타겟 블록 조정 전후:', {
-    original: { id: targetBlock.id, row: targetBlock.row, height: targetBlock.height },
-    adjusted: { id: adjustedTargetBlock.id, row: adjustedTargetBlock.row, height: adjustedTargetBlock.height },
-    found: updatedBlocks.find(b => b.id === targetBlock.id) ? 'YES' : 'NO'
-  });
-
-  // 새 행 계산
-  let newRow: number;
+  // ===== STEP 1: 목표 행 결정 (블록 제거 전에 계산) =====
+  let destinationRow: number;
 
   if (position === 'above') {
-    // above: 타겟 블록이 시작하는 행
-    newRow = adjustedTargetBlock.row;
+    destinationRow = targetBlock.row;
   } else {
-    // below: 타겟 블록의 열 범위에서 비어있는 가장 가까운 행 찾기
-    const targetColStart = adjustedTargetBlock.colStart;
-    const targetColEnd = adjustedTargetBlock.colStart + adjustedTargetBlock.colSpan;
-
-    // 타겟 블록의 행부터 시작해서 비어있는 행 찾기
-    let candidateRow = adjustedTargetBlock.row + 1;
-
-    // 해당 열 범위에 블록이 있는지 확인하는 함수
-    const hasBlockInColumnRange = (row: number): boolean => {
-      return updatedBlocks.some(b => {
-        // 블록이 차지하는 행 범위 계산
-        const blockRows = Math.ceil(b.height / 140);
-        const blockStartRow = b.row;
-        const blockEndRow = b.row + blockRows - 1;
-
-        // 체크하려는 행이 블록의 행 범위에 포함되는지 확인
-        if (row < blockStartRow || row > blockEndRow) return false;
-
-        const bColEnd = b.colStart + b.colSpan;
-        // 열이 겹치는지 확인
-        return targetColStart < bColEnd && targetColEnd > b.colStart;
-      });
-    };
-
-    // 비어있는 행을 찾을 때까지 계속 확인
-    const maxRow = updatedBlocks.length > 0 ? Math.max(...updatedBlocks.map(b => b.row)) : -1;
-    while (candidateRow <= maxRow + 1 && hasBlockInColumnRange(candidateRow)) {
-      candidateRow++;
-    }
-
-    newRow = candidateRow;
+    // 타겟 블록이 차지하는 행 수 계산
+    const targetBlockRows = calculateRows(targetBlock.height || ROW_HEIGHT);
+    const targetBlockLastRow = targetBlock.row + targetBlockRows - 1;
+    destinationRow = targetBlockLastRow + 1;
   }
 
-  // 빈 행을 찾았는지 확인 (블록의 높이를 고려하여 실제 차지하는 마지막 행 계산)
-  const maxExistingRow = updatedBlocks.length > 0
-    ? Math.max(...updatedBlocks.map(b => {
-        const blockRows = Math.ceil(b.height / 140);
-        return b.row + blockRows - 1; // 블록이 차지하는 마지막 행
-      }))
-    : -1;
-  const foundEmptyRow = newRow <= maxExistingRow;
-
-  console.log('📍 조정된 값:', {
-    rowShiftAmount,
-    adjustedTargetRow: adjustedTargetBlock.row,
-    targetBlockHeight: adjustedTargetBlock.height,
-    targetColStart: adjustedTargetBlock.colStart,
-    targetColEnd: adjustedTargetBlock.colStart + adjustedTargetBlock.colSpan,
-    candidateRow: newRow,
-    maxExistingRow,
-    foundEmptyRow: foundEmptyRow ? 'YES (기존 빈 공간)' : 'NO (새 행 생성)',
-    position
+  console.log('🎯 목표 행 결정 (제거 전):', {
+    position,
+    targetBlockRow: targetBlock.row,
+    targetBlockHeight: targetBlock.height,
+    targetBlockRows: calculateRows(targetBlock.height || ROW_HEIGHT),
+    destinationRow
   });
 
-  // 빈 행이 없을 때만 아래 행들을 밀기
-  // 빈 행을 찾았으면 그 자리에 바로 배치
-  if (!foundEmptyRow) {
-    console.log('🔽 새 행 삽입: 기존 행들을 아래로 밀기');
+  // ===== STEP 2: 목표 행의 현재 상태 파악 (블록 제거 전) =====
+  // 드래그 블록을 제외한 상태로 목표 행의 블록들 확인
+  const blocksExcludingDragged = blocks.filter(b => b.id !== draggedBlock.id);
+  const destinationRowBlocks = getBlocksOccupyingRow(blocksExcludingDragged, destinationRow);
+  const usedCols = getTotalColSpan(destinationRowBlocks);
+  const availableCols = GRID_COLS - usedCols;
+
+  console.log('📊 목표 행 분석 (제거 전):', {
+    destinationRow,
+    blocksOccupying: destinationRowBlocks.length,
+    blockDetails: destinationRowBlocks.map(b => ({
+      id: b.id,
+      startRow: b.row,
+      height: b.height,
+      rows: calculateRows(b.height || ROW_HEIGHT),
+      colStart: b.colStart,
+      colSpan: b.colSpan
+    })),
+    usedCols,
+    availableCols
+  });
+
+  // ===== STEP 3: 드래그한 블록 제거 및 원래 행 정리 =====
+  let updatedBlocks = blocksExcludingDragged;
+
+  // 원래 행이 비어있는지 확인
+  const originalRowBlocks = getRowBlocks(updatedBlocks, draggedBlock.row);
+
+  if (originalRowBlocks.length === 0) {
+    // 원래 행이 비었으면 아래 행들을 올림
+    const needsRowShift = draggedBlock.row < destinationRow;
+
+    if (needsRowShift) {
+      updatedBlocks = updatedBlocks.map(b => {
+        if (b.row > draggedBlock.row) {
+          return { ...b, row: b.row - 1 };
+        }
+        return b;
+      });
+      // 목표 행도 조정
+      destinationRow = destinationRow - 1;
+      console.log('📍 빈 행 제거로 목표 행 조정:', destinationRow);
+    }
+  } else if (draggedBlock.row !== targetBlock.row) {
+    // 원래 행에 다른 블록들이 있고, 타겟과 다른 행이면 재정렬
+    updatedBlocks = redistributeRow(updatedBlocks, draggedBlock.row, draggedBlock);
+    console.log('🔄 원래 행 재정렬 완료');
+  }
+
+  // ===== STEP 4: 목표 행의 최종 상태 재확인 =====
+  // 행 이동 후 목표 행의 블록들을 다시 확인
+  const finalDestinationRowBlocks = getBlocksOccupyingRow(updatedBlocks, destinationRow);
+  const finalUsedCols = getTotalColSpan(finalDestinationRowBlocks);
+  const finalAvailableCols = GRID_COLS - finalUsedCols;
+
+  console.log('📊 목표 행 최종 분석:', {
+    destinationRow,
+    blocksOccupying: finalDestinationRowBlocks.length,
+    blockDetails: finalDestinationRowBlocks.map(b => ({
+      id: b.id,
+      colStart: b.colStart,
+      colSpan: b.colSpan
+    })),
+    usedCols: finalUsedCols,
+    availableCols: finalAvailableCols
+  });
+
+  // ===== STEP 5: 블록 배치 =====
+  let movedBlock: BlockPosition;
+
+  if (finalAvailableCols > 0) {
+    // 빈 공간이 있으면 그 공간에 배치
+    console.log('✅ 빈 공간 발견: 목표 행에 배치');
+
+    let emptyColStart = 0;
+    if (finalDestinationRowBlocks.length > 0) {
+      const lastBlock = finalDestinationRowBlocks[finalDestinationRowBlocks.length - 1];
+      emptyColStart = lastBlock.colStart + lastBlock.colSpan;
+    }
+
+    movedBlock = {
+      ...draggedBlock,
+      row: destinationRow,
+      colStart: emptyColStart,
+      colSpan: finalAvailableCols
+    };
+
+    console.log('✅ 새 블록 위치 (빈 공간):', {
+      row: movedBlock.row,
+      colStart: movedBlock.colStart,
+      colSpan: movedBlock.colSpan
+    });
+
+    return [...updatedBlocks, movedBlock];
+  } else {
+    // 목표 행이 꽉 차있으면 새 행 생성
+    console.log('🔽 목표 행 꽉 참: 새 행 생성');
+
     updatedBlocks = updatedBlocks.map(b => {
-      if (b.row >= newRow) {
+      if (b.row >= destinationRow) {
         return { ...b, row: b.row + 1 };
       }
       return b;
     });
-  } else {
-    console.log('✅ 빈 공간 발견: 행을 밀지 않고 바로 배치');
+
+    movedBlock = {
+      ...draggedBlock,
+      row: destinationRow,
+      colStart: 0,
+      colSpan: GRID_COLS
+    };
+
+    console.log('✅ 새 블록 위치 (새 행):', {
+      row: movedBlock.row,
+      colStart: movedBlock.colStart,
+      colSpan: movedBlock.colSpan
+    });
+
+    return [...updatedBlocks, movedBlock];
   }
-
-  // 드래그한 블록을 새 행에 추가 - 조정된 타겟 블록과 같은 열 위치와 크기
-  const movedBlock: BlockPosition = {
-    ...draggedBlock,
-    row: newRow,
-    colStart: adjustedTargetBlock.colStart,
-    colSpan: adjustedTargetBlock.colSpan
-  };
-
-  console.log('✅ 새 블록 위치:', {
-    row: movedBlock.row,
-    colStart: movedBlock.colStart,
-    colSpan: movedBlock.colSpan
-  });
-
-  return [...updatedBlocks, movedBlock];
 };
