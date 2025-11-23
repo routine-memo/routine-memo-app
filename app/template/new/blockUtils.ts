@@ -82,7 +82,7 @@ export const canPlaceBlockAt = (
 export const redistributeRow = (
   blocks: BlockPosition[],
   row: number,
-  insertedBlock: BlockPosition
+  insertedBlock?: BlockPosition
 ): BlockPosition[] => {
   // 해당 행을 차지하는 모든 블록 가져오기 (멀티행 블록 포함)
   const occupyingBlocks = getBlocksOccupyingRow(blocks, row);
@@ -356,51 +356,149 @@ export const moveBlockToRowSide = (
     return null;
   }
 
-  // 5. 새 블록 배치 위치 계산
-  // occupyingBlocks의 순서대로 colStart 정렬된 상태에서 insertIndex 위치에 삽입
-  const blocksInOrder = [
-    ...occupyingBlocks.slice(0, insertIndex),
-    { ...draggedBlock, row: adjustedTargetRow, colStart: 0, colSpan: 0 }, // 임시값
-    ...occupyingBlocks.slice(insertIndex)
-  ];
+  // 5. 멀티행 블록인지 확인
+  const draggedBlockRows = calculateRows(draggedBlock.height || ROW_HEIGHT);
 
-  console.log(`📋 새 순서 (${blocksInOrder.length}개):`, blocksInOrder.map(b => ({ id: b.id, row: b.row })));
+  if (draggedBlockRows > 1) {
+    // 멀티행 블록: 각 차지 행마다 해당 행을 차지하는 블록들과 열 균등 분배
+    console.log(`🔍 멀티행 블록 (${draggedBlockRows}행) 배치 - 각 행별 열 균등 분배 시작`);
 
-  // 6. 열 균등 분배
-  const avgColSpan = Math.floor(GRID_COLS / blocksInOrder.length);
-  const remainder = GRID_COLS % blocksInOrder.length;
+    // 첫 번째 행: insertIndex 위치에 삽입하여 열 균등 분배
+    const blocksInOrder = [
+      ...occupyingBlocks.slice(0, insertIndex),
+      { ...draggedBlock, row: adjustedTargetRow, colStart: 0, colSpan: 1 }, // 임시 작은 값
+      ...occupyingBlocks.slice(insertIndex)
+    ];
 
-  let currentColStart = 0;
-  const redistributedBlocks = blocksInOrder.map((block, index) => {
-    const colSpan = avgColSpan + (index < remainder ? 1 : 0);
+    // 열 균등 분배
+    const avgColSpan = Math.floor(GRID_COLS / blocksInOrder.length);
+    const remainder = GRID_COLS % blocksInOrder.length;
 
-    // 새 블록이면 row를 adjustedTargetRow로 설정
-    // 기존 블록이면 원래 row 유지 (멀티행 블록도 원래 row 유지)
-    const updated = {
-      ...block,
-      row: block.id === draggedBlock.id ? adjustedTargetRow : block.row,
-      colStart: currentColStart,
-      colSpan: colSpan
-    };
-    currentColStart += colSpan;
-    return updated;
-  });
+    let currentColStart = 0;
+    const initialDistribution = blocksInOrder.map((block, index) => {
+      const colSpan = avgColSpan + (index < remainder ? 1 : 0);
+      const updated = {
+        ...block,
+        row: block.id === draggedBlock.id ? adjustedTargetRow : block.row,
+        colStart: currentColStart,
+        colSpan: colSpan
+      };
+      currentColStart += colSpan;
+      return updated;
+    });
 
-  console.log(`🔢 재분배 결과:`, redistributedBlocks.map(b => ({
-    id: b.id,
-    row: b.row,
-    colStart: b.colStart,
-    colSpan: b.colSpan
-  })));
+    // 초기 분배된 블록들을 updatedBlocks에 적용
+    const redistributedIds = new Set(initialDistribution.map(b => b.id));
+    let finalBlocks = [
+      ...updatedBlocks.filter(b => !redistributedIds.has(b.id)),
+      ...initialDistribution
+    ];
 
-  // 7. 전체 블록 배열에 적용
-  // redistributedBlocks에 포함된 블록들의 ID를 제외한 나머지 블록들
-  const redistributedIds = new Set(redistributedBlocks.map(b => b.id));
-  const otherBlocks = updatedBlocks.filter(b => !redistributedIds.has(b.id));
+    // 초기 분배된 블록 중 movedBlock 찾기
+    let movedBlock = initialDistribution.find(b => b.id === draggedBlock.id)!;
 
-  console.log(`✅ 최종 결과: otherBlocks=${otherBlocks.length}개, redistributedBlocks=${redistributedBlocks.length}개`);
+    console.log(`  행 ${adjustedTargetRow} (첫 행): 초기 분배 완료 - colStart=${movedBlock.colStart}, colSpan=${movedBlock.colSpan}`);
 
-  return [...otherBlocks, ...redistributedBlocks];
+    // 나머지 행들(2행부터 마지막 행까지)에 대해 열 균등 분배 수행
+    for (let rowOffset = 1; rowOffset < draggedBlockRows; rowOffset++) {
+      const checkRow = adjustedTargetRow + rowOffset;
+
+      // 해당 행을 차지하는 모든 블록 가져오기 (movedBlock 제외)
+      const rowOccupyingBlocks = getBlocksOccupyingRow(finalBlocks, checkRow).filter(b => b.id !== movedBlock.id);
+
+      console.log(`  행 ${checkRow}: 차지하는 블록 ${rowOccupyingBlocks.length}개 (movedBlock 제외)`);
+
+      if (rowOccupyingBlocks.length > 0) {
+        // 해당 행의 모든 블록들과 movedBlock을 함께 열 균등 분배
+        // movedBlock을 insertIndex 위치에 삽입 (colStart 기준으로 정렬 후)
+        const allBlocksInRow = [...rowOccupyingBlocks, movedBlock].sort((a, b) => a.colStart - b.colStart);
+
+        // 열 균등 분배
+        const rowAvgColSpan = Math.floor(GRID_COLS / allBlocksInRow.length);
+        const rowRemainder = GRID_COLS % allBlocksInRow.length;
+
+        let rowCurrentColStart = 0;
+        const rowDistribution = allBlocksInRow.map((block, index) => {
+          const colSpan = rowAvgColSpan + (index < rowRemainder ? 1 : 0);
+          const updated = {
+            ...block,
+            colStart: rowCurrentColStart,
+            colSpan: colSpan
+          };
+          rowCurrentColStart += colSpan;
+          return updated;
+        });
+
+        console.log(`    행 ${checkRow} 열 균등 분배:`, rowDistribution.map(b => ({
+          id: b.id,
+          colStart: b.colStart,
+          colSpan: b.colSpan
+        })));
+
+        // finalBlocks 업데이트
+        const rowDistributionIds = new Set(rowDistribution.map(b => b.id));
+        finalBlocks = [
+          ...finalBlocks.filter(b => !rowDistributionIds.has(b.id)),
+          ...rowDistribution
+        ];
+
+        // movedBlock 업데이트
+        const redistributedMovedBlock = rowDistribution.find(b => b.id === movedBlock.id);
+        if (redistributedMovedBlock) {
+          movedBlock = redistributedMovedBlock;
+        }
+      }
+    }
+
+    console.log(`✅ 멀티행 블록 배치 완료 - 최종: row=${movedBlock.row}, colStart=${movedBlock.colStart}, colSpan=${movedBlock.colSpan}`);
+
+    return finalBlocks;
+  } else {
+    // 싱글행 블록인 경우 기존 로직 사용 (타겟 행만 재분배)
+    console.log(`📍 싱글행 블록 배치 - 행 ${adjustedTargetRow} 재분배`);
+
+    // occupyingBlocks의 순서대로 colStart 정렬된 상태에서 insertIndex 위치에 삽입
+    const blocksInOrder = [
+      ...occupyingBlocks.slice(0, insertIndex),
+      { ...draggedBlock, row: adjustedTargetRow, colStart: 0, colSpan: 0 }, // 임시값
+      ...occupyingBlocks.slice(insertIndex)
+    ];
+
+    console.log(`📋 새 순서 (${blocksInOrder.length}개):`, blocksInOrder.map(b => ({ id: b.id, row: b.row })));
+
+    // 열 균등 분배
+    const avgColSpan = Math.floor(GRID_COLS / blocksInOrder.length);
+    const remainder = GRID_COLS % blocksInOrder.length;
+
+    let currentColStart = 0;
+    const redistributedBlocks = blocksInOrder.map((block, index) => {
+      const colSpan = avgColSpan + (index < remainder ? 1 : 0);
+
+      // 새 블록이면 row를 adjustedTargetRow로 설정
+      // 기존 블록이면 원래 row 유지 (멀티행 블록도 원래 row 유지)
+      const updated = {
+        ...block,
+        row: block.id === draggedBlock.id ? adjustedTargetRow : block.row,
+        colStart: currentColStart,
+        colSpan: colSpan
+      };
+      currentColStart += colSpan;
+      return updated;
+    });
+
+    console.log(`🔢 재분배 결과:`, redistributedBlocks.map(b => ({
+      id: b.id,
+      row: b.row,
+      colStart: b.colStart,
+      colSpan: b.colSpan
+    })));
+
+    // redistributedBlocks에 포함된 블록들의 ID를 제외한 나머지 블록들
+    const redistributedIds = new Set(redistributedBlocks.map(b => b.id));
+    const otherBlocks = updatedBlocks.filter(b => !redistributedIds.has(b.id));
+
+    return [...otherBlocks, ...redistributedBlocks];
+  }
 };
 
 // 블록을 다른 행으로 이동
@@ -544,42 +642,52 @@ export const moveBlockToRow = (
     }
 
     // 새 행에 블록 배치
-    // 멀티행 블록인 경우, 차지할 모든 행의 사용 가능한 최소 열 수 계산
-    let availableColSpan = GRID_COLS;
-    let colStartPosition = 0;
+    // 멀티행 블록인 경우, 차지할 모든 행에 대해 열 재분배 수행
+    let movedBlock: BlockPosition = {
+      ...draggedBlock,
+      row: destinationRow,
+      colStart: 0,
+      colSpan: GRID_COLS
+    };
 
     if (draggedBlockRows > 1) {
-      console.log(`🔍 멀티행 블록 (${draggedBlockRows}행) 배치 가능 공간 계산:`);
+      console.log(`🔍 멀티행 블록 (${draggedBlockRows}행) 배치 - 각 행별 재분배 시작:`);
 
+      // 임시로 블록을 추가
+      let blocksWithNew = [...updatedBlocks, movedBlock];
+
+      // 차지할 모든 행에 대해 재분배 필요 여부 확인 및 실행
       for (let checkRow = destinationRow; checkRow < destinationRow + draggedBlockRows; checkRow++) {
-        const rowOccupyingBlocks = getBlocksOccupyingRow(updatedBlocks, checkRow);
-        const rowUsedCols = getTotalColSpan(rowOccupyingBlocks);
-        const rowAvailableCols = GRID_COLS - rowUsedCols;
+        const rowOccupyingBlocks = getBlocksOccupyingRow(blocksWithNew, checkRow);
 
-        console.log(`  행 ${checkRow}: 사용 ${rowUsedCols}열, 여유 ${rowAvailableCols}열`);
+        // 새로 추가된 블록 외에 다른 블록이 있는지 확인
+        const otherBlocks = rowOccupyingBlocks.filter(b => b.id !== movedBlock.id);
 
-        if (rowAvailableCols < availableColSpan) {
-          availableColSpan = rowAvailableCols;
+        console.log(`  행 ${checkRow}: 기존 블록 ${otherBlocks.length}개${otherBlocks.length > 0 ? ' → 재분배 실행' : ' → 재분배 불필요'}`);
 
-          // 해당 행에서 블록이 시작할 위치 계산 (기존 블록들 다음)
-          if (rowOccupyingBlocks.length > 0) {
-            const lastBlock = rowOccupyingBlocks[rowOccupyingBlocks.length - 1];
-            colStartPosition = lastBlock.colStart + lastBlock.colSpan;
-          } else {
-            colStartPosition = 0;
+        if (otherBlocks.length > 0) {
+          // 다른 블록이 있으면 재분배
+          blocksWithNew = redistributeRow(blocksWithNew, checkRow);
+
+          // 재분배 후 movedBlock 업데이트
+          const redistributedMovedBlock = blocksWithNew.find(b => b.id === movedBlock.id);
+          if (redistributedMovedBlock) {
+            movedBlock = redistributedMovedBlock;
+            console.log(`    재분배 결과: colStart=${movedBlock.colStart}, colSpan=${movedBlock.colSpan}`);
           }
         }
       }
 
-      console.log(`  → 모든 행의 최소 여유 공간: ${availableColSpan}열, 시작 위치: ${colStartPosition}`);
-    }
+      console.log(`  → 최종 멀티행 블록 배치:`, {
+        row: movedBlock.row,
+        colStart: movedBlock.colStart,
+        colSpan: movedBlock.colSpan,
+        rows: draggedBlockRows
+      });
 
-    const movedBlock: BlockPosition = {
-      ...draggedBlock,
-      row: destinationRow,
-      colStart: colStartPosition,
-      colSpan: availableColSpan
-    };
+      // 재분배가 완료된 blocksWithNew를 updatedBlocks로 업데이트
+      updatedBlocks = blocksWithNew.filter(b => b.id !== movedBlock.id);
+    }
 
     console.log('✅ 새 블록 위치 (새 행):', {
       row: movedBlock.row,
