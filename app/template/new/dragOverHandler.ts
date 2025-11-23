@@ -43,13 +43,11 @@ export const calculateDropPosition = (
     // 첫 번째 행의 상단 threshold
     if (currentRelativeRow === 0 && yInCurrentRow < threshold) {
       position = 'above';
-      secondaryPosition = x < rect.width / 2 ? 'left' : 'right';
       targetRow = undefined; // above/below는 targetRow 불필요
     }
     // 마지막 행의 하단 threshold
     else if (currentRelativeRow === blockRows - 1 && yInCurrentRow > ROW_HEIGHT - threshold) {
       position = 'below';
-      secondaryPosition = x < rect.width / 2 ? 'left' : 'right';
       targetRow = undefined; // above/below는 targetRow 불필요
     }
     // 각 행의 좌/우 영역
@@ -60,10 +58,8 @@ export const calculateDropPosition = (
     // 단일행 블록의 경우 기존 로직 사용
     if (y < threshold) {
       position = 'above';
-      secondaryPosition = x < rect.width / 2 ? 'left' : 'right';
     } else if (y > rect.height - threshold) {
       position = 'below';
-      secondaryPosition = x < rect.width / 2 ? 'left' : 'right';
     } else {
       position = x < rect.width / 2 ? 'left' : 'right';
     }
