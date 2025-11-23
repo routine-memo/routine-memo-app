@@ -457,8 +457,9 @@ export const moveBlockToRow = (
     : -1;
 
   // below 드롭 시: 목표 행에 블록이 있는지 확인 (드래그 중인 블록 제외)
-  const destinationRowStartingBlocks = getRowBlocks(blocksExcludingDragged, destinationRow);
-  const hasBlocksStartingAtDestination = destinationRowStartingBlocks.length > 0;
+  // 목표 행에서 시작하는 블록뿐만 아니라, 목표 행을 차지하는 모든 블록 확인 (멀티행 블록 포함)
+  const destinationRowOccupyingBlocks = getBlocksOccupyingRow(blocksExcludingDragged, destinationRow);
+  const hasBlocksAtDestination = destinationRowOccupyingBlocks.length > 0;
 
   // 드래그 중인 블록이 원래 목표 행에 있었는지 확인
   const draggedBlockWasAtDestination = draggedBlock.row === destinationRow;
@@ -467,14 +468,16 @@ export const moveBlockToRow = (
   // below 드롭의 경우:
   //   - 목표 행에 다른 블록이 있으면 새 행 삽입
   //   - 단, 드래그 중인 블록이 원래 그 행에 있었다면 제외
-  const needNewRowInsertion = position === 'below' && hasBlocksStartingAtDestination && !draggedBlockWasAtDestination;
+  const needNewRowInsertion =
+    (position === 'above') || // above는 항상 새 행 삽입
+    (position === 'below' && hasBlocksAtDestination && !draggedBlockWasAtDestination);
 
   console.log('📊 현재 상태:', {
     destinationRow,
     currentMaxRow,
     position,
-    hasBlocksStartingAtDestination,
-    startingBlocks: destinationRowStartingBlocks.map(b => ({ id: b.id, row: b.row })),
+    hasBlocksAtDestination,
+    occupyingBlocks: destinationRowOccupyingBlocks.map(b => ({ id: b.id, row: b.row })),
     needNewRowInsertion,
     isNewRow: destinationRow > currentMaxRow || needNewRowInsertion
   });
@@ -496,7 +499,7 @@ export const moveBlockToRow = (
         return b;
       });
       // 목표 행도 조정
-      destinationRow = destinationRow - 1;
+      destinationRow = Math.max(0, destinationRow - 1); // 음수 방지
       console.log('📍 빈 행 제거로 목표 행 조정:', destinationRow);
     } else {
       // 원래 행에 블록이 남아있으면 재정렬
@@ -514,28 +517,75 @@ export const moveBlockToRow = (
     }
 
     // 목표 행 이상의 블록들을 아래로 밀기 (새 행 삽입)
+    // 멀티행 블록의 경우 차지하는 행 수만큼 밀어내야 함
+    const draggedBlockRows = calculateRows(draggedBlock.height || ROW_HEIGHT);
     if (needNewRowInsertion) {
-      console.log(`🔽 행 ${destinationRow} 이상의 블록들을 아래로 밀기`);
+      // destinationRow를 차지하는 멀티행 블록이 있으면, 그 블록의 시작 행부터 밀어내야 함
+      const blocksOccupyingDestination = getBlocksOccupyingRow(updatedBlocks, destinationRow);
+      const minRowToShift = blocksOccupyingDestination.length > 0
+        ? Math.min(destinationRow, ...blocksOccupyingDestination.map(b => b.row))
+        : destinationRow;
+
+      console.log(`🔽 행 ${minRowToShift} 이상의 블록들을 ${draggedBlockRows}행만큼 아래로 밀기`, {
+        destinationRow,
+        occupyingBlocks: blocksOccupyingDestination.length,
+        minRowToShift
+      });
+
       updatedBlocks = updatedBlocks.map(b => {
-        if (b.row >= destinationRow) {
-          return { ...b, row: b.row + 1 };
+        if (b.row >= minRowToShift) {
+          return { ...b, row: b.row + draggedBlockRows };
         }
         return b;
       });
+
+      // destinationRow도 조정 (멀티행 블록 때문에 더 위쪽 행부터 밀었으면 destinationRow도 조정)
+      destinationRow = minRowToShift;
     }
 
     // 새 행에 블록 배치
+    // 멀티행 블록인 경우, 차지할 모든 행의 사용 가능한 최소 열 수 계산
+    let availableColSpan = GRID_COLS;
+    let colStartPosition = 0;
+
+    if (draggedBlockRows > 1) {
+      console.log(`🔍 멀티행 블록 (${draggedBlockRows}행) 배치 가능 공간 계산:`);
+
+      for (let checkRow = destinationRow; checkRow < destinationRow + draggedBlockRows; checkRow++) {
+        const rowOccupyingBlocks = getBlocksOccupyingRow(updatedBlocks, checkRow);
+        const rowUsedCols = getTotalColSpan(rowOccupyingBlocks);
+        const rowAvailableCols = GRID_COLS - rowUsedCols;
+
+        console.log(`  행 ${checkRow}: 사용 ${rowUsedCols}열, 여유 ${rowAvailableCols}열`);
+
+        if (rowAvailableCols < availableColSpan) {
+          availableColSpan = rowAvailableCols;
+
+          // 해당 행에서 블록이 시작할 위치 계산 (기존 블록들 다음)
+          if (rowOccupyingBlocks.length > 0) {
+            const lastBlock = rowOccupyingBlocks[rowOccupyingBlocks.length - 1];
+            colStartPosition = lastBlock.colStart + lastBlock.colSpan;
+          } else {
+            colStartPosition = 0;
+          }
+        }
+      }
+
+      console.log(`  → 모든 행의 최소 여유 공간: ${availableColSpan}열, 시작 위치: ${colStartPosition}`);
+    }
+
     const movedBlock: BlockPosition = {
       ...draggedBlock,
       row: destinationRow,
-      colStart: 0,
-      colSpan: GRID_COLS
+      colStart: colStartPosition,
+      colSpan: availableColSpan
     };
 
     console.log('✅ 새 블록 위치 (새 행):', {
       row: movedBlock.row,
       colStart: movedBlock.colStart,
-      colSpan: movedBlock.colSpan
+      colSpan: movedBlock.colSpan,
+      rows: draggedBlockRows
     });
 
     return [...updatedBlocks, movedBlock];
@@ -641,10 +691,43 @@ export const moveBlockToRow = (
     availableCols: finalAvailableCols
   });
 
+  // ===== STEP 5.5: 멀티행 블록의 경우 모든 필요 행 검증 =====
+  const draggedBlockRows = calculateRows(draggedBlock.height || ROW_HEIGHT);
+  let canPlaceInExistingRows = finalAvailableCols > 0;
+
+  if (draggedBlockRows > 1 && canPlaceInExistingRows) {
+    console.log(`🔍 멀티행 블록 검증 (${draggedBlockRows}행 필요):`, {
+      startRow: destinationRow,
+      endRow: destinationRow + draggedBlockRows - 1
+    });
+
+    // 멀티행 블록이 차지할 모든 행을 검증
+    for (let checkRow = destinationRow; checkRow < destinationRow + draggedBlockRows; checkRow++) {
+      const rowOccupyingBlocks = getBlocksOccupyingRow(updatedBlocks, checkRow);
+      const rowUsedCols = getTotalColSpan(rowOccupyingBlocks);
+      const rowAvailableCols = GRID_COLS - rowUsedCols;
+
+      console.log(`  행 ${checkRow}: 사용 ${rowUsedCols}열, 여유 ${rowAvailableCols}열`);
+
+      // 해당 행이 완전히 차있으면 배치 불가
+      if (rowAvailableCols === 0) {
+        console.log(`  ⚠️ 행 ${checkRow}이 꽉 참 → 새 행 삽입 필요`);
+        canPlaceInExistingRows = false;
+        break;
+      }
+    }
+
+    if (canPlaceInExistingRows) {
+      console.log('✅ 모든 필요 행에 공간 있음 → 기존 행에 배치 가능');
+    } else {
+      console.log('❌ 일부 필요 행이 꽉 참 → 새 행 생성 필요');
+    }
+  }
+
   // ===== STEP 6: 블록 배치 =====
   let movedBlock: BlockPosition;
 
-  if (finalAvailableCols > 0) {
+  if (canPlaceInExistingRows) {
     // 빈 공간이 있으면 그 공간에 배치한 후 재분배
     console.log('✅ 빈 공간 발견: 목표 행에 배치 후 재분배');
 
@@ -673,11 +756,12 @@ export const moveBlockToRow = (
     return redistributeRow(blocksWithNew, destinationRow, movedBlock);
   } else {
     // 목표 행이 꽉 차있으면 새 행 생성
-    console.log('🔽 목표 행 꽉 참: 새 행 생성');
+    // 멀티행 블록의 경우 차지하는 행 수만큼 밀어내야 함
+    console.log(`🔽 목표 행 꽉 참: ${draggedBlockRows}행만큼 새 행 생성`);
 
     updatedBlocks = updatedBlocks.map(b => {
       if (b.row >= destinationRow) {
-        return { ...b, row: b.row + 1 };
+        return { ...b, row: b.row + draggedBlockRows };
       }
       return b;
     });
@@ -692,7 +776,8 @@ export const moveBlockToRow = (
     console.log('✅ 새 블록 위치 (새 행):', {
       row: movedBlock.row,
       colStart: movedBlock.colStart,
-      colSpan: movedBlock.colSpan
+      colSpan: movedBlock.colSpan,
+      rowsOccupied: draggedBlockRows
     });
 
     return [...updatedBlocks, movedBlock];
