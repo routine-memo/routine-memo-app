@@ -4,11 +4,12 @@ import { handleWidthResize, handleHeightResize } from '../resizeHandlers';
 
 interface ResizingBlock {
   blockId: string;
-  direction: 'right' | 'bottom';
+  direction: 'left' | 'right' | 'bottom';
   startX: number;
   startY: number;
   startColSpan: number;
   startHeight: number;
+  startColStart: number; // 왼쪽 리사이즈 시 필요
 }
 
 export const useBlockResize = (
@@ -21,7 +22,7 @@ export const useBlockResize = (
   const handleResizeStart = (
     e: React.MouseEvent | React.TouchEvent,
     block: BlockPosition,
-    direction: 'right' | 'bottom'
+    direction: 'left' | 'right' | 'bottom'
   ) => {
     e.stopPropagation();
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
@@ -36,6 +37,7 @@ export const useBlockResize = (
       startY: clientY,
       startColSpan: block.colSpan,
       startHeight: block.height,
+      startColStart: block.colStart,
     });
   };
 
@@ -45,7 +47,7 @@ export const useBlockResize = (
     const block = blockPositions.find(b => b.id === resizingBlock.blockId);
     if (!block) return;
 
-    if (resizingBlock.direction === 'right') {
+    if (resizingBlock.direction === 'right' || resizingBlock.direction === 'left') {
       // 가로 리사이즈: 픽셀 단위 드래그를 열 단위로 변환
       const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
       const delta = clientX - resizingBlock.startX;
@@ -55,8 +57,22 @@ export const useBlockResize = (
       const colDelta = Math.floor(delta / PIXELS_PER_COL);
 
       if (colDelta !== accumulatedDeltaRef.current) {
-        const direction = colDelta > accumulatedDeltaRef.current ? 'increase' : 'decrease';
-        const result = handleWidthResize(block, direction, blockPositions);
+        let direction: 'increase' | 'decrease';
+
+        if (resizingBlock.direction === 'right') {
+          // 오른쪽 리사이즈: 오른쪽으로 드래그 = 증가
+          direction = colDelta > accumulatedDeltaRef.current ? 'increase' : 'decrease';
+        } else {
+          // 왼쪽 리사이즈: 왼쪽으로 드래그 = 증가
+          direction = colDelta < accumulatedDeltaRef.current ? 'increase' : 'decrease';
+        }
+
+        const result = handleWidthResize(
+          block,
+          direction,
+          blockPositions,
+          resizingBlock.direction // 왼쪽/오른쪽 정보 전달
+        );
         if (result) {
           setBlockPositions(result);
           accumulatedDeltaRef.current = colDelta;

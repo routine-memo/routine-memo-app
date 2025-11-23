@@ -18,7 +18,7 @@ interface BlockRendererProps {
   onTouchMove?: (e: React.TouchEvent) => void;
   onTouchEnd?: (e: React.TouchEvent) => void;
   onRemove: () => void;
-  onResizeStart: (e: React.MouseEvent | React.TouchEvent, direction: 'right' | 'bottom') => void;
+  onResizeStart: (e: React.MouseEvent | React.TouchEvent, direction: 'left' | 'right' | 'bottom') => void;
 }
 
 export const BlockRenderer = ({
@@ -71,13 +71,14 @@ export const BlockRenderer = ({
       }
 
       // 리사이즈 영역 체크 (10px 확장)
+      const isLeftEdge = x < 10;
       const isRightEdge = x > rect.width - 10;
       const isBottomEdge = y > rect.height - 10;
 
-      if (isRightEdge || isBottomEdge) {
-        console.log(`📏 리사이즈 영역 터치: ${isRightEdge ? '오른쪽' : '아래쪽'}`);
+      if (isLeftEdge || isRightEdge || isBottomEdge) {
+        const direction = isLeftEdge ? 'left' : (isRightEdge ? 'right' : 'bottom');
+        console.log(`📏 리사이즈 영역 터치: ${direction === 'left' ? '왼쪽' : direction === 'right' ? '오른쪽' : '아래쪽'}`);
         // 리사이즈 처리
-        const direction = isRightEdge ? 'right' : 'bottom';
         const reactEvent = {
           touches: [touch],
           preventDefault: () => {},
@@ -125,11 +126,12 @@ export const BlockRenderer = ({
         const y = touch.clientY - rect.top;
 
         // 리사이즈 영역이나 삭제 버튼 탭은 무시
+        const isLeftEdge = x < 10;
         const isRightEdge = x > rect.width - 10;
         const isBottomEdge = y > rect.height - 10;
         const isDeleteButton = y < 40 && x > rect.width - 40;
 
-        if (isRightEdge || isBottomEdge || isDeleteButton) {
+        if (isLeftEdge || isRightEdge || isBottomEdge || isDeleteButton) {
           console.log('❌ 특수 영역 탭 (리사이즈/삭제 버튼)');
         } else {
           // 블록이 차지하는 행 수 계산
@@ -180,6 +182,15 @@ export const BlockRenderer = ({
   }, [onDragStart, onTouchMove, onTouchEnd, onResizeStart, onRemove]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
+    // 리사이즈 핸들에서 온 이벤트인지 체크
+    const target = e.target as HTMLElement;
+    const isResizeHandle = target.classList.contains('resize-handle');
+
+    if (isResizeHandle) {
+      console.log('🚫 리사이즈 핸들 클릭 - 드래그 타이머 시작 안 함');
+      return;
+    }
+
     mouseDownTimeRef.current = Date.now();
     isDraggingRef.current = false;
     console.log('🖱️ 마우스 다운 - 타이머 시작');
@@ -227,11 +238,12 @@ export const BlockRenderer = ({
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
 
+      const isLeftEdge = x < 10;
       const isRightEdge = x > rect.width - 10;
       const isBottomEdge = y > rect.height - 10;
       const isDeleteButton = y < 40 && x > rect.width - 40;
 
-      if (isRightEdge || isBottomEdge || isDeleteButton) {
+      if (isLeftEdge || isRightEdge || isBottomEdge || isDeleteButton) {
         console.log('❌ 특수 영역 클릭 (리사이즈/삭제 버튼)');
         return;
       }
@@ -317,13 +329,35 @@ export const BlockRenderer = ({
         </button>
       </div>
 
-      {/* 리사이즈 핸들 - 우측 */}
+      {/* 리사이즈 핸들 - 좌측 */}
       <div
-        className="absolute right-0 top-0 bottom-0 w-[10px] cursor-ew-resize hover:bg-gray-400/30 transition-colors z-20"
+        className="resize-handle absolute left-0 top-0 bottom-0 w-[10px] cursor-ew-resize hover:bg-gray-400/30 transition-colors z-20"
         draggable={false}
         onMouseDown={(e) => {
           e.stopPropagation();
           e.preventDefault();
+          onResizeStart(e, 'left');
+        }}
+        onTouchStart={(e) => {
+          e.stopPropagation();
+          onResizeStart(e, 'left');
+        }}
+        onDragStart={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+      />
+      {/* 리사이즈 핸들 - 우측 */}
+      <div
+        className="resize-handle absolute right-0 top-0 bottom-0 w-[10px] cursor-ew-resize hover:bg-gray-400/30 transition-colors z-20"
+        draggable={false}
+        onMouseDown={(e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          onResizeStart(e, 'right');
+        }}
+        onTouchStart={(e) => {
+          e.stopPropagation();
           onResizeStart(e, 'right');
         }}
         onDragStart={(e) => {
@@ -333,7 +367,7 @@ export const BlockRenderer = ({
       />
       {/* 리사이즈 핸들 - 하단 */}
       <div
-        className="absolute bottom-0 left-0 right-0 h-[10px] cursor-ns-resize hover:bg-gray-400/30 transition-colors z-20"
+        className="resize-handle absolute bottom-0 left-0 right-0 h-[10px] cursor-ns-resize hover:bg-gray-400/30 transition-colors z-20"
         draggable={false}
         onMouseDown={(e) => {
           e.stopPropagation();
@@ -347,7 +381,7 @@ export const BlockRenderer = ({
       />
       {/* 리사이즈 핸들 - 우측 하단 모서리 */}
       <div
-        className="absolute right-0 bottom-0 w-[10px] h-[10px] cursor-nwse-resize hover:bg-gray-400/50 transition-colors z-30"
+        className="resize-handle absolute right-0 bottom-0 w-[10px] h-[10px] cursor-nwse-resize hover:bg-gray-400/50 transition-colors z-30"
         draggable={false}
         onMouseDown={(e) => {
           e.stopPropagation();

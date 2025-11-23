@@ -35,6 +35,7 @@ export interface BlockPaletteItem {
 export interface DropTarget {
   blockId: string;
   position: 'above' | 'below' | 'left' | 'right';
+  secondaryPosition?: 'left' | 'right'; // above/below 드롭 시 좌/우 위치 정보
 }
 
 export interface IconMap {

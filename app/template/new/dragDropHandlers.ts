@@ -25,14 +25,24 @@ export const handleDrop = (
     return null;
   }
 
-  const { position } = dropTarget;
+  const { position, secondaryPosition } = dropTarget;
 
-  // 위/아래로 드롭: 새로운 행 생성 (타겟 블록과 같은 열 위치/크기)
+  // 위/아래로 드롭
   if (position === 'above' || position === 'below') {
-    console.log('⬆️⬇️ 새 행 생성:', position);
-    const result = moveBlockToRow(blockPositions, draggedBlock, targetBlock, position);
-    console.log('✅ 결과:', result?.length, '개 블록');
-    return result;
+    console.log('⬆️⬇️ 위/아래 드롭:', position, '| 좌/우:', secondaryPosition);
+
+    // secondaryPosition이 있으면 moveBlockToRowSide 사용
+    if (secondaryPosition) {
+      console.log('💡 좌/우 위치 정보 있음 → moveBlockToRowSide 사용');
+      const result = moveBlockToRowSide(blockPositions, draggedBlock, targetBlock, secondaryPosition);
+      console.log('✅ 결과:', result?.length, '개 블록');
+      return result;
+    } else {
+      // secondaryPosition이 없으면 기존 moveBlockToRow 사용
+      const result = moveBlockToRow(blockPositions, draggedBlock, targetBlock, position);
+      console.log('✅ 결과:', result?.length, '개 블록');
+      return result;
+    }
   }
 
   // 왼쪽/오른쪽으로 드롭
