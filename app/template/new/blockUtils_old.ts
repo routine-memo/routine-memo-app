@@ -44,6 +44,45 @@ export const getTotalColSpan = (blocks: BlockPosition[]): number => {
   return blocks.reduce((sum, block) => sum + block.colSpan, 0);
 };
 
+// 연결된 블록 추적 (멀티행 블록들이 공유하는 모든 행과 블록을 찾음)
+export const findConnectedBlocks = (
+  blocks: BlockPosition[],
+  initialRows: Set<number>
+): { connectedBlockIds: Set<string>; affectedRows: Set<number> } => {
+  const connectedBlockIds = new Set<string>();
+  const rowsToCheck = new Set(initialRows);
+
+  let previousConnectedSize = 0;
+  let previousRowsSize = 0;
+
+  // 재귀적으로 연결된 블록 찾기
+  while (connectedBlockIds.size !== previousConnectedSize || rowsToCheck.size !== previousRowsSize) {
+    previousConnectedSize = connectedBlockIds.size;
+    previousRowsSize = rowsToCheck.size;
+
+    const currentRowsToCheck = Array.from(rowsToCheck);
+    for (const row of currentRowsToCheck) {
+      const blocksOnRow = getBlocksOccupyingRow(blocks, row);
+
+      for (const block of blocksOnRow) {
+        if (!connectedBlockIds.has(block.id)) {
+          connectedBlockIds.add(block.id);
+
+          // 멀티행 블록이면 차지하는 다른 행들도 추가
+          const blockRows = calculateRows(block.height || ROW_HEIGHT);
+          if (blockRows > 1) {
+            for (let i = 0; i < blockRows; i++) {
+              rowsToCheck.add(block.row + i);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return { connectedBlockIds, affectedRows: rowsToCheck };
+};
+
 // 행이 유효한지 검증 (총 열 개수가 GRID_COLS와 일치하는지)
 export const isRowValid = (blocks: BlockPosition[]): boolean => {
   const total = getTotalColSpan(blocks);
@@ -84,101 +123,94 @@ export const redistributeRow = (
   row: number,
   insertedBlock?: BlockPosition
 ): BlockPosition[] => {
-  // 해당 행을 차지하는 모든 블록 가져오기 (멀티행 블록 포함)
-  const occupyingBlocks = getBlocksOccupyingRow(blocks, row);
-  const totalSpan = getTotalColSpan(occupyingBlocks);
+  console.log(`🔄 redistributeRow 시작 - 행 ${row}`);
 
-  console.log(`🔄 redistributeRow - 행 ${row}:`, {
-    occupyingBlocks: occupyingBlocks.length,
-    totalSpan,
-    blocks: occupyingBlocks.map(b => ({ id: b.id, row: b.row, colSpan: b.colSpan, height: b.height }))
+  // 1단계: 해당 행과 연결된 모든 블록 찾기
+  const { connectedBlockIds, affectedRows } = findConnectedBlocks(blocks, new Set([row]));
+
+  console.log(`  연결된 블록: ${connectedBlockIds.size}개`, Array.from(connectedBlockIds));
+  console.log(`  영향받는 행: ${affectedRows.size}개`, Array.from(affectedRows).sort((a, b) => a - b));
+
+  // 2단계: 연결된 블록들을 colStart 순서대로 정렬
+  const connectedBlocks = blocks.filter(b => connectedBlockIds.has(b.id));
+  connectedBlocks.sort((a, b) => {
+    // row가 같으면 colStart로 정렬, 다르면 row로 정렬
+    if (a.row === b.row) return a.colStart - b.colStart;
+    return a.row - b.row;
   });
 
-  // 이미 꽉 찼으면 재정렬 불필요
-  if (totalSpan === GRID_COLS) {
-    console.log('✅ 이미 꽉 참, 재정렬 불필요');
-    return blocks;
-  }
-
-  // 남은 공간 계산
-  const remainingCols = GRID_COLS - totalSpan;
-  console.log(`📏 남은 공간: ${remainingCols}열`);
-
-  // 멀티행 블록의 확장 가능 여부 확인
-  // 각 블록이 차지하는 모든 행에서 확장 가능한지 체크
-  const expandableBlocks = occupyingBlocks.filter(block => {
-    const blockRows = calculateRows(block.height || ROW_HEIGHT);
-
-    // 싱글행 블록은 항상 확장 가능
-    if (blockRows === 1) {
-      return true;
-    }
-
-    // 멀티행 블록: 차지하는 모든 행에서 확장 가능한지 확인
-    for (let i = 0; i < blockRows; i++) {
-      const checkRow = block.row + i;
-      const rowOccupyingBlocks = getBlocksOccupyingRow(blocks, checkRow);
-      const rowTotalSpan = getTotalColSpan(rowOccupyingBlocks);
-
-      // 어느 한 행이라도 꽉 차있으면 확장 불가
-      if (rowTotalSpan >= GRID_COLS) {
-        console.log(`  ⚠️ 멀티행 블록 ${block.id}: 행 ${checkRow}가 꽉 참 (${rowTotalSpan}열) → 확장 불가`);
-        return false;
-      }
-    }
-
-    console.log(`  ✅ 멀티행 블록 ${block.id}: 모든 행에서 확장 가능`);
-    return true;
-  });
-
-  console.log(`🔍 확장 가능한 블록: ${expandableBlocks.length}/${occupyingBlocks.length}개`);
-
-  // 확장 가능한 블록들에게만 남은 공간 분배
-  const blocksToExpand = expandableBlocks.length;
-
-  if (blocksToExpand === 0) {
-    console.log('⚠️ 확장 가능한 블록이 없음 → 재정렬 불필요');
-    return blocks;
-  }
-
-  // 각 블록의 새 colSpan 계산
-  const extraColsPerBlock = Math.floor(remainingCols / blocksToExpand);
-  const extraRemainder = remainingCols % blocksToExpand;
-
-  let currentColStart = 0;
-  let expandedCount = 0;
-
-  const redistributedBlocks = occupyingBlocks.map((block) => {
-    const isExpandable = expandableBlocks.includes(block);
-
-    let newColSpan = block.colSpan;
-    if (isExpandable) {
-      newColSpan = block.colSpan + extraColsPerBlock + (expandedCount < extraRemainder ? 1 : 0);
-      expandedCount++;
-    }
-
-    const newBlock = {
-      ...block,
-      row: block.row,
-      colStart: currentColStart,
-      colSpan: newColSpan
-    };
-    currentColStart += newBlock.colSpan;
-    return newBlock;
-  });
-
-  console.log(`✅ 재분배 완료:`, redistributedBlocks.map(b => ({
+  console.log(`  연결된 블록 (정렬):`, connectedBlocks.map(b => ({
     id: b.id,
+    row: b.row,
     colStart: b.colStart,
-    colSpan: b.colSpan,
-    isMultiRow: calculateRows(b.height || ROW_HEIGHT) > 1
+    colSpan: b.colSpan
   })));
 
-  // 전체 블록 배열에 적용
-  const redistributedIds = new Set(redistributedBlocks.map(b => b.id));
-  const otherBlocks = blocks.filter(b => !redistributedIds.has(b.id));
+  // 3단계: 영향받는 각 행별로 재분배 계산
+  // 모든 연결된 블록들의 colStart/colSpan을 일관되게 유지하면서 재분배
+  const blockAssignments = new Map<string, { colStart: number; colSpan: number }>();
 
-  return [...otherBlocks, ...redistributedBlocks];
+  // 각 행별로 처리
+  for (const affectedRow of Array.from(affectedRows).sort((a, b) => a - b)) {
+    // 해당 행을 차지하는 블록들 (연결된 블록 중에서만)
+    const rowOccupyingBlocks = connectedBlocks.filter(b => {
+      const blockRows = calculateRows(b.height || ROW_HEIGHT);
+      const blockEndRow = b.row + blockRows - 1;
+      return b.row <= affectedRow && affectedRow <= blockEndRow;
+    });
+
+    // 이미 재분배된 블록은 제외
+    const blocksToRedistribute = rowOccupyingBlocks.filter(b => !blockAssignments.has(b.id));
+
+    if (blocksToRedistribute.length === 0) {
+      console.log(`  행 ${affectedRow}: 이미 재분배 완료, 스킵`);
+      continue;
+    }
+
+    // colStart 순으로 정렬
+    blocksToRedistribute.sort((a, b) => a.colStart - b.colStart);
+
+    const totalBlocks = blocksToRedistribute.length;
+    const avgColSpan = Math.floor(GRID_COLS / totalBlocks);
+    const remainder = GRID_COLS % totalBlocks;
+
+    console.log(`  행 ${affectedRow}: ${totalBlocks}개 블록 재분배 (평균 ${avgColSpan}열)`);
+
+    let currentColStart = 0;
+    blocksToRedistribute.forEach((block, index) => {
+      const colSpan = avgColSpan + (index < remainder ? 1 : 0);
+      blockAssignments.set(block.id, { colStart: currentColStart, colSpan });
+      console.log(`    ${block.id}: colStart=${currentColStart}, colSpan=${colSpan}`);
+      currentColStart += colSpan;
+    });
+  }
+
+  // 4단계: 재분배 결과 적용
+  const redistributedBlocks = connectedBlocks.map(block => {
+    const assignment = blockAssignments.get(block.id);
+    if (!assignment) {
+      console.warn(`⚠️ 블록 ${block.id}의 할당 정보 없음 (원본 유지)`);
+      return block;
+    }
+    return {
+      ...block,
+      colStart: assignment.colStart,
+      colSpan: assignment.colSpan
+    };
+  });
+
+  // 5단계: 전체 블록 배열 업데이트
+  const result = blocks.map(b => {
+    if (connectedBlockIds.has(b.id)) {
+      const redistributed = redistributedBlocks.find(rb => rb.id === b.id);
+      return redistributed || b;
+    }
+    return b;
+  });
+
+  console.log(`✅ redistributeRow 완료 - 행 ${row}, ${connectedBlockIds.size}개 블록 재분배`);
+
+  return result;
 };
 
 // 행의 최대 높이 구하기
