@@ -1,7 +1,7 @@
 import { BlockPosition } from '../types';
 import { getRowBlocks, getBlocksOccupyingRow } from './queries';
 import { redistributeRow } from './redistribution';
-import { redistributeBlocksSequentially } from './sequentialRedistribution';
+import { redistributeBlocksSequentially, redistributeAfterRemoval } from './sequentialRedistribution';
 import { calculateRows } from './calculations';
 import { GRID_COLS, ROW_HEIGHT } from './constants';
 
@@ -24,8 +24,19 @@ export const moveBlockToRowSide = (
   const originalRowBlocks = getRowBlocks(updatedBlocks, draggedBlock.row);
   let adjustedTargetRow = effectiveTargetRow;
 
+  // 드래그된 블록이 멀티행인지 확인
+  const draggedBlockRows = calculateRows(draggedBlock.height || ROW_HEIGHT);
+  const isDraggedMultiRow = draggedBlockRows > 1;
+
   if (originalRowBlocks.length > 0) {
-    updatedBlocks = redistributeRow(updatedBlocks, draggedBlock.row, draggedBlock);
+    // 멀티행 블록이었다면 연결된 블록들도 재정렬
+    if (isDraggedMultiRow) {
+      console.log('🔄 멀티행 블록 제거 - 연결된 블록들 재정렬');
+      updatedBlocks = redistributeAfterRemoval(updatedBlocks, draggedBlock.row);
+    } else {
+      // 싱글행 블록은 기존 로직 사용
+      updatedBlocks = redistributeRow(updatedBlocks, draggedBlock.row, draggedBlock);
+    }
   } else {
     // 원래 행이 비었으면 아래 행들을 올림
     updatedBlocks = updatedBlocks.map(b => {
@@ -67,11 +78,8 @@ export const moveBlockToRowSide = (
 
   console.log(`📌 삽입 위치: targetBlock.colStart=${targetBlock.colStart}, position=${position}, insertIndex=${insertIndex}`);
 
-  // 5. 멀티행 블록인지 확인
-  const draggedBlockRows = calculateRows(draggedBlock.height || ROW_HEIGHT);
-
-  // 멀티행 블록의 경우 차지할 모든 행 체크
-  if (draggedBlockRows > 1) {
+  // 5. 멀티행 블록의 경우 차지할 모든 행 체크
+  if (isDraggedMultiRow) {
     console.log(`🔍 멀티행 블록 (${draggedBlockRows}행) 배치 검증 중...`);
 
     // 이 블록이 차지할 모든 행에서 시작하는 블록들 체크

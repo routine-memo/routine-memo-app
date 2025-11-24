@@ -1,5 +1,5 @@
 import { BlockPosition } from '../types';
-import { getBlocksOccupyingRow } from './queries';
+import { getBlocksOccupyingRow, getRowBlocks } from './queries';
 import { calculateRows } from './calculations';
 import { GRID_COLS, ROW_HEIGHT } from './constants';
 import { expandBlocksToFillGaps } from './expansion';
@@ -292,4 +292,186 @@ const categorizeBlocksByPriority = (
   }
 
   return groups;
+};
+
+/**
+ * 블록 제거 후 남은 블록들을 재정렬
+ * (이전 위치에서 연결되어 있던 블록들을 모두 재분배)
+ */
+export const redistributeAfterRemoval = (
+  blocks: BlockPosition[],
+  removedBlockOriginalRow: number
+): BlockPosition[] => {
+  console.log(`\n🔄 블록 제거 후 재정렬 시작 - 제거된 블록의 원래 행: ${removedBlockOriginalRow}`);
+
+  // 제거된 블록이 있던 행에서 시작하는 블록들 찾기
+  const startingBlocks = getRowBlocks(blocks, removedBlockOriginalRow);
+
+  if (startingBlocks.length === 0) {
+    console.log(`  행 ${removedBlockOriginalRow}에 블록 없음 - 재정렬 불필요`);
+    return blocks;
+  }
+
+  console.log(`  행 ${removedBlockOriginalRow}에 ${startingBlocks.length}개 블록 시작`);
+
+  // 이 행에서 시작하는 블록들이 연결된 모든 블록 찾기
+  const connectedBlockIds = new Set<string>();
+  const rowsToCheck = new Set<number>([removedBlockOriginalRow]);
+
+  let previousConnectedSize = 0;
+  let previousRowsSize = 0;
+
+  while (connectedBlockIds.size !== previousConnectedSize || rowsToCheck.size !== previousRowsSize) {
+    previousConnectedSize = connectedBlockIds.size;
+    previousRowsSize = rowsToCheck.size;
+
+    const currentRowsToCheck = Array.from(rowsToCheck);
+    for (const row of currentRowsToCheck) {
+      const blocksOnRow = getBlocksOccupyingRow(blocks, row);
+
+      for (const block of blocksOnRow) {
+        if (!connectedBlockIds.has(block.id)) {
+          connectedBlockIds.add(block.id);
+
+          // 멀티행 블록이면 차지하는 다른 행들도 추가
+          const blockRows = calculateRows(block.height || ROW_HEIGHT);
+          if (blockRows > 1) {
+            for (let i = 0; i < blockRows; i++) {
+              rowsToCheck.add(block.row + i);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  console.log(`  연결된 블록 ID: ${connectedBlockIds.size}개`, Array.from(connectedBlockIds));
+  console.log(`  영향받는 행:`, Array.from(rowsToCheck).sort((a, b) => a - b));
+
+  if (connectedBlockIds.size === 0) {
+    return blocks;
+  }
+
+  // 연결된 블록들만 재정렬
+  const blockAssignments = new Map<string, { colStart: number; colSpan: number }>();
+  const affectedRows = Array.from(rowsToCheck).sort((a, b) => a - b);
+
+  for (const row of affectedRows) {
+    console.log(`\n  행 ${row} 처리:`);
+
+    // 이 행을 직접 차지하는 연결된 블록들
+    const directBlocksInRow = new Set<string>();
+
+    for (const blockId of connectedBlockIds) {
+      const block = blocks.find(b => b.id === blockId);
+      if (!block) continue;
+
+      const blockRows = calculateRows(block.height || ROW_HEIGHT);
+      if (row >= block.row && row < block.row + blockRows) {
+        directBlocksInRow.add(blockId);
+      }
+    }
+
+    console.log(`    직접 차지하는 블록:`, Array.from(directBlocksInRow));
+
+    // 재귀적으로 연결된 블록들 찾기
+    const connectedInRow = new Set<string>(directBlocksInRow);
+    let previousSize = 0;
+
+    while (connectedInRow.size !== previousSize) {
+      previousSize = connectedInRow.size;
+
+      const connectedRows = new Set<number>();
+      for (const blockId of connectedInRow) {
+        const block = blocks.find(b => b.id === blockId);
+        if (!block) continue;
+
+        const blockRows = calculateRows(block.height || ROW_HEIGHT);
+        for (let i = 0; i < blockRows; i++) {
+          connectedRows.add(block.row + i);
+        }
+      }
+
+      for (const connectedRow of connectedRows) {
+        for (const blockId of connectedBlockIds) {
+          const block = blocks.find(b => b.id === blockId);
+          if (!block) continue;
+
+          const blockRows = calculateRows(block.height || ROW_HEIGHT);
+          if (connectedRow >= block.row && connectedRow < block.row + blockRows) {
+            connectedInRow.add(blockId);
+          }
+        }
+      }
+    }
+
+    console.log(`    연결된 모든 블록:`, Array.from(connectedInRow));
+
+    if (directBlocksInRow.size === 0) {
+      console.log(`    직접 차지하는 블록 없음, 스킵`);
+      continue;
+    }
+
+    // 연결된 블록들을 colStart 순으로 정렬
+    const blocksToSort: Array<{ blockId: string; block: BlockPosition }> = [];
+
+    for (const blockId of connectedInRow) {
+      const block = blocks.find(b => b.id === blockId);
+      if (block) {
+        blocksToSort.push({ blockId, block });
+      }
+    }
+
+    blocksToSort.sort((a, b) => {
+      const aCol = blockAssignments.has(a.blockId)
+        ? blockAssignments.get(a.blockId)!.colStart
+        : a.block.colStart;
+      const bCol = blockAssignments.has(b.blockId)
+        ? blockAssignments.get(b.blockId)!.colStart
+        : b.block.colStart;
+      return aCol - bCol;
+    });
+
+    console.log(`    정렬된 블록:`, blocksToSort.map(b => b.blockId));
+
+    // 6열을 균등 분배
+    const totalBlocks = blocksToSort.length;
+    const avgColSpan = Math.floor(GRID_COLS / totalBlocks);
+    const remainder = GRID_COLS % totalBlocks;
+
+    let currentColStart = 0;
+
+    blocksToSort.forEach(({ blockId }, index) => {
+      const colSpan = avgColSpan + (index < remainder ? 1 : 0);
+
+      blockAssignments.set(blockId, {
+        colStart: currentColStart,
+        colSpan: colSpan
+      });
+
+      console.log(`      ${blockId}: colStart=${currentColStart}, colSpan=${colSpan}`);
+
+      currentColStart += colSpan;
+    });
+  }
+
+  // 할당 결과 적용
+  const result = blocks.map(block => {
+    const assignment = blockAssignments.get(block.id);
+    if (assignment) {
+      return {
+        ...block,
+        colStart: assignment.colStart,
+        colSpan: assignment.colSpan
+      };
+    }
+    return block;
+  });
+
+  console.log(`\n✅ 블록 제거 후 재정렬 완료`);
+
+  // 빈 공간 확장
+  const expandedResult = expandBlocksToFillGaps(result);
+
+  return expandedResult;
 };

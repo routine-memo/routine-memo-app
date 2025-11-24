@@ -149,10 +149,16 @@ export const handleHeightResize = (
     let updatedBlocks = blockPositions;
     if (overlappingBlocks.length > 0) {
       console.log('🔻 겹치는 블록들을 아래로 밀기');
-      const affectedBlockIds = new Set(overlappingBlocks.map(b => b.id));
 
+      // 겹치는 블록 중 가장 위에서 시작하는 블록 찾기
+      const topMostRow = Math.min(...overlappingBlocks.map(b => b.row));
+      console.log(`  가장 위 블록의 시작 행: ${topMostRow}`);
+
+      // topMostRow부터 아래에 있는 모든 블록을 1행씩 밀기
       updatedBlocks = blockPositions.map(b => {
-        if (affectedBlockIds.has(b.id)) {
+        if (b.id === blockId) return b; // 리사이즈하는 블록은 제외
+
+        if (b.row >= topMostRow) {
           console.log(`  블록 ${b.id}: ${b.row}행 → ${b.row + 1}행`);
           return { ...b, row: b.row + 1 };
         }
@@ -181,32 +187,25 @@ export const handleHeightResize = (
 
     console.log(`📉 블록 ${blockId} 높이 감소: ${block.height}px → ${newHeight}px (${currentRows}행 → ${newRows}행)`);
 
-    // 2. 밀려난 블록 중 복귀할 블록 찾기
+    // 2. 자유로워진 행 찾기
     const freedRow = block.row + newRows; // 방금 자유로워진 행
     const blockColEnd = block.colStart + block.colSpan;
 
-    // 방금 자유로워진 행 바로 아래에 있는 블록들 중 열이 겹치는 것들 찾기
-    const blocksToReturn = blockPositions.filter(b => {
-      if (b.id === blockId) return false;
-      if (b.row !== freedRow + 1) return false; // 바로 아래 행에 있는 블록만
+    console.log(`🆓 자유로워진 행: ${freedRow}`);
 
-      const bColEnd = b.colStart + b.colSpan;
-      return block.colStart < bColEnd && blockColEnd > b.colStart;
-    });
-
-    console.log(`⬆️ ${freedRow + 1}행에서 ${freedRow}행으로 복귀할 블록:`, blocksToReturn.map(b => b.id));
-
-    // 3. 블록들을 위로 올리고 현재 블록 높이 줄이기
-    const returningBlockIds = new Set(blocksToReturn.map(b => b.id));
-
+    // 3. freedRow보다 아래에 있는 모든 블록들을 1행씩 올리기
+    // (이전에 increase로 밀려난 블록들이 복귀)
     return blockPositions.map(b => {
       if (b.id === blockId) {
         return { ...b, height: newHeight };
       }
-      if (returningBlockIds.has(b.id)) {
+
+      // freedRow보다 아래에 있는 블록은 1행 위로
+      if (b.row > freedRow) {
         console.log(`  블록 ${b.id}: ${b.row}행 → ${b.row - 1}행`);
         return { ...b, row: b.row - 1 };
       }
+
       return b;
     });
   }
