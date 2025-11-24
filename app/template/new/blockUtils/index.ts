@@ -21,6 +21,4 @@ export * from './expansion';
 // Movement operations
 export * from './moveInRow';
 export * from './moveToRowSide';
-
-// Re-export moveBlockToRow from original blockUtils (임시)
-export { moveBlockToRow } from '../blockUtils_old';
+export * from './moveToRow';

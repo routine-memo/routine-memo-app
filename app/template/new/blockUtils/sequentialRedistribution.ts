@@ -213,7 +213,8 @@ export const redistributeBlocksSequentially = (
 };
 
 /**
- * 블록들을 우선순위별로 그룹화
+ * 블록들을 우선순위별로 그룹화 (열 겹침 기준)
+ * 이동한 블록과 실제로 열이 겹치는 블록들만 재정렬 대상으로 포함
  */
 const categorizeBlocksByPriority = (
   blocks: BlockPosition[],
@@ -232,47 +233,89 @@ const categorizeBlocksByPriority = (
   });
   processedIds.add(movedBlock.id);
 
-  // 현재 확인할 블록들 (옮겨진 블록부터 시작)
-  let currentPriority = 1;
-  let currentBlockIds = priority0;
+  // 옮겨진 블록의 위치 정보
+  const movedBlockWithNewPos = { ...movedBlock, row: targetRow };
+  const movedBlockRows = calculateRows(movedBlockWithNewPos.height || ROW_HEIGHT);
+  const movedBlockColEnd = movedBlockWithNewPos.colStart + movedBlockWithNewPos.colSpan;
 
-  // 재귀적으로 연결된 블록들 찾기
+  // 옮겨진 블록이 차지하는 행들
+  const movedBlockOccupiedRows = new Set<number>();
+  for (let i = 0; i < movedBlockRows; i++) {
+    movedBlockOccupiedRows.add(targetRow + i);
+  }
+
+  console.log(`  옮겨진 블록 위치: 행 ${targetRow}, 열 ${movedBlockWithNewPos.colStart}-${movedBlockColEnd}, 행 수: ${movedBlockRows}`);
+
+  // Priority 1: 옮겨진 블록과 행+열이 모두 겹치는 블록들
+  const priority1 = new Set<string>();
+
+  for (const row of movedBlockOccupiedRows) {
+    const blocksOnRow = getBlocksOccupyingRow(blocks, row);
+
+    for (const block of blocksOnRow) {
+      if (processedIds.has(block.id)) continue;
+
+      // 열 겹침 확인
+      const blockColEnd = block.colStart + block.colSpan;
+      const hasColumnOverlap = movedBlockWithNewPos.colStart < blockColEnd &&
+                               movedBlockColEnd > block.colStart;
+
+      if (hasColumnOverlap) {
+        priority1.add(block.id);
+        processedIds.add(block.id);
+        console.log(`    Priority 1: ${block.id} (행 ${block.row}, 열 ${block.colStart}-${blockColEnd}와 겹침)`);
+      }
+    }
+  }
+
+  if (priority1.size > 0) {
+    groups.push({
+      priority: 1,
+      blockIds: priority1,
+      description: '직접 연관 블록 (행+열 겹침)'
+    });
+  }
+
+  // Priority 2 이상: 재귀적으로 연결된 블록들 찾기 (열 겹침 기준)
+  let currentPriority = 2;
+  let currentBlockIds = priority1;
+
   while (currentBlockIds.size > 0) {
     const nextBlockIds = new Set<string>();
 
-    // 현재 우선순위 블록들이 차지하는 모든 행 수집
-    const currentRows = new Set<number>();
-
+    // 현재 우선순위 블록들이 차지하는 행과 열 범위 수집
     for (const blockId of currentBlockIds) {
-      const block = blockId === movedBlock.id
-        ? { ...movedBlock, row: targetRow }
-        : blocks.find(b => b.id === blockId);
+      const currentBlock = blocks.find(b => b.id === blockId);
+      if (!currentBlock) continue;
 
-      if (!block) continue;
+      const currentBlockRows = calculateRows(currentBlock.height || ROW_HEIGHT);
+      const currentBlockColEnd = currentBlock.colStart + currentBlock.colSpan;
 
-      const blockRows = calculateRows(block.height || ROW_HEIGHT);
-      for (let i = 0; i < blockRows; i++) {
-        currentRows.add(block.row + i);
-      }
-    }
+      // 이 블록이 차지하는 행들
+      for (let i = 0; i < currentBlockRows; i++) {
+        const row = currentBlock.row + i;
+        const blocksOnRow = getBlocksOccupyingRow(blocks, row);
 
-    // 이 행들을 차지하는 다른 블록들 찾기
-    for (const row of currentRows) {
-      const blocksOnRow = getBlocksOccupyingRow(blocks, row);
+        for (const block of blocksOnRow) {
+          if (processedIds.has(block.id)) continue;
 
-      for (const block of blocksOnRow) {
-        if (!processedIds.has(block.id)) {
-          nextBlockIds.add(block.id);
-          processedIds.add(block.id);
+          // 열 겹침 확인
+          const blockColEnd = block.colStart + block.colSpan;
+          const hasColumnOverlap = currentBlock.colStart < blockColEnd &&
+                                   currentBlockColEnd > block.colStart;
+
+          if (hasColumnOverlap) {
+            nextBlockIds.add(block.id);
+            processedIds.add(block.id);
+            console.log(`    Priority ${currentPriority}: ${block.id} (행 ${block.row}, 열 ${block.colStart}-${blockColEnd})`);
+          }
         }
       }
     }
 
     if (nextBlockIds.size > 0) {
       let description = '';
-      if (currentPriority === 1) {
-        description = '직접 연관 블록';
-      } else if (currentPriority === 2) {
+      if (currentPriority === 2) {
         description = '간접 연관 블록 (1차 간섭)';
       } else {
         description = `${currentPriority - 1}차 간섭 블록`;
