@@ -2,6 +2,7 @@ import { BlockPosition } from '../types';
 import { getBlocksOccupyingRow } from './queries';
 import { calculateRows } from './calculations';
 import { GRID_COLS, ROW_HEIGHT } from './constants';
+import { expandBlocksToFillGaps } from './expansion';
 
 // 블록 그룹 정의 (우선순위별)
 interface BlockGroup {
@@ -205,7 +206,10 @@ export const redistributeBlocksSequentially = (
 
   console.log(`\n✅ 순차적 재정렬 완료 - ${result.length}개 블록`);
 
-  return result;
+  // 4단계: 빈 공간 확장
+  const expandedResult = expandBlocksToFillGaps(result);
+
+  return expandedResult;
 };
 
 /**
