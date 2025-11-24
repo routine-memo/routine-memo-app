@@ -15,6 +15,7 @@ export * from './connectedBlocks';
 
 // Redistribution
 export * from './redistribution';
+export * from './sequentialRedistribution';
 
 // Movement operations
 export * from './moveInRow';

@@ -1,6 +1,7 @@
 import { BlockPosition } from '../types';
 import { getRowBlocks, getBlocksOccupyingRow } from './queries';
 import { redistributeRow } from './redistribution';
+import { redistributeBlocksSequentially } from './sequentialRedistribution';
 import { calculateRows } from './calculations';
 import { GRID_COLS, ROW_HEIGHT } from './constants';
 
@@ -66,172 +67,50 @@ export const moveBlockToRowSide = (
 
   console.log(`📌 삽입 위치: targetBlock.colStart=${targetBlock.colStart}, position=${position}, insertIndex=${insertIndex}`);
 
-  // 한 행에 최대 3개까지만 허용 (해당 행에서 시작하는 블록 기준)
-  const startingBlocks = getRowBlocks(updatedBlocks, adjustedTargetRow);
-  if (startingBlocks.length >= 3) {
-    console.log(`❌ 타겟 행 ${adjustedTargetRow}에 이미 블록 3개 시작`);
-    return null;
-  }
-
   // 5. 멀티행 블록인지 확인
   const draggedBlockRows = calculateRows(draggedBlock.height || ROW_HEIGHT);
 
+  // 멀티행 블록의 경우 차지할 모든 행 체크
   if (draggedBlockRows > 1) {
-    // 멀티행 블록: 연결된 모든 블록들을 추적하여 일관된 열 분배
-    console.log(`🔍 멀티행 블록 (${draggedBlockRows}행) 배치 - 연결된 블록 그룹 추적 시작`);
+    console.log(`🔍 멀티행 블록 (${draggedBlockRows}행) 배치 검증 중...`);
 
-    // 1단계: 드롭한 블록이 차지할 모든 행 수집
-    const movedBlockRows = new Set<number>();
+    // 이 블록이 차지할 모든 행에서 시작하는 블록들 체크
     for (let i = 0; i < draggedBlockRows; i++) {
-      movedBlockRows.add(adjustedTargetRow + i);
-    }
-    console.log(`  드롭 블록이 차지할 행:`, Array.from(movedBlockRows));
+      const checkRow = adjustedTargetRow + i;
+      const startingBlocksInRow = getRowBlocks(updatedBlocks, checkRow);
 
-    // 2단계: 연결된 모든 블록들을 재귀적으로 수집
-    const connectedBlockIds = new Set<string>();
-    const rowsToCheck = new Set(movedBlockRows);
+      console.log(`  행 ${checkRow}: ${startingBlocksInRow.length}개 블록 시작`);
 
-    // 재귀적으로 연결된 블록들 찾기
-    let previousConnectedSize = 0;
-    let previousRowsSize = 0;
-
-    while (connectedBlockIds.size !== previousConnectedSize || rowsToCheck.size !== previousRowsSize) {
-      previousConnectedSize = connectedBlockIds.size;
-      previousRowsSize = rowsToCheck.size;
-
-      const currentRowsToCheck = Array.from(rowsToCheck);
-      for (const row of currentRowsToCheck) {
-        const blocksOnRow = getBlocksOccupyingRow(updatedBlocks, row);
-
-        for (const block of blocksOnRow) {
-          if (!connectedBlockIds.has(block.id)) {
-            connectedBlockIds.add(block.id);
-            console.log(`    블록 ${block.id} 추가 (행 ${block.row}에서 발견)`);
-
-            // 이 블록이 멀티행이면, 차지하는 다른 행들도 추가
-            const blockRows = calculateRows(block.height || ROW_HEIGHT);
-            if (blockRows > 1) {
-              for (let i = 0; i < blockRows; i++) {
-                const newRow = block.row + i;
-                if (!rowsToCheck.has(newRow)) {
-                  rowsToCheck.add(newRow);
-                  console.log(`      → 행 ${newRow} 추가 (블록이 ${blockRows}행 차지)`);
-                }
-              }
-            }
-          }
-        }
+      // 각 행마다 최대 3개까지만 허용
+      if (startingBlocksInRow.length >= 3) {
+        console.log(`❌ 행 ${checkRow}에 이미 블록 3개 시작, 배치 불가`);
+        return null;
       }
     }
 
-    console.log(`  연결된 블록 ID:`, Array.from(connectedBlockIds));
-    console.log(`  영향받는 행:`, Array.from(rowsToCheck).sort((a, b) => a - b));
+    // 순차적 재정렬 로직 사용
+    console.log(`✅ 모든 행 검증 통과, 순차적 재정렬 시작`);
 
-    // 3단계: 연결된 모든 블록을 colStart 순서대로 정렬하여 순서 결정
-    // 중요: 타겟 행에만 있는 블록이 아니라, 연결된 모든 블록을 포함해야 함
-    const connectedBlocks = updatedBlocks.filter(b => connectedBlockIds.has(b.id));
+    // 순차적 재정렬 함수 호출
+    const finalBlocks = redistributeBlocksSequentially(
+      updatedBlocks,
+      draggedBlock,
+      adjustedTargetRow
+    );
 
-    // colStart로 정렬 (왼쪽부터 오른쪽 순서)
-    connectedBlocks.sort((a, b) => a.colStart - b.colStart);
-
-    console.log(`  연결된 블록들 (정렬됨):`, connectedBlocks.map(b => ({
-      id: b.id,
-      row: b.row,
-      colStart: b.colStart,
-      colSpan: b.colSpan
-    })));
-
-    // 드롭되는 블록을 insertIndex 위치에 삽입
-    // insertIndex는 occupyingBlocks 기준이므로, 연결된 블록들 중에서 타겟 블록의 위치를 찾아야 함
-    const targetBlockIndexInConnected = connectedBlocks.findIndex(b => b.id === targetBlock.id);
-
-    let finalInsertIndex: number;
-    if (targetBlockIndexInConnected === -1) {
-      // 타겟 블록이 연결된 블록에 없으면 (이론상 불가능) 맨 끝에 추가
-      finalInsertIndex = connectedBlocks.length;
-    } else {
-      // position이 'left'면 타겟 앞에, 'right'면 타겟 뒤에
-      finalInsertIndex = position === 'left' ? targetBlockIndexInConnected : targetBlockIndexInConnected + 1;
-    }
-
-    console.log(`  드롭 블록 삽입 위치: ${finalInsertIndex} (타겟 블록 인덱스: ${targetBlockIndexInConnected}, position: ${position})`);
-
-    const blocksInOrder = [
-      ...connectedBlocks.slice(0, finalInsertIndex),
-      { ...draggedBlock, row: adjustedTargetRow, colStart: 0, colSpan: 1 }, // 임시값
-      ...connectedBlocks.slice(finalInsertIndex)
-    ];
-
-    // 4단계: 열 균등 분배 계산
-    const totalBlocksInFirstRow = blocksInOrder.length;
-    const avgColSpan = Math.floor(GRID_COLS / totalBlocksInFirstRow);
-    const remainder = GRID_COLS % totalBlocksInFirstRow;
-
-    console.log(`  전체 연결된 블록 수: ${totalBlocksInFirstRow}, 평균 colSpan: ${avgColSpan}`);
-
-    // 5단계: 모든 블록에 colSpan 할당
-    // blocksInOrder에는 이미 연결된 모든 블록이 포함되어 있으므로, 순서대로 열 할당만 하면 됨
-    let currentColStart = 0;
-    const blockColSpans = new Map<string, { colStart: number; colSpan: number }>();
-
-    // 연결된 모든 블록들 순서대로 열 할당
-    blocksInOrder.forEach((block, index) => {
-      const colSpan = avgColSpan + (index < remainder ? 1 : 0);
-      blockColSpans.set(block.id, {
-        colStart: currentColStart,
-        colSpan: colSpan
-      });
-      currentColStart += colSpan;
-    });
-
-    console.log(`  블록별 열 할당:`, Array.from(blockColSpans.entries()).map(([id, { colStart, colSpan }]) => ({
-      id,
-      colStart,
-      colSpan
-    })));
-
-    // 6단계: 모든 블록들(연결된 블록 + occupyingBlocks)에 일관된 colSpan 적용
-    const movedBlock = {
-      ...draggedBlock,
-      row: adjustedTargetRow,
-      colStart: blockColSpans.get(draggedBlock.id)!.colStart,
-      colSpan: blockColSpans.get(draggedBlock.id)!.colSpan
-    };
-
-    // occupyingBlocks에 있는 모든 블록 ID 수집
-    const occupyingBlockIds = new Set(occupyingBlocks.map(b => b.id));
-
-    // 연결된 블록 + occupyingBlocks의 합집합
-    const allAffectedIds = new Set([...connectedBlockIds, ...occupyingBlockIds]);
-
-    // 모든 영향받는 블록 업데이트
-    const updatedAffectedBlocks = updatedBlocks
-      .filter(b => allAffectedIds.has(b.id))
-      .map(block => {
-        const assignment = blockColSpans.get(block.id);
-        if (assignment) {
-          return {
-            ...block,
-            colStart: assignment.colStart,
-            colSpan: assignment.colSpan
-          };
-        }
-        return block;
-      });
-
-    // 7단계: finalBlocks 구성
-    const finalBlocks = [
-      ...updatedBlocks.filter(b => !allAffectedIds.has(b.id)),
-      ...updatedAffectedBlocks,
-      movedBlock
-    ];
-
-    console.log(`✅ 멀티행 블록 배치 완료 - 최종: row=${movedBlock.row}, colStart=${movedBlock.colStart}, colSpan=${movedBlock.colSpan}`);
+    console.log(`✅ 멀티행 블록 배치 완료`);
 
     return finalBlocks;
   } else {
     // 싱글행 블록인 경우 기존 로직 사용 (타겟 행만 재분배)
     console.log(`📍 싱글행 블록 배치 - 행 ${adjustedTargetRow} 재분배`);
+
+    // 타겟 행에서 시작하는 블록 수 체크
+    const startingBlocks = getRowBlocks(updatedBlocks, adjustedTargetRow);
+    if (startingBlocks.length >= 3) {
+      console.log(`❌ 타겟 행 ${adjustedTargetRow}에 이미 블록 3개 시작`);
+      return null;
+    }
 
     // occupyingBlocks의 순서대로 colStart 정렬된 상태에서 insertIndex 위치에 삽입
     const blocksInOrder = [
