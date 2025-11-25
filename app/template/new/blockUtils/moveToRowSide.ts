@@ -20,29 +20,39 @@ export const moveBlockToRowSide = (
   let updatedBlocks = blocks.filter(b => b.id !== draggedBlock.id);
 
   // 2. 원래 행의 블록들 재정렬
-  const originalRowBlocks = getRowBlocks(updatedBlocks, draggedBlock.row);
-  let adjustedTargetRow = effectiveTargetRow;
-
   // 드래그된 블록이 멀티행인지 확인
   const draggedBlockRows = calculateRows(draggedBlock.height || ROW_HEIGHT);
   const isDraggedMultiRow = draggedBlockRows > 1;
 
-  if (originalRowBlocks.length > 0) {
+  // 드래그된 블록이 차지하는 모든 행에서 시작하는 블록들 확인
+  let hasRemainingBlocks = false;
+  for (let i = 0; i < draggedBlockRows; i++) {
+    const blocksInRow = getRowBlocks(updatedBlocks, draggedBlock.row + i);
+    if (blocksInRow.length > 0) {
+      hasRemainingBlocks = true;
+      break;
+    }
+  }
+
+  let adjustedTargetRow = effectiveTargetRow;
+
+  if (hasRemainingBlocks) {
     // 원래 행의 블록들 재정렬 (열 겹침 고려)
     console.log('🔄 원래 행 재정렬 - 연결된 블록들 재정렬 (열 겹침 고려)');
     updatedBlocks = redistributeAfterRemoval(updatedBlocks, draggedBlock.row);
   } else {
-    // 원래 행이 비었으면 아래 행들을 올림
+    // 모든 행이 비었으면 아래 행들을 올림
+    const lastOccupiedRow = draggedBlock.row + draggedBlockRows - 1;
     updatedBlocks = updatedBlocks.map(b => {
-      if (b.row > draggedBlock.row) {
-        return { ...b, row: b.row - 1 };
+      if (b.row > lastOccupiedRow) {
+        return { ...b, row: b.row - draggedBlockRows };
       }
       return b;
     });
 
-    // 타겟 행이 원래 행보다 아래에 있으면 행 번호가 1 감소
-    if (effectiveTargetRow > draggedBlock.row) {
-      adjustedTargetRow = effectiveTargetRow - 1;
+    // 타겟 행이 원래 행보다 아래에 있으면 행 번호 조정
+    if (effectiveTargetRow > lastOccupiedRow) {
+      adjustedTargetRow = effectiveTargetRow - draggedBlockRows;
       console.log('📍 타겟 행 조정:', effectiveTargetRow, '→', adjustedTargetRow);
     }
   }
@@ -103,10 +113,12 @@ export const moveBlockToRowSide = (
     console.log(`📍 임시 colStart 계산: ${tempColStart} (정렬 순서용, targetBlock.colStart=${targetBlock.colStart})`);
 
     // 순차적 재정렬 함수 호출
+    // colSpan은 임시로 1로 설정 (충돌 감지용, 실제 분배는 재정렬에서 처리)
     const draggedBlockWithNewPos = {
       ...draggedBlock,
       row: adjustedTargetRow,
-      colStart: tempColStart
+      colStart: tempColStart,
+      colSpan: 1  // 임시값: 순서 정렬용으로만 사용, 실제 열은 재정렬에서 균등 분배
     };
 
     const finalBlocks = redistributeBlocksSequentially(

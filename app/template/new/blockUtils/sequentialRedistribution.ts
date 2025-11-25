@@ -5,17 +5,17 @@ import { GRID_COLS, ROW_HEIGHT } from './constants';
 import { expandBlocksToFillGaps } from './expansion';
 
 /**
- * 충돌 기반 순차 재정렬
- * 1. 옮긴 블록이 기존 블록과 충돌(행+열 겹침) → 밀어냄 → 열 나눠먹기
- * 2. 밀린 블록이 또 다른 블록과 충돌 → 연쇄 밀어냄 → 전체 열 나눠먹기
- * 3. 충돌 없으면 종료
+ * 순차적 충돌 재정렬 (단계별 접근)
+ * 1단계: 이동 블럭 + 직접 충돌 블럭들만 열 나눠먹기
+ * 2단계: 1단계에서 밀린 블럭들이 간접 블럭과 충돌하면, 전체 다시 계산
+ * 반복: 더 이상 새로운 충돌이 없을 때까지
  */
 export const redistributeBlocksSequentially = (
   blocks: BlockPosition[],
   movedBlock: BlockPosition,
   targetRow: number
 ): BlockPosition[] => {
-  console.log(`\n🔄 충돌 기반 재정렬 시작`);
+  console.log(`\n🔄 순차적 충돌 재정렬 시작`);
   console.log(`  옮겨진 블록: ${movedBlock.id}, 타겟 행: ${targetRow}`);
   console.log(`  옮겨진 블록의 colStart: ${movedBlock.colStart}, colSpan: ${movedBlock.colSpan}`);
 
@@ -24,14 +24,13 @@ export const redistributeBlocksSequentially = (
 
   // 옮긴 블록 초기 위치 설정
   const movedBlockWithNewPos = { ...movedBlock, row: targetRow };
-  console.log(`  movedBlockWithNewPos의 colStart: ${movedBlockWithNewPos.colStart}`);
 
-  // 충돌 감지 및 재배치
-  const collidedBlocks = new Set<string>([movedBlock.id]);
-  detectAndResolveCollisions(blocks, movedBlockWithNewPos, collidedBlocks, blockAssignments);
+  // 1단계: 이동 블럭과 연결된 모든 블럭 찾기 (직접 + 간접)
+  const allConnectedBlocks = findAllConnectedBlocks(blocks, movedBlockWithNewPos);
+  console.log(`\n📍 연결된 블록 탐색 완료: ${allConnectedBlocks.size}개`, Array.from(allConnectedBlocks));
 
-  // 멀티행 블록 최소 colSpan 적용
-  applyMinColSpanForMultiRowBlocks(blocks, blockAssignments);
+  // 2단계: 연결된 모든 블록들을 한 번에 재분배
+  redistributeCollidedBlocks(blocks, movedBlockWithNewPos, allConnectedBlocks, blockAssignments);
 
   // 할당 결과 적용
   const result = blocks
@@ -62,7 +61,7 @@ export const redistributeBlocksSequentially = (
     result.push(movedBlockWithNewPos);
   }
 
-  console.log(`\n✅ 충돌 기반 재정렬 완료 - ${result.length}개 블록`);
+  console.log(`\n✅ 순차적 충돌 재정렬 완료 - ${result.length}개 블록`);
 
   // 빈 공간 확장
   const expandedResult = expandBlocksToFillGaps(result);
@@ -71,181 +70,121 @@ export const redistributeBlocksSequentially = (
 };
 
 /**
- * 충돌 감지 및 해결 (재귀적)
+ * 이동 블럭과 연결된 모든 블럭 찾기 (직접 충돌 + 간접 충돌)
+ * - 직접 충돌: 이동 블럭과 행+열이 겹치는 블럭
+ * - 간접 충돌: 직접 충돌 블럭과 같은 행을 공유하는 모든 블럭 (열 상관없이)
  */
-function detectAndResolveCollisions(
+function findAllConnectedBlocks(
   blocks: BlockPosition[],
-  triggerBlock: BlockPosition,
-  collidedBlocks: Set<string>,
-  blockAssignments: Map<string, { colStart: number; colSpan: number; row: number }>
-): void {
-  console.log(`\n🔍 충돌 감지: ${triggerBlock.id}`);
+  movedBlock: BlockPosition
+): Set<string> {
+  const connectedBlocks = new Set<string>([movedBlock.id]);
+  const toCheck: BlockPosition[] = [movedBlock];
+  const affectedRows = new Set<number>();
 
-  // 트리거 블록이 차지하는 행들
-  const triggerBlockRows = calculateRows(triggerBlock.height || ROW_HEIGHT);
-  const triggerColEnd = triggerBlock.colStart + triggerBlock.colSpan;
+  console.log(`\n🔍 연결된 블록 탐색 시작: ${movedBlock.id}`);
 
-  // 각 행별로 충돌 체크
-  for (let i = 0; i < triggerBlockRows; i++) {
-    const row = triggerBlock.row + i;
-    console.log(`\n  행 ${row} 처리:`);
+  while (toCheck.length > 0) {
+    const currentBlock = toCheck.shift()!;
+    const currentBlockRows = calculateRows(currentBlock.height || ROW_HEIGHT);
+    const currentColEnd = currentBlock.colStart + currentBlock.colSpan;
 
-    // 이 행에 있는 블록들
-    const blocksOnRow = getBlocksOccupyingRow(blocks, row);
-    console.log(`    행의 블록:`, blocksOnRow.map(b => b.id));
+    console.log(`\n  검사 중: ${currentBlock.id} (행 ${currentBlock.row}~${currentBlock.row + currentBlockRows - 1}, 열 ${currentBlock.colStart}~${currentColEnd})`);
 
-    // 충돌하는 블록들 찾기
-    const collidingBlocks: BlockPosition[] = [];
+    // 이 블럭이 차지하는 모든 행 검사
+    for (let i = 0; i < currentBlockRows; i++) {
+      const row = currentBlock.row + i;
+      affectedRows.add(row);
+      const blocksOnRow = getBlocksOccupyingRow(blocks, row);
 
-    for (const block of blocksOnRow) {
-      if (collidedBlocks.has(block.id)) continue;
+      for (const block of blocksOnRow) {
+        // 이미 확인한 블럭이면 스킵
+        if (connectedBlocks.has(block.id)) continue;
 
-      // 열 겹침 확인
-      const blockColEnd = block.colStart + block.colSpan;
-      const hasColumnOverlap = triggerBlock.colStart < blockColEnd && triggerColEnd > block.colStart;
+        // 열 겹침 확인
+        const blockColEnd = block.colStart + block.colSpan;
+        const hasColumnOverlap = currentBlock.colStart < blockColEnd && currentColEnd > block.colStart;
 
-      if (hasColumnOverlap) {
-        console.log(`    ⚠️  충돌 발견: ${block.id} (열 ${block.colStart}-${blockColEnd})`);
-        collidingBlocks.push(block);
-        collidedBlocks.add(block.id);
-      }
-    }
-
-    if (collidingBlocks.length === 0) {
-      console.log(`    충돌 없음`);
-      continue;
-    }
-
-    // 충돌 해결: 열 나눠먹기
-    console.log(`\n  🔄 충돌 해결: ${collidedBlocks.size}개 블록이 열 나눠먹기`);
-
-    // 이 행에서 충돌한 모든 블록들 (트리거 포함)
-    const allCollidedInRow: BlockPosition[] = [triggerBlock];
-
-    for (const block of blocksOnRow) {
-      if (collidedBlocks.has(block.id) && block.id !== triggerBlock.id) {
-        allCollidedInRow.push(block);
-      }
-    }
-
-    // colStart 기준으로 정렬 (트리거 블록은 현재 위치 기준)
-    allCollidedInRow.sort((a, b) => {
-      let aCol: number;
-      let bCol: number;
-
-      if (a.id === triggerBlock.id) {
-        aCol = triggerBlock.colStart; // 트리거 블록은 새 위치
-      } else {
-        aCol = blockAssignments.has(a.id) ? blockAssignments.get(a.id)!.colStart : a.colStart;
-      }
-
-      if (b.id === triggerBlock.id) {
-        bCol = triggerBlock.colStart; // 트리거 블록은 새 위치
-      } else {
-        bCol = blockAssignments.has(b.id) ? blockAssignments.get(b.id)!.colStart : b.colStart;
-      }
-
-      return aCol - bCol;
-    });
-
-    console.log(`    정렬된 블록:`, allCollidedInRow.map(b => b.id));
-
-    // 이 행에 있는 충돌 블록 개수로 6열 나누기
-    const totalBlocks = allCollidedInRow.length;
-    const avgColSpan = Math.floor(GRID_COLS / totalBlocks);
-    const remainder = GRID_COLS % totalBlocks;
-
-    console.log(`    이 행 ${totalBlocks}개 블록 → 평균 ${avgColSpan}열`);
-
-    // 각 블록에 열 할당
-    let currentColStart = 0;
-    const newAssignments: Array<{ block: BlockPosition; colStart: number; colSpan: number }> = [];
-
-    allCollidedInRow.forEach((block, index) => {
-      const colSpan = avgColSpan + (index < remainder ? 1 : 0);
-
-      newAssignments.push({
-        block,
-        colStart: currentColStart,
-        colSpan
-      });
-
-      blockAssignments.set(block.id, {
-        colStart: currentColStart,
-        colSpan,
-        row: block.row
-      });
-
-      console.log(`      ${block.id}: colStart=${currentColStart}, colSpan=${colSpan}`);
-
-      currentColStart += colSpan;
-    });
-
-    // 밀린 블록들의 2차 충돌 체크
-    for (const { block, colStart, colSpan } of newAssignments) {
-      if (block.id === triggerBlock.id) continue;
-
-      // 원래 위치와 다르면 밀렸다는 의미
-      const originalColStart = block.colStart;
-      if (colStart !== originalColStart) {
-        console.log(`\n  📍 블록 ${block.id}가 밀림: ${originalColStart} → ${colStart}`);
-
-        // 밀린 블록으로 2차 충돌 체크
-        const pushedBlock = { ...block, colStart, colSpan };
-        detectAndResolveCollisions(blocks, pushedBlock, collidedBlocks, blockAssignments);
+        if (hasColumnOverlap) {
+          console.log(`    ⚠️  직접 충돌: ${block.id} (행 ${row}, 열 ${block.colStart}~${blockColEnd})`);
+          connectedBlocks.add(block.id);
+          toCheck.push(block);
+        }
       }
     }
   }
+
+  // 2단계: 영향받는 행에 있는 모든 블럭 추가 (간접 충돌)
+  console.log(`\n🔍 2단계: 영향받는 행 ${Array.from(affectedRows).sort((a, b) => a - b)}에서 간접 블럭 찾기`);
+
+  for (const row of affectedRows) {
+    const blocksOnRow = getBlocksOccupyingRow(blocks, row);
+
+    for (const block of blocksOnRow) {
+      if (!connectedBlocks.has(block.id)) {
+        console.log(`    ⚠️  간접 충돌: ${block.id} (행 ${row}에서 발견, 열 ${block.colStart}~${block.colStart + block.colSpan})`);
+        connectedBlocks.add(block.id);
+      }
+    }
+  }
+
+  console.log(`\n✅ 총 ${connectedBlocks.size}개 연결된 블록:`, Array.from(connectedBlocks));
+  return connectedBlocks;
 }
 
 /**
- * 멀티행 블록 최소 colSpan 적용
+ * 충돌한 블록들을 열로 재분배
  */
-function applyMinColSpanForMultiRowBlocks(
+function redistributeCollidedBlocks(
   blocks: BlockPosition[],
+  movedBlock: BlockPosition,
+  collidedBlocks: Set<string>,
   blockAssignments: Map<string, { colStart: number; colSpan: number; row: number }>
 ): void {
-  console.log(`\n🔧 멀티행 블록 최소값 적용`);
+  console.log(`\n🔄 충돌 블록 재분배: ${collidedBlocks.size}개`);
 
-  // 각 블록별로 여러 행에서 받은 할당 중 최소 colSpan 선택
-  const tempAssignments = new Map<string, Map<number, { colStart: number; colSpan: number }>>();
-
-  for (const [blockId, assignment] of blockAssignments) {
-    if (!tempAssignments.has(blockId)) {
-      tempAssignments.set(blockId, new Map());
+  // 연결된 모든 블록 객체 가져오기
+  const connectedBlockObjs: BlockPosition[] = [];
+  for (const blockId of collidedBlocks) {
+    if (blockId === movedBlock.id) {
+      connectedBlockObjs.push(movedBlock);
+    } else {
+      const block = blocks.find(b => b.id === blockId);
+      if (block) connectedBlockObjs.push(block);
     }
-    tempAssignments.get(blockId)!.set(assignment.row, {
-      colStart: assignment.colStart,
-      colSpan: assignment.colSpan
+  }
+
+  // colStart 기준 정렬 (원래 위치 기준)
+  connectedBlockObjs.sort((a, b) => {
+    const aCol = a.id === movedBlock.id ? movedBlock.colStart : a.colStart;
+    const bCol = b.id === movedBlock.id ? movedBlock.colStart : b.colStart;
+    return aCol - bCol;
+  });
+
+  console.log(`  정렬 순서:`, connectedBlockObjs.map(b => b.id));
+
+  // 전체 블록 수로 6열 균등 분배
+  const totalBlocks = connectedBlockObjs.length;
+  const avgColSpan = Math.floor(GRID_COLS / totalBlocks);
+  const remainder = GRID_COLS % totalBlocks;
+
+  console.log(`  ${totalBlocks}개 블록 → 평균 ${avgColSpan}열, 나머지 ${remainder}`);
+
+  let currentColStart = 0;
+
+  connectedBlockObjs.forEach((block, index) => {
+    const colSpan = avgColSpan + (index < remainder ? 1 : 0);
+
+    blockAssignments.set(block.id, {
+      colStart: currentColStart,
+      colSpan,
+      row: block.row
     });
-  }
 
-  for (const [blockId, rowAssignments] of tempAssignments) {
-    if (rowAssignments.size <= 1) continue;
+    console.log(`    ${block.id}: colStart=${currentColStart}, colSpan=${colSpan}`);
 
-    console.log(`  ${blockId}: ${rowAssignments.size}개 행에서 할당받음`);
-
-    let minColSpan = GRID_COLS;
-    let selectedColStart = 0;
-
-    for (const [row, assignment] of rowAssignments) {
-      console.log(`    행 ${row}: colStart=${assignment.colStart}, colSpan=${assignment.colSpan}`);
-      if (assignment.colSpan < minColSpan) {
-        minColSpan = assignment.colSpan;
-        selectedColStart = assignment.colStart;
-      }
-    }
-
-    const block = blocks.find(b => b.id === blockId);
-    if (block) {
-      blockAssignments.set(blockId, {
-        colStart: selectedColStart,
-        colSpan: minColSpan,
-        row: block.row
-      });
-      console.log(`    → 최종: colStart=${selectedColStart}, colSpan=${minColSpan}`);
-    }
-  }
+    currentColStart += colSpan;
+  });
 }
 
 /**
