@@ -92,11 +92,26 @@ export const moveBlockToRowSide = (
 
     // 순차적 재정렬 로직 사용
     console.log(`✅ 모든 행 검증 통과, 순차적 재정렬 시작`);
+    console.log(`📍 insertIndex=${insertIndex}, position=${position}`);
+
+    // 정렬용 임시 colStart 설정
+    // position에 따라 targetBlock 기준으로 상대적 위치 설정
+    const tempColStart = position === 'left'
+      ? targetBlock.colStart - 0.5  // 타겟보다 살짝 왼쪽
+      : targetBlock.colStart + 0.5; // 타겟보다 살짝 오른쪽
+
+    console.log(`📍 임시 colStart 계산: ${tempColStart} (정렬 순서용, targetBlock.colStart=${targetBlock.colStart})`);
 
     // 순차적 재정렬 함수 호출
+    const draggedBlockWithNewPos = {
+      ...draggedBlock,
+      row: adjustedTargetRow,
+      colStart: tempColStart
+    };
+
     const finalBlocks = redistributeBlocksSequentially(
       updatedBlocks,
-      draggedBlock,
+      draggedBlockWithNewPos,
       adjustedTargetRow
     );
 
