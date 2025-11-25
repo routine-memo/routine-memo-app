@@ -1,5 +1,5 @@
 import { BlockPosition, BlockType } from './types';
-import { getRowBlocks, getTotalColSpan, calculateRows, getBlocksOccupyingRow, redistributeRow } from './blockUtils';
+import { calculateRows, getBlocksOccupyingRow, redistributeAfterRemoval } from './blockUtils';
 
 const GRID_COLS = 6; // 전체 열 개수
 const DEFAULT_COL_SPAN = 2; // 기본 블록 크기 (3단 레이아웃)
@@ -42,42 +42,35 @@ export const deleteBlock = (
   const blockToRemove = blockPositions.find(b => b.id === id);
   if (!blockToRemove) return blockPositions;
 
-  let updatedBlocks = blockPositions.filter(b => b.id !== id);
-
-  // 삭제된 블록이 차지했던 행 수 계산
   const removedBlockRows = calculateRows(blockToRemove.height || ROW_HEIGHT);
-  const removedBlockLastRow = blockToRemove.row + removedBlockRows - 1;
+  const isMultiRow = removedBlockRows > 1;
 
   console.log('🗑️ 블록 삭제:', {
     id: blockToRemove.id,
     startRow: blockToRemove.row,
     rows: removedBlockRows,
-    lastRow: removedBlockLastRow
+    isMultiRow
   });
 
-  // 삭제된 블록이 차지했던 모든 행에 대해 재분배 수행
-  for (let row = blockToRemove.row; row <= removedBlockLastRow; row++) {
-    // 해당 행을 차지하는 모든 블록 찾기 (멀티행 블록 포함)
-    const occupyingBlocks = getBlocksOccupyingRow(updatedBlocks, row);
+  // 블록 제거
+  let updatedBlocks = blockPositions.filter(b => b.id !== id);
 
-    if (occupyingBlocks.length === 0) {
-      // 행이 완전히 비었으면 아래 행들을 올림
-      updatedBlocks = updatedBlocks.map(block => {
-        if (block.row > removedBlockLastRow) {
-          return { ...block, row: block.row - removedBlockRows };
-        }
-        return block;
-      });
-      console.log(`📍 빈 행 ${row} 제거, 아래 블록들 올림`);
-    } else {
-      // 해당 행에 블록이 남아있으면 재분배
-      const totalSpan = getTotalColSpan(occupyingBlocks);
+  // 해당 행을 차지하는 남은 블록 확인
+  const occupyingBlocks = getBlocksOccupyingRow(updatedBlocks, blockToRemove.row);
 
-      if (totalSpan < GRID_COLS) {
-        console.log(`🔄 행 ${row} 재분배 실행 (현재 ${totalSpan}열 → ${GRID_COLS}열)`);
-        updatedBlocks = redistributeRow(updatedBlocks, row, blockToRemove);
+  if (occupyingBlocks.length === 0) {
+    // 행이 완전히 비었으면 아래 행들을 올림
+    console.log(`📍 빈 행 ${blockToRemove.row} 제거, 아래 블록들 올림`);
+    updatedBlocks = updatedBlocks.map(block => {
+      if (block.row > blockToRemove.row) {
+        return { ...block, row: block.row - removedBlockRows };
       }
-    }
+      return block;
+    });
+  } else {
+    // 연결된 블록들 재정렬 (열 겹침 고려)
+    console.log(`🔄 블록 삭제 - 연결된 블록들 재정렬 (열 겹침 고려)`);
+    updatedBlocks = redistributeAfterRemoval(updatedBlocks, blockToRemove.row);
   }
 
   return updatedBlocks;

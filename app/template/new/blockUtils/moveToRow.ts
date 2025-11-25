@@ -1,9 +1,8 @@
 import { BlockPosition } from '../types';
-import { getRowBlocks, getBlocksOccupyingRow } from './queries';
-import { redistributeRow } from './redistribution';
+import { getBlocksOccupyingRow } from './queries';
 import { redistributeBlocksSequentially, redistributeAfterRemoval } from './sequentialRedistribution';
 import { calculateRows } from './calculations';
-import { GRID_COLS, ROW_HEIGHT } from './constants';
+import { ROW_HEIGHT } from './constants';
 
 // 블록을 다른 블록 위/아래로 이동
 export const moveBlockToRow = (
@@ -105,18 +104,9 @@ export const moveBlockToRow = (
       destinationRow = Math.max(0, destinationRow - 1);
       console.log('📍 빈 행 제거로 목표 행 조정:', destinationRow);
     } else {
-      // 원래 행에 블록이 남아있으면 재정렬
+      // 원래 행에 블록이 남아있으면 재정렬 (열 겹침 고려)
       console.log(`🔄 원래 행 재정렬 시작 (새 행 생성): 행 ${draggedBlock.row}에서 재정렬`);
-
-      // 멀티행 블록이었다면 연결된 블록들도 재정렬
-      if (isDraggedMultiRow) {
-        console.log('🔄 멀티행 블록 제거 - 연결된 블록들 재정렬');
-        updatedBlocks = redistributeAfterRemoval(updatedBlocks, draggedBlock.row);
-      } else {
-        // 싱글행 블록은 기존 로직 사용
-        updatedBlocks = redistributeRow(updatedBlocks, draggedBlock.row, draggedBlock);
-      }
-
+      updatedBlocks = redistributeAfterRemoval(updatedBlocks, draggedBlock.row);
       console.log('✅ 원래 행 재정렬 완료 (새 행 생성 케이스)');
     }
 
@@ -193,18 +183,9 @@ export const moveBlockToRow = (
       console.log(`  → 목표 행 조정: ${destinationRow + 1} → ${destinationRow}`);
     }
   } else if (draggedBlock.row !== targetBlock.row) {
-    // 원래 행에 다른 블록들이 있고, 타겟과 다른 행이면 재정렬
+    // 원래 행에 다른 블록들이 있고, 타겟과 다른 행이면 재정렬 (열 겹침 고려)
     console.log(`🔄 원래 행 재정렬 시작 (기존 행): 행 ${draggedBlock.row}에서 재정렬`);
-
-    // 멀티행 블록이었다면 연결된 블록들도 재정렬
-    if (isDraggedMultiRow) {
-      console.log('🔄 멀티행 블록 제거 - 연결된 블록들 재정렬');
-      updatedBlocks = redistributeAfterRemoval(updatedBlocks, draggedBlock.row);
-    } else {
-      // 싱글행 블록은 기존 로직 사용
-      updatedBlocks = redistributeRow(updatedBlocks, draggedBlock.row, draggedBlock);
-    }
-
+    updatedBlocks = redistributeAfterRemoval(updatedBlocks, draggedBlock.row);
     console.log('✅ 원래 행 재정렬 완료 (기존 행 케이스)');
   }
 

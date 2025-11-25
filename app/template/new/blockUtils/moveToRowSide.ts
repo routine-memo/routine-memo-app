@@ -1,6 +1,5 @@
 import { BlockPosition } from '../types';
 import { getRowBlocks, getBlocksOccupyingRow } from './queries';
-import { redistributeRow } from './redistribution';
 import { redistributeBlocksSequentially, redistributeAfterRemoval } from './sequentialRedistribution';
 import { calculateRows } from './calculations';
 import { GRID_COLS, ROW_HEIGHT } from './constants';
@@ -29,14 +28,9 @@ export const moveBlockToRowSide = (
   const isDraggedMultiRow = draggedBlockRows > 1;
 
   if (originalRowBlocks.length > 0) {
-    // 멀티행 블록이었다면 연결된 블록들도 재정렬
-    if (isDraggedMultiRow) {
-      console.log('🔄 멀티행 블록 제거 - 연결된 블록들 재정렬');
-      updatedBlocks = redistributeAfterRemoval(updatedBlocks, draggedBlock.row);
-    } else {
-      // 싱글행 블록은 기존 로직 사용
-      updatedBlocks = redistributeRow(updatedBlocks, draggedBlock.row, draggedBlock);
-    }
+    // 원래 행의 블록들 재정렬 (열 겹침 고려)
+    console.log('🔄 원래 행 재정렬 - 연결된 블록들 재정렬 (열 겹침 고려)');
+    updatedBlocks = redistributeAfterRemoval(updatedBlocks, draggedBlock.row);
   } else {
     // 원래 행이 비었으면 아래 행들을 올림
     updatedBlocks = updatedBlocks.map(b => {
