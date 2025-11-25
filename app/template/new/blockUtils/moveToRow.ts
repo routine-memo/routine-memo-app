@@ -104,12 +104,19 @@ export const moveBlockToRow = (
     console.log(`  싱글행 블록: ${singleRowBlocks.length}개`, singleRowBlocks.map(b => b.id));
 
     if (multiRowBlocks.length > 0) {
-      // 멀티행 블록과 충돌 → 남은 열만 차지
-      console.log('📐 멀티행 블록과 충돌 → 나머지 열만 차지');
+      // 멀티행 블록과 충돌 → 빈 공간 확인 후 판단
+      console.log('📐 멀티행 블록과 충돌 → 빈 공간 확인');
 
       // 멀티행 블록들이 차지하는 열 범위 계산
       const occupiedCols = new Set<number>();
       multiRowBlocks.forEach(b => {
+        for (let col = b.colStart; col < b.colStart + b.colSpan; col++) {
+          occupiedCols.add(col);
+        }
+      });
+
+      // 싱글 블록들이 차지하는 열 추가
+      singleRowBlocks.forEach(b => {
         for (let col = b.colStart; col < b.colStart + b.colSpan; col++) {
           occupiedCols.add(col);
         }
@@ -123,60 +130,146 @@ export const moveBlockToRow = (
         }
       }
 
-      if (availableCols.length === 0) {
-        console.log('❌ 사용 가능한 열이 없음 → 동작 취소');
-        return null;
+      console.log(`  차지된 열: ${Array.from(occupiedCols).sort((a, b) => a - b)}`);
+      console.log(`  사용 가능한 열: ${availableCols.length}개 (${availableCols})`);
+
+      // 빈 공간이 있으면 간접 블록 검증 생략하고 빈 공간만 사용
+      if (availableCols.length > 0) {
+        console.log(`✅ 빈 공간 있음 → 간접 블록 검증 생략, 빈 공간만 사용`);
+
+        // 드래그 블록이 시작하는 행만 체크
+        const startingBlocksInDestRow = getRowBlocks(updatedBlocks, destinationRow);
+        if (startingBlocksInDestRow.length >= 3) {
+          console.log(`❌ 행 ${destinationRow}에 이미 블록 3개 시작, 배치 불가`);
+          return null;
+        }
+
+        // 최소 열 개수 검증 (각 블록은 최소 2열 필요)
+        const totalBlocksInRow = startingBlocksInDestRow.length + 1; // +1 = 드래그 블록
+        const minColsNeeded = totalBlocksInRow * 2;
+        if (GRID_COLS < minColsNeeded) {
+          console.log(`❌ 블록 ${totalBlocksInRow}개가 최소 ${minColsNeeded}열 필요, 현재 ${GRID_COLS}열 → 동작 취소`);
+          return null;
+        }
+      } else {
+        console.log(`🔴 빈 공간 없음 → 간접 블록 포함 검증 필요`);
+
+        // 멀티행 블록들이 차지하는 모든 행 찾기
+        const affectedRows = new Set<number>();
+        multiRowBlocks.forEach(b => {
+          const blockRows = calculateRows(b.height || ROW_HEIGHT);
+          for (let i = 0; i < blockRows; i++) {
+            affectedRows.add(b.row + i);
+          }
+        });
+
+        console.log(`  영향받는 행:`, Array.from(affectedRows).sort((a, b) => a - b));
+
+        // 간접 블록 찾기 (영향받는 행에서 시작하는 모든 블록)
+        const indirectBlocks: BlockPosition[] = [];
+        for (const row of affectedRows) {
+          const blocksStartingInRow = getRowBlocks(updatedBlocks, row);
+          blocksStartingInRow.forEach(b => {
+            if (!multiRowBlocks.some(mb => mb.id === b.id) &&
+                !singleRowBlocks.some(sb => sb.id === b.id) &&
+                !indirectBlocks.some(ib => ib.id === b.id)) {
+              indirectBlocks.push(b);
+            }
+          });
+        }
+
+        console.log(`  간접 블록: ${indirectBlocks.length}개`, indirectBlocks.map(b => b.id));
+
+        // 총 블록 개수 검증 (멀티행 + 간접 + 싱글 + 드래그)
+        const totalBlocks = multiRowBlocks.length + indirectBlocks.length + singleRowBlocks.length + 1;
+        console.log(`  총 블록 개수: ${totalBlocks} (멀티${multiRowBlocks.length} + 간접${indirectBlocks.length} + 싱글${singleRowBlocks.length} + 드래그1)`);
+
+        if (totalBlocks > 3) {
+          console.log(`❌ 한 행에 ${totalBlocks}개 블록 → 동작 취소`);
+          return null;
+        }
       }
 
-      // 드래그 블록을 남은 열에 배치
-      const newColStart = Math.min(...availableCols);
-      const newColSpan = availableCols.length;
-
-      console.log(`  드래그 블록 배치: colStart=${newColStart}, colSpan=${newColSpan}`);
-
-      const newDraggedBlock: BlockPosition = {
-        ...draggedBlock,
-        row: destinationRow,
-        colStart: newColStart,
-        colSpan: newColSpan
-      };
-
-      let finalBlocks = [...updatedBlocks, newDraggedBlock];
-
-      // 싱글 블록들도 있으면 같이 재정렬
+      // 빈 공간이 있을 때만 배치 진행
+      // 싱글 블록들이 있으면 빈 공간을 나눠 먹음
       if (singleRowBlocks.length > 0) {
-        console.log('  싱글 블록들도 함께 재정렬');
-        const blocksToRedistribute = [newDraggedBlock, ...singleRowBlocks];
+        console.log('  싱글 블록들과 함께 빈 공간 균등 분배');
+        const blocksToPlace = [draggedBlock, ...singleRowBlocks];
 
-        // 열 번호 순으로 정렬
-        blocksToRedistribute.sort((a, b) => a.colStart - b.colStart);
+        // 열 번호 순으로 정렬 (원래 위치 기준)
+        blocksToPlace.sort((a, b) => a.colStart - b.colStart);
 
         // 사용 가능한 열에 균등 분배
-        const avgColSpan = Math.floor(availableCols.length / blocksToRedistribute.length);
-        const remainder = availableCols.length % blocksToRedistribute.length;
+        const avgColSpan = Math.floor(availableCols.length / blocksToPlace.length);
+        const remainder = availableCols.length % blocksToPlace.length;
 
         let currentIdx = 0;
-        const redistributed = blocksToRedistribute.map((block, index) => {
+        const placedBlocks = blocksToPlace.map((block, index) => {
           const colSpan = avgColSpan + (index < remainder ? 1 : 0);
           const colStart = availableCols[currentIdx];
           currentIdx += colSpan;
 
           return {
             ...block,
+            row: destinationRow,
             colStart,
             colSpan
           };
         });
 
         // 업데이트
-        finalBlocks = updatedBlocks.filter(b =>
-          !blocksToRedistribute.some(rb => rb.id === b.id)
-        ).concat(redistributed);
-      }
+        let finalBlocks = updatedBlocks.filter(b =>
+          !placedBlocks.some(pb => pb.id === b.id)
+        ).concat(placedBlocks);
 
-      finalBlocks = removeEmptyRows(finalBlocks);
-      console.log('✅ 멀티행 충돌 처리 완료');
-      return finalBlocks;
+        // 드래그 블록도 멀티행이면 하단 블록들을 멀티행 길이만큼 밀어내기
+        if (draggedBlockRows > 1) {
+          console.log(`  드래그 블록도 멀티행 (${draggedBlockRows}행) → 하단 블록 밀어내기`);
+          const rowsToShift = destinationRow + draggedBlockRows;
+          finalBlocks = finalBlocks.map(b => {
+            // 영향받는 행 범위를 벗어난 블록들만 밀어냄
+            if (b.row >= rowsToShift && !placedBlocks.some(pb => pb.id === b.id)) {
+              return { ...b, row: b.row + draggedBlockRows };
+            }
+            return b;
+          });
+        }
+
+        finalBlocks = removeEmptyRows(finalBlocks);
+        console.log('✅ 멀티행 충돌 처리 완료');
+        return finalBlocks;
+      } else {
+        // 싱글 블록 없음 → 드래그 블록만 빈 공간 차지
+        console.log('  싱글 블록 없음 → 드래그 블록만 빈 공간 차지');
+
+        const newColStart = Math.min(...availableCols);
+        const newColSpan = availableCols.length;
+
+        const newDraggedBlock: BlockPosition = {
+          ...draggedBlock,
+          row: destinationRow,
+          colStart: newColStart,
+          colSpan: newColSpan
+        };
+
+        let finalBlocks = [...updatedBlocks, newDraggedBlock];
+
+        // 드래그 블록도 멀티행이면 하단 블록들 밀어내기
+        if (draggedBlockRows > 1) {
+          console.log(`  드래그 블록도 멀티행 (${draggedBlockRows}행) → 하단 블록 밀어내기`);
+          const rowsToShift = destinationRow + draggedBlockRows;
+          finalBlocks = finalBlocks.map(b => {
+            if (b.row >= rowsToShift && b.id !== draggedBlock.id) {
+              return { ...b, row: b.row + draggedBlockRows };
+            }
+            return b;
+          });
+        }
+
+        finalBlocks = removeEmptyRows(finalBlocks);
+        console.log('✅ 멀티행 충돌 처리 완료');
+        return finalBlocks;
+      }
     } else {
       // 싱글행 블록들만 있음 → 밀어내기
       console.log('📍 싱글행 블록들만 충돌 → 밀어내기');
