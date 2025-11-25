@@ -35,3 +35,19 @@ export const canPlaceBlockAt = (
 
   return true;
 };
+
+/**
+ * 최소 열 개수 검증 (각 블록은 최소 2열 필요)
+ * @param totalBlocks 행에 배치될 총 블록 개수
+ * @param gridCols 전체 열 개수 (기본값: GRID_COLS = 6)
+ * @returns 배치 가능 여부와 필요한 최소 열 개수
+ */
+export const validateMinimumColumns = (
+  totalBlocks: number,
+  gridCols: number = GRID_COLS
+): { valid: boolean; minColsNeeded: number } => {
+  const minColsNeeded = totalBlocks * 2;
+  const valid = gridCols >= minColsNeeded;
+
+  return { valid, minColsNeeded };
+};

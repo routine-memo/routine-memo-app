@@ -3,6 +3,7 @@ import { getBlocksOccupyingRow, getRowBlocks } from './queries';
 import { redistributeBlocksSequentially, redistributeAfterRemoval } from './sequentialRedistribution';
 import { calculateRows } from './calculations';
 import { ROW_HEIGHT, GRID_COLS } from './constants';
+import { validateMinimumColumns } from './validation';
 
 // 블록을 다른 블록 위/아래로 이동
 export const moveBlockToRow = (
@@ -146,8 +147,8 @@ export const moveBlockToRow = (
 
         // 최소 열 개수 검증 (각 블록은 최소 2열 필요)
         const totalBlocksInRow = startingBlocksInDestRow.length + 1; // +1 = 드래그 블록
-        const minColsNeeded = totalBlocksInRow * 2;
-        if (GRID_COLS < minColsNeeded) {
+        const { valid, minColsNeeded } = validateMinimumColumns(totalBlocksInRow, GRID_COLS);
+        if (!valid) {
           console.log(`❌ 블록 ${totalBlocksInRow}개가 최소 ${minColsNeeded}열 필요, 현재 ${GRID_COLS}열 → 동작 취소`);
           return null;
         }
@@ -186,6 +187,13 @@ export const moveBlockToRow = (
 
         if (totalBlocks > 3) {
           console.log(`❌ 한 행에 ${totalBlocks}개 블록 → 동작 취소`);
+          return null;
+        }
+
+        // 최소 열 개수 검증
+        const { valid, minColsNeeded } = validateMinimumColumns(totalBlocks, GRID_COLS);
+        if (!valid) {
+          console.log(`❌ 블록 ${totalBlocks}개가 최소 ${minColsNeeded}열 필요, 현재 ${GRID_COLS}열 → 동작 취소`);
           return null;
         }
       }
@@ -279,6 +287,13 @@ export const moveBlockToRow = (
 
       if (totalBlocksInRow > 3) {
         console.log(`❌ 한 행에 ${totalBlocksInRow}개 블록 → 동작 취소`);
+        return null;
+      }
+
+      // 최소 열 개수 검증
+      const { valid, minColsNeeded } = validateMinimumColumns(totalBlocksInRow, GRID_COLS);
+      if (!valid) {
+        console.log(`❌ 블록 ${totalBlocksInRow}개가 최소 ${minColsNeeded}열 필요, 현재 ${GRID_COLS}열 → 동작 취소`);
         return null;
       }
 

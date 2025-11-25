@@ -331,46 +331,66 @@ export const moveBlockToRowSide = (
       }
     }
 
-    // occupyingBlocks의 순서대로 colStart 정렬된 상태에서 insertIndex 위치에 삽입
-    const blocksInOrder = [
-      ...occupyingBlocks.slice(0, insertIndex),
-      { ...draggedBlock, row: adjustedTargetRow, colStart: 0, colSpan: 0 }, // 임시값
-      ...occupyingBlocks.slice(insertIndex)
-    ];
+    // 열 겹침 여부에 따라 다른 처리
+    if (hasColumnOverlapWithExisting) {
+      // 열 겹침 있음 → 순차적 재정렬 (간접 블록 포함)
+      console.log(`✅ 검증 통과, 순차적 재정렬 시작 (간접 블록 포함)`);
+      console.log(`📍 insertIndex=${insertIndex}, position=${position}`);
 
-    console.log(`📋 새 순서 (${blocksInOrder.length}개):`, blocksInOrder.map(b => ({ id: b.id, row: b.row })));
+      const tempColStart = position === 'left'
+        ? targetBlock.colStart - 0.5
+        : targetBlock.colStart + 0.5;
 
-    // 열 균등 분배
-    const avgColSpan = Math.floor(GRID_COLS / blocksInOrder.length);
-    const remainder = GRID_COLS % blocksInOrder.length;
-
-    let currentColStart = 0;
-    const redistributedBlocks = blocksInOrder.map((block, index) => {
-      const colSpan = avgColSpan + (index < remainder ? 1 : 0);
-
-      // 새 블록이면 row를 adjustedTargetRow로 설정
-      // 기존 블록이면 원래 row 유지 (멀티행 블록도 원래 row 유지)
-      const updated = {
-        ...block,
-        row: block.id === draggedBlock.id ? adjustedTargetRow : block.row,
-        colStart: currentColStart,
-        colSpan: colSpan
+      const draggedBlockWithNewPos = {
+        ...draggedBlock,
+        row: adjustedTargetRow,
+        colStart: tempColStart,
+        colSpan: 1
       };
-      currentColStart += colSpan;
-      return updated;
-    });
 
-    console.log(`🔢 재분배 결과:`, redistributedBlocks.map(b => ({
-      id: b.id,
-      row: b.row,
-      colStart: b.colStart,
-      colSpan: b.colSpan
-    })));
+      const finalBlocks = redistributeBlocksSequentially(
+        updatedBlocks,
+        draggedBlockWithNewPos,
+        adjustedTargetRow
+      );
 
-    // redistributedBlocks에 포함된 블록들의 ID를 제외한 나머지 블록들
-    const redistributedIds = new Set(redistributedBlocks.map(b => b.id));
-    const otherBlocks = updatedBlocks.filter(b => !redistributedIds.has(b.id));
+      console.log(`✅ 싱글행 블록 배치 완료`);
+      return finalBlocks;
 
-    return [...otherBlocks, ...redistributedBlocks];
+    } else {
+      // 열 겹침 없음 → 빈 공간에 단순 배치
+      console.log(`✅ 검증 통과, 빈 공간 단순 배치`);
+
+      // insertIndex 기준으로 왼쪽/오른쪽 블록 분리
+      const leftBlocks = sortedOccupyingBlocks.slice(0, insertIndex);
+      const rightBlocks = sortedOccupyingBlocks.slice(insertIndex);
+
+      // 빈 공간 계산
+      const leftMaxCol = leftBlocks.length > 0
+        ? Math.max(...leftBlocks.map(b => b.colStart + b.colSpan - 1))
+        : -1;
+      const rightMinCol = rightBlocks.length > 0
+        ? Math.min(...rightBlocks.map(b => b.colStart))
+        : GRID_COLS;
+
+      const gapStart = leftMaxCol + 1;
+      const gapEnd = rightMinCol - 1;
+      const gapSize = gapEnd - gapStart + 1;
+
+      console.log(`  빈 공간: ${gapStart}~${gapEnd} (${gapSize}열)`);
+
+      // 드래그 블록을 빈 공간에 배치
+      const newBlock = {
+        ...draggedBlock,
+        row: adjustedTargetRow,
+        colStart: gapStart,
+        colSpan: gapSize
+      };
+
+      console.log(`  드래그 블록 배치: colStart=${gapStart}, colSpan=${gapSize}`);
+      console.log(`✅ 싱글행 블록 배치 완료`);
+
+      return [...updatedBlocks, newBlock];
+    }
   }
 };

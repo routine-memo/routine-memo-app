@@ -19,7 +19,8 @@
       "Bash(taskkill //F //PID 28544)",
       "Bash(npx tsc:*)",
       "Skill(claude-self-review-loop)",
-      "Bash(\"c:\\Users\\ghpjj\\OneDrive\\Desktop\\project\\routine-memo\\app\\template\\new\\blockUtils\\moveToRowSide_temp.ts\")"
+      "Bash(\"c:\\Users\\ghpjj\\OneDrive\\Desktop\\project\\routine-memo\\app\\template\\new\\blockUtils\\moveToRowSide_temp.ts\")",
+      "Bash(taskkill:*)"
     ],
     "deny": [],
     "ask": []

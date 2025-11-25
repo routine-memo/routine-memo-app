@@ -38,8 +38,8 @@ export const handleWidthResize = (
       const leftBlock = rowBlocks[blockIndex - 1];
       if (!leftBlock) return null; // 왼쪽 블록이 없으면 증가 불가
 
-      // 왼쪽 블록이 최소 크기(1열)보다 크면 가능
-      if (leftBlock.colSpan <= 1) return null;
+      // 왼쪽 블록이 최소 크기(2열)보다 크면 가능
+      if (leftBlock.colSpan <= 2) return null;
 
       return blockPositions.map(b => {
         if (b.id === block.id) {
@@ -52,7 +52,7 @@ export const handleWidthResize = (
       });
     } else {
       // decrease: 현재 블록의 왼쪽 열을 1개 줄이고 왼쪽 블록에게 주기
-      if (block.colSpan <= 1) return null; // 최소 크기면 감소 불가
+      if (block.colSpan <= 2) return null; // 최소 크기면 감소 불가
 
       const leftBlock = rowBlocks[blockIndex - 1];
       if (!leftBlock) return null; // 왼쪽 블록이 없으면 감소 불가
@@ -75,8 +75,8 @@ export const handleWidthResize = (
       const rightBlock = rowBlocks[blockIndex + 1];
       if (!rightBlock) return null; // 오른쪽 블록이 없으면 증가 불가
 
-      // 오른쪽 블록이 최소 크기(1열)보다 크면 가능
-      if (rightBlock.colSpan <= 1) return null;
+      // 오른쪽 블록이 최소 크기(2열)보다 크면 가능
+      if (rightBlock.colSpan <= 2) return null;
 
       return blockPositions.map(b => {
         if (b.id === block.id) {
@@ -89,7 +89,7 @@ export const handleWidthResize = (
       });
     } else {
       // decrease: 현재 블록의 열을 1개 줄이고 오른쪽 블록에게 주기
-      if (block.colSpan <= 1) return null; // 최소 크기면 감소 불가
+      if (block.colSpan <= 2) return null; // 최소 크기면 감소 불가
 
       const rightBlock = rowBlocks[blockIndex + 1];
       if (!rightBlock) return null; // 오른쪽 블록이 없으면 감소 불가

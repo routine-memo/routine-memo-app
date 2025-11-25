@@ -3,6 +3,7 @@ import { getBlocksOccupyingRow, getRowBlocks } from './queries';
 import { calculateRows } from './calculations';
 import { GRID_COLS, ROW_HEIGHT } from './constants';
 import { expandBlocksToFillGaps } from './expansion';
+import { validateMinimumColumns } from './validation';
 
 /**
  * 순차적 충돌 재정렬 (단계별 접근)
@@ -165,6 +166,15 @@ function redistributeCollidedBlocks(
 
   // 전체 블록 수로 6열 균등 분배
   const totalBlocks = connectedBlockObjs.length;
+
+  // 최소 열 개수 검증
+  const { valid, minColsNeeded } = validateMinimumColumns(totalBlocks, GRID_COLS);
+  if (!valid) {
+    console.log(`❌ 블록 ${totalBlocks}개가 최소 ${minColsNeeded}열 필요, 현재 ${GRID_COLS}열 → 재정렬 불가`);
+    // 재정렬이 불가능하므로 원래 블록 리스트 반환 (변경 없음)
+    return;
+  }
+
   const avgColSpan = Math.floor(GRID_COLS / totalBlocks);
   const remainder = GRID_COLS % totalBlocks;
 
@@ -246,6 +256,14 @@ export const redistributeAfterRemoval = (
 
   // 연결된 블록들만 재정렬 (전체 블록 개수 기준으로 열 나누기)
   const totalBlocks = connectedBlockIds.size;
+
+  // 최소 열 개수 검증
+  const { valid, minColsNeeded } = validateMinimumColumns(totalBlocks, GRID_COLS);
+  if (!valid) {
+    console.log(`❌ 블록 ${totalBlocks}개가 최소 ${minColsNeeded}열 필요, 현재 ${GRID_COLS}열 → 재정렬 불가`);
+    return blocks; // 재정렬 불가능하면 원래 블록 반환
+  }
+
   const avgColSpan = Math.floor(GRID_COLS / totalBlocks);
   const remainder = GRID_COLS % totalBlocks;
 
