@@ -73,18 +73,23 @@ export const redistributeBlocksSequentially = (
 /**
  * 이동 블럭과 연결된 모든 블럭 찾기 (직접 충돌 + 간접 충돌)
  * - 직접 충돌: 이동 블럭과 행+열이 겹치는 블럭
- * - 간접 충돌: 직접 충돌 블럭과 같은 행을 공유하는 모든 블럭 (열 상관없이)
+ * - 간접 충돌: 직접 충돌 블럭과 같은 행을 공유하는 블럭
+ *   단, 간접 블록이 참여하려면:
+ *   1) 직접 블록이 간접 블록, 이동 블록과 행을 공유해야 함
+ *   2) 간접 블록과 이동 블록이 직접 블록의 서로 다른 방향에 맞닿아 있어야 함
  */
 function findAllConnectedBlocks(
   blocks: BlockPosition[],
   movedBlock: BlockPosition
 ): Set<string> {
   const connectedBlocks = new Set<string>([movedBlock.id]);
+  const directBlocks: BlockPosition[] = []; // 직접 충돌 블록들 저장
   const toCheck: BlockPosition[] = [movedBlock];
   const affectedRows = new Set<number>();
 
   console.log(`\n🔍 연결된 블록 탐색 시작: ${movedBlock.id}`);
 
+  // 1단계: 직접 충돌 블록 찾기
   while (toCheck.length > 0) {
     const currentBlock = toCheck.shift()!;
     const currentBlockRows = calculateRows(currentBlock.height || ROW_HEIGHT);
@@ -109,22 +114,59 @@ function findAllConnectedBlocks(
         if (hasColumnOverlap) {
           console.log(`    ⚠️  직접 충돌: ${block.id} (행 ${row}, 열 ${block.colStart}~${blockColEnd})`);
           connectedBlocks.add(block.id);
+          directBlocks.push(block);
           toCheck.push(block);
         }
       }
     }
   }
 
-  // 2단계: 영향받는 행에 있는 모든 블럭 추가 (간접 충돌)
-  console.log(`\n🔍 2단계: 영향받는 행 ${Array.from(affectedRows).sort((a, b) => a - b)}에서 간접 블럭 찾기`);
+  // 2단계: 간접 충돌 블록 찾기 (방향 조건 적용)
+  console.log(`\n🔍 2단계: 영향받는 행 ${Array.from(affectedRows).sort((a, b) => a - b)}에서 간접 블럭 찾기 (방향 조건 적용)`);
+
+  const movedBlockColEnd = movedBlock.colStart + movedBlock.colSpan;
 
   for (const row of affectedRows) {
     const blocksOnRow = getBlocksOccupyingRow(blocks, row);
 
     for (const block of blocksOnRow) {
-      if (!connectedBlocks.has(block.id)) {
-        console.log(`    ⚠️  간접 충돌: ${block.id} (행 ${row}에서 발견, 열 ${block.colStart}~${block.colStart + block.colSpan})`);
+      if (connectedBlocks.has(block.id)) continue;
+
+      const blockColEnd = block.colStart + block.colSpan;
+
+      // 간접 블록 참여 조건 확인
+      // 각 직접 블록에 대해, 이동 블록과 간접 블록이 서로 다른 방향에 맞닿아 있는지 확인
+      let shouldInclude = false;
+
+      for (const directBlock of directBlocks) {
+        const directBlockColEnd = directBlock.colStart + directBlock.colSpan;
+
+        // 이동 블록이 직접 블록의 어느 방향에 맞닿아 있는지
+        const movedOnLeftOfDirect = movedBlockColEnd <= directBlock.colStart + 0.5 && movedBlockColEnd >= directBlock.colStart - 0.5;
+        const movedOnRightOfDirect = movedBlock.colStart >= directBlockColEnd - 0.5 && movedBlock.colStart <= directBlockColEnd + 0.5;
+
+        // 간접 블록이 직접 블록의 어느 방향에 맞닿아 있는지
+        const indirectOnLeftOfDirect = blockColEnd === directBlock.colStart;
+        const indirectOnRightOfDirect = block.colStart === directBlockColEnd;
+
+        console.log(`    검사: 간접=${block.id}, 직접=${directBlock.id}`);
+        console.log(`      이동블록 위치: 직접블록 왼쪽=${movedOnLeftOfDirect}, 오른쪽=${movedOnRightOfDirect}`);
+        console.log(`      간접블록 위치: 직접블록 왼쪽=${indirectOnLeftOfDirect}, 오른쪽=${indirectOnRightOfDirect}`);
+
+        // 서로 다른 방향에 맞닿아 있으면 간접 블록 참여
+        if ((movedOnLeftOfDirect && indirectOnRightOfDirect) ||
+            (movedOnRightOfDirect && indirectOnLeftOfDirect)) {
+          console.log(`      ✅ 방향 조건 충족: 서로 다른 방향에 맞닿음`);
+          shouldInclude = true;
+          break;
+        }
+      }
+
+      if (shouldInclude) {
+        console.log(`    ⚠️  간접 충돌 (참여): ${block.id} (행 ${row}에서 발견, 열 ${block.colStart}~${blockColEnd})`);
         connectedBlocks.add(block.id);
+      } else {
+        console.log(`    ℹ️  간접 블록 제외: ${block.id} (같은 방향에 맞닿음)`);
       }
     }
   }
