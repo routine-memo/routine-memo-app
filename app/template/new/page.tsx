@@ -1,20 +1,15 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Bell } from 'lucide-react';
 import { NotificationSettings } from '@/types/template';
 
 // Import types and utilities
-import { BlockPosition, BlockType, DropTarget, Step } from './types';
+import { BlockPosition, BlockType, Step } from './types';
 import { iconMap } from './iconMap';
-import { blockPalette } from './blockPalette';
-import { getAllRows, getRowBlocks } from './blockUtils';
-import { handleDrop as processDrop } from './dragDropHandlers';
 import { createBlock, deleteBlock } from './blockManagement';
-import { calculateDropPosition } from './dragOverHandler';
-import { useBlockResize } from './hooks/useBlockResize';
-import { BlockRenderer } from './components/BlockRenderer';
+import { GridLayoutBlocks } from './components/GridLayoutBlocks';
 import { BlockPalette } from './components/BlockPalette';
 
 export default function NewTemplatePage() {
@@ -23,14 +18,49 @@ export default function NewTemplatePage() {
   const [templateName, setTemplateName] = useState('');
   const [blockPositions, setBlockPositions] = useState<BlockPosition[]>([]);
   const [showPalette, setShowPalette] = useState(false);
-  const [draggedBlock, setDraggedBlock] = useState<BlockPosition | null>(null);
-  const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
   const [notification, setNotification] = useState<NotificationSettings>({
     enabled: false,
   });
+  const [gridWidth, setGridWidth] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  // Custom hooks
-  const { handleResizeStart } = useBlockResize(blockPositions, setBlockPositions);
+  // 컨테이너 너비 감지 - ref 콜백 + useEffect 조합
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
+
+  const setContainerRef = useCallback((node: HTMLDivElement | null) => {
+    // 이전 observer 정리
+    if (resizeObserverRef.current) {
+      resizeObserverRef.current.disconnect();
+      resizeObserverRef.current = null;
+    }
+
+    // ref를 저장
+    (containerRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+
+    if (!node) return;
+
+    const updateWidth = () => {
+      const width = node.clientWidth;
+      console.log('Grid width updated:', width);
+      setGridWidth(width > 0 ? width : 300);
+    };
+
+    // 즉시 계산
+    updateWidth();
+
+    // ResizeObserver로 크기 변화 감지
+    resizeObserverRef.current = new ResizeObserver(updateWidth);
+    resizeObserverRef.current.observe(node);
+  }, []);
+
+  // cleanup effect
+  useEffect(() => {
+    return () => {
+      if (resizeObserverRef.current) {
+        resizeObserverRef.current.disconnect();
+      }
+    };
+  }, []);
 
   // 블록 추가
   const addBlock = useCallback((type: BlockType) => {
@@ -45,111 +75,10 @@ export default function NewTemplatePage() {
     setBlockPositions(updatedBlocks);
   }, [blockPositions]);
 
-  // 드래그 시작
-  const handleDragStart = useCallback((block: BlockPosition) => {
-    setDraggedBlock(block);
+  // 레이아웃 변경 핸들러 (react-grid-layout에서 호출)
+  const handleLayoutChange = useCallback((updatedBlocks: BlockPosition[]) => {
+    setBlockPositions(updatedBlocks);
   }, []);
-
-  // 터치 무브 (모바일 드래그)
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!draggedBlock) return;
-
-    const touch = e.touches[0];
-
-    // 터치 위치에서 모든 블록 엘리먼트 찾기
-    const elements = document.elementsFromPoint(touch.clientX, touch.clientY);
-    const blockElement = elements.find(el => el.getAttribute('data-block-id'));
-
-    if (!blockElement) {
-      setDropTarget(null);
-      return;
-    }
-
-    const targetBlockId = blockElement.getAttribute('data-block-id');
-    const targetBlock = blockPositions.find(b => b.id === targetBlockId);
-
-    if (!targetBlock || targetBlock.id === draggedBlock.id) {
-      return;
-    }
-
-    // calculateDropPosition 사용 (터치 이벤트를 드래그 이벤트로 변환)
-    const syntheticEvent = {
-      currentTarget: blockElement,
-      clientX: touch.clientX,
-      clientY: touch.clientY,
-      preventDefault: () => {},
-    } as any;
-
-    const target = calculateDropPosition(syntheticEvent, targetBlock, draggedBlock);
-    if (target) {
-      setDropTarget(target);
-    }
-  }, [draggedBlock, blockPositions]);
-
-  // 터치 엔드 (모바일 드롭)
-  const handleTouchEnd = useCallback(() => {
-    if (!draggedBlock || !dropTarget) {
-      setDraggedBlock(null);
-      setDropTarget(null);
-      return;
-    }
-
-    // dropTarget에서 타겟 블록 찾기
-    const targetBlock = blockPositions.find(b => b.id === dropTarget.blockId);
-    if (!targetBlock) {
-      setDraggedBlock(null);
-      setDropTarget(null);
-      return;
-    }
-
-    const result = processDrop(
-      draggedBlock,
-      dropTarget,
-      targetBlock,
-      blockPositions
-    );
-
-    if (result) {
-      setBlockPositions(result);
-    }
-
-    setDraggedBlock(null);
-    setDropTarget(null);
-  }, [draggedBlock, dropTarget, blockPositions]);
-
-  // 드롭 처리 (데스크톱)
-  const handleDrop = useCallback((e: React.DragEvent, targetBlock: BlockPosition) => {
-    e.preventDefault();
-
-    const result = processDrop(
-      draggedBlock,
-      dropTarget,
-      targetBlock,
-      blockPositions
-    );
-
-    if (result) {
-      setBlockPositions(result);
-    }
-
-    setDraggedBlock(null);
-    setDropTarget(null);
-  }, [draggedBlock, dropTarget, blockPositions]);
-
-  // 드래그 종료
-  const handleDragEnd = useCallback(() => {
-    setDraggedBlock(null);
-    setDropTarget(null);
-  }, []);
-
-  // 드래그 오버 (데스크톱 드롭 위치 표시)
-  const handleDragOver = useCallback((e: React.DragEvent, targetBlock: BlockPosition) => {
-    e.preventDefault();
-    const target = calculateDropPosition(e, targetBlock, draggedBlock);
-    if (target) {
-      setDropTarget(target);
-    }
-  }, [draggedBlock]);
 
   // 단계별 렌더링
   if (step === 'name') {
@@ -202,82 +131,20 @@ export default function NewTemplatePage() {
           </button>
         </div>
 
-        {/* 블록 영역 */}
-        <div className="flex-1 overflow-y-auto px-4 py-6 pb-24" style={{ WebkitOverflowScrolling: 'touch' }}>
-          {blockPositions.length === 0 ? (
-            <div className="h-full flex items-center justify-center">
-              <div className="text-center">
-                <p className="text-gray-500 mb-4">
-                  블록을 추가하여<br />템플릿을 만들어보세요
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div id="blocks-container" className="flex flex-col gap-3">
-              {getAllRows(blockPositions).map((row) => {
-                const rowBlocks = getRowBlocks(blockPositions, row);
-                // 각 행의 고정 높이는 120px (행이 늘어나지 않고 블록이 gridRow로 여러 행을 차지)
-                const rowHeight = 120;
-
-                return (
-                  <div
-                    key={row}
-                    className="grid gap-3 relative"
-                    style={{
-                      gridTemplateColumns: 'repeat(6, 1fr)',
-                      height: `${rowHeight}px` // minHeight → height로 변경하여 고정 높이 유지
-                    }}
-                  >
-                    {/* 디버깅용 그리드 선 */}
-                    <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 100 }}>
-                      {/* 세로 선 (열 구분) */}
-                      {[0, 1, 2, 3, 4, 5].map((col) => (
-                        <div
-                          key={`col-${col}`}
-                          className="absolute top-0 bottom-0 w-px bg-red-300"
-                          style={{
-                            left: `calc(${(col / 6) * 100}% ${col > 0 ? '+ 6px' : ''})`
-                          }}
-                        />
-                      ))}
-                      {/* 가로 선 (행 표시) */}
-                      <div className="absolute top-0 left-0 right-0 h-px bg-blue-300" />
-                      <div className="absolute bottom-0 left-0 right-0 h-px bg-blue-300" />
-                      {/* 행 번호 표시 */}
-                      <div className="absolute top-1 left-1 text-xs text-blue-600 font-bold bg-white px-1">
-                        행 {row}
-                      </div>
-                    </div>
-
-                    {rowBlocks.map((block) => {
-                      const isDragging = draggedBlock?.id === block.id;
-                      const isDropTarget = dropTarget?.blockId === block.id;
-
-                      return (
-                        <BlockRenderer
-                          key={block.id}
-                          block={block}
-                          isDragging={isDragging}
-                          isDropTarget={isDropTarget}
-                          dropTarget={dropTarget}
-                          iconMap={iconMap}
-                          paletteItems={blockPalette}
-                          onDragStart={() => handleDragStart(block)}
-                          onDragEnd={handleDragEnd}
-                          onDragOver={(e) => handleDragOver(e, block)}
-                          onDrop={(e) => handleDrop(e, block)}
-                          onTouchMove={handleTouchMove}
-                          onTouchEnd={handleTouchEnd}
-                          onRemove={() => removeBlock(block.id)}
-                          onResizeStart={(e, direction) => handleResizeStart(e, block, direction)}
-                        />
-                      );
-                    })}
-                  </div>
-                );
-              })}
-            </div>
-          )}
+        {/* 블록 영역 - react-grid-layout 사용 */}
+        <div
+          className="flex-1 overflow-y-auto py-6 pb-24"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
+          <div ref={setContainerRef} className="mx-4">
+            <GridLayoutBlocks
+              blockPositions={blockPositions}
+              iconMap={iconMap}
+              gridWidth={gridWidth}
+              onLayoutChange={handleLayoutChange}
+              onRemove={removeBlock}
+            />
+          </div>
         </div>
 
         {/* 블록 팔레트 */}
