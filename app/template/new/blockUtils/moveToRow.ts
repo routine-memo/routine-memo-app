@@ -362,7 +362,7 @@ export const moveBlockToRow = (
 /**
  * 빈 행을 제거하고 블록들을 위로 당김
  */
-function removeEmptyRows(blocks: BlockPosition[]): BlockPosition[] {
+export function removeEmptyRows(blocks: BlockPosition[]): BlockPosition[] {
   if (blocks.length === 0) return blocks;
 
   // 모든 행 번호 수집 (블록이 차지하는 모든 행)

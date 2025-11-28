@@ -1,6 +1,7 @@
 import { BlockPosition } from '../types';
 import { getRowBlocks, getBlocksOccupyingRow } from './queries';
 import { redistributeBlocksSequentially, redistributeAfterRemoval } from './sequentialRedistribution';
+import { removeEmptyRows } from './moveToRow';
 import { calculateRows } from './calculations';
 import { GRID_COLS, ROW_HEIGHT } from './constants';
 
@@ -205,14 +206,41 @@ export const moveBlockToRowSide = (
 
       console.log(`    간접 블록: ${indirectBlocks.length}개`, indirectBlocks.map(b => b.id));
 
-      // 6-4. 총 블록 개수 검증 (멀티행 + 간접 + 싱글 + 드래그)
-      const totalBlocks = multiRowBlocksInTarget.length + indirectBlocks.length + singleRowBlocksInTarget.length + 1;
-      console.log(`    총 블록 개수: ${totalBlocks} (멀티${multiRowBlocksInTarget.length} + 간접${indirectBlocks.length} + 싱글${singleRowBlocksInTarget.length} + 드래그1)`);
+      // 6-4. 행별 블록 개수 검증 (각 행마다 최대 3개)
+      // 드래그 블록이 차지할 모든 행에서 검사
+      const allRelatedBlocks = [...multiRowBlocksInTarget, ...indirectBlocks, ...singleRowBlocksInTarget];
 
-      if (totalBlocks > 3) {
-        console.log(`❌ 한 행에 ${totalBlocks}개 블록 → 동작 취소`);
+      let validationPassed = true;
+      for (let i = 0; i < draggedBlockRows; i++) {
+        const checkRow = adjustedTargetRow + i;
+
+        // 해당 행을 차지하는 블록 수 계산 (드래그 블록 포함)
+        let blocksInThisRow = 1; // 드래그 블록
+
+        for (const block of allRelatedBlocks) {
+          const blockRows = calculateRows(block.height || ROW_HEIGHT);
+          const blockStartRow = block.row;
+          const blockEndRow = blockStartRow + blockRows - 1;
+
+          if (checkRow >= blockStartRow && checkRow <= blockEndRow) {
+            blocksInThisRow++;
+          }
+        }
+
+        console.log(`    행 ${checkRow} 검증: ${blocksInThisRow}개 블록`);
+
+        if (blocksInThisRow > 3) {
+          console.log(`❌ 행 ${checkRow}에 ${blocksInThisRow}개 블록 (최대 3개 초과) → 동작 취소`);
+          validationPassed = false;
+          break;
+        }
+      }
+
+      if (!validationPassed) {
         return null;
       }
+
+      console.log(`✅ 행별 검증 통과`);
     } else {
       console.log(`  열 겹침 없음 → 빈 공간 배치, 간접 블록 검증 생략`);
 
@@ -254,7 +282,7 @@ export const moveBlockToRowSide = (
       );
 
       console.log(`✅ 멀티행 블록 배치 완료`);
-      return finalBlocks;
+      return removeEmptyRows(finalBlocks);
 
     } else {
       // 열 겹침 없음 → 빈 공간에 단순 배치
@@ -289,7 +317,7 @@ export const moveBlockToRowSide = (
       console.log(`  드래그 블록 배치: colStart=${gapStart}, colSpan=${gapSize}`);
       console.log(`✅ 멀티행 블록 배치 완료`);
 
-      return [...updatedBlocks, newBlock];
+      return removeEmptyRows([...updatedBlocks, newBlock]);
     }
   } else {
     // 싱글행 블록인 경우
@@ -341,14 +369,30 @@ export const moveBlockToRowSide = (
 
       console.log(`    간접 블록: ${indirectBlocks.length}개`, indirectBlocks.map(b => b.id));
 
-      // 총 블록 개수 검증
-      const totalBlocks = multiRowBlocksInTarget.length + indirectBlocks.length + singleRowBlocksInTarget.length + 1;
-      console.log(`    총 블록 개수: ${totalBlocks} (멀티${multiRowBlocksInTarget.length} + 간접${indirectBlocks.length} + 싱글${singleRowBlocksInTarget.length} + 드래그1)`);
+      // 싱글행이므로 타겟 행만 검증 (드래그 블록 포함해서 해당 행에 몇 개 블록이 있는지)
+      const allRelatedBlocks = [...multiRowBlocksInTarget, ...indirectBlocks, ...singleRowBlocksInTarget];
 
-      if (totalBlocks > 3) {
-        console.log(`❌ 한 행에 ${totalBlocks}개 블록 → 동작 취소`);
+      // 타겟 행을 차지하는 블록 수 계산 (드래그 블록 포함)
+      let blocksInTargetRow = 1; // 드래그 블록
+
+      for (const block of allRelatedBlocks) {
+        const blockRows = calculateRows(block.height || ROW_HEIGHT);
+        const blockStartRow = block.row;
+        const blockEndRow = blockStartRow + blockRows - 1;
+
+        if (adjustedTargetRow >= blockStartRow && adjustedTargetRow <= blockEndRow) {
+          blocksInTargetRow++;
+        }
+      }
+
+      console.log(`    행 ${adjustedTargetRow} 검증: ${blocksInTargetRow}개 블록`);
+
+      if (blocksInTargetRow > 3) {
+        console.log(`❌ 행 ${adjustedTargetRow}에 ${blocksInTargetRow}개 블록 (최대 3개 초과) → 동작 취소`);
         return null;
       }
+
+      console.log(`✅ 행별 검증 통과`);
     } else {
       console.log(`  열 겹침 없음 → 빈 공간 배치, 간접 블록 검증 생략`);
 
@@ -386,7 +430,7 @@ export const moveBlockToRowSide = (
       );
 
       console.log(`✅ 싱글행 블록 배치 완료`);
-      return finalBlocks;
+      return removeEmptyRows(finalBlocks);
 
     } else {
       // 열 겹침 없음 → 빈 공간에 단순 배치
@@ -421,7 +465,7 @@ export const moveBlockToRowSide = (
       console.log(`  드래그 블록 배치: colStart=${gapStart}, colSpan=${gapSize}`);
       console.log(`✅ 싱글행 블록 배치 완료`);
 
-      return [...updatedBlocks, newBlock];
+      return removeEmptyRows([...updatedBlocks, newBlock]);
     }
   }
 };
