@@ -230,36 +230,67 @@ export const moveBlockToRowSide = (
       }
     }
 
-    // 순차적 재정렬 로직 사용
-    console.log(`✅ 모든 행 검증 통과, 순차적 재정렬 시작`);
-    console.log(`📍 insertIndex=${insertIndex}, position=${position}`);
+    // 열 겹침 여부에 따라 다른 처리
+    if (hasColumnOverlapWithExisting) {
+      // 열 겹침 있음 → 순차적 재정렬 (간접 블록 포함)
+      console.log(`✅ 검증 통과, 순차적 재정렬 시작 (간접 블록 포함)`);
+      console.log(`📍 insertIndex=${insertIndex}, position=${position}`);
 
-    // 정렬용 임시 colStart 설정
-    // position에 따라 targetBlock 기준으로 상대적 위치 설정
-    const tempColStart = position === 'left'
-      ? targetBlock.colStart - 0.5  // 타겟보다 살짝 왼쪽
-      : targetBlock.colStart + 0.5; // 타겟보다 살짝 오른쪽
+      const tempColStart = position === 'left'
+        ? targetBlock.colStart - 0.5
+        : targetBlock.colStart + 0.5;
 
-    console.log(`📍 임시 colStart 계산: ${tempColStart} (정렬 순서용, targetBlock.colStart=${targetBlock.colStart})`);
+      const draggedBlockWithNewPos = {
+        ...draggedBlock,
+        row: adjustedTargetRow,
+        colStart: tempColStart,
+        colSpan: 1
+      };
 
-    // 순차적 재정렬 함수 호출
-    // colSpan은 임시로 1로 설정 (충돌 감지용, 실제 분배는 재정렬에서 처리)
-    const draggedBlockWithNewPos = {
-      ...draggedBlock,
-      row: adjustedTargetRow,
-      colStart: tempColStart,
-      colSpan: 1  // 임시값: 순서 정렬용으로만 사용, 실제 열은 재정렬에서 균등 분배
-    };
+      const finalBlocks = redistributeBlocksSequentially(
+        updatedBlocks,
+        draggedBlockWithNewPos,
+        adjustedTargetRow
+      );
 
-    const finalBlocks = redistributeBlocksSequentially(
-      updatedBlocks,
-      draggedBlockWithNewPos,
-      adjustedTargetRow
-    );
+      console.log(`✅ 멀티행 블록 배치 완료`);
+      return finalBlocks;
 
-    console.log(`✅ 멀티행 블록 배치 완료`);
+    } else {
+      // 열 겹침 없음 → 빈 공간에 단순 배치
+      console.log(`✅ 검증 통과, 빈 공간 단순 배치`);
 
-    return finalBlocks;
+      // insertIndex 기준으로 왼쪽/오른쪽 블록 분리
+      const leftBlocks = sortedOccupyingBlocks.slice(0, insertIndex);
+      const rightBlocks = sortedOccupyingBlocks.slice(insertIndex);
+
+      // 빈 공간 계산
+      const leftMaxCol = leftBlocks.length > 0
+        ? Math.max(...leftBlocks.map(b => b.colStart + b.colSpan - 1))
+        : -1;
+      const rightMinCol = rightBlocks.length > 0
+        ? Math.min(...rightBlocks.map(b => b.colStart))
+        : GRID_COLS;
+
+      const gapStart = leftMaxCol + 1;
+      const gapEnd = rightMinCol - 1;
+      const gapSize = gapEnd - gapStart + 1;
+
+      console.log(`  빈 공간: ${gapStart}~${gapEnd} (${gapSize}열)`);
+
+      // 드래그 블록을 빈 공간에 배치
+      const newBlock = {
+        ...draggedBlock,
+        row: adjustedTargetRow,
+        colStart: gapStart,
+        colSpan: gapSize
+      };
+
+      console.log(`  드래그 블록 배치: colStart=${gapStart}, colSpan=${gapSize}`);
+      console.log(`✅ 멀티행 블록 배치 완료`);
+
+      return [...updatedBlocks, newBlock];
+    }
   } else {
     // 싱글행 블록인 경우
     console.log(`📍 싱글행 블록 배치 - 행 ${adjustedTargetRow}`);
