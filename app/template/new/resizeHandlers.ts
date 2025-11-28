@@ -189,12 +189,33 @@ export const handleHeightResize = (
 
     // 2. 자유로워진 행 찾기
     const freedRow = block.row + newRows; // 방금 자유로워진 행
-    const blockColEnd = block.colStart + block.colSpan;
 
     console.log(`🆓 자유로워진 행: ${freedRow}`);
 
-    // 3. freedRow보다 아래에 있는 모든 블록들을 1행씩 올리기
-    // (이전에 increase로 밀려난 블록들이 복귀)
+    // 3. 자유로워진 행을 차지하는 다른 블록이 있는지 확인
+    const blocksStillOccupyingFreedRow = blockPositions.filter(b => {
+      if (b.id === blockId) return false; // 현재 리사이즈 중인 블록 제외
+
+      const bRows = calculateRows(b.height || ROW_HEIGHT);
+      const bStartRow = b.row;
+      const bEndRow = b.row + bRows - 1;
+
+      // freedRow가 블록의 행 범위에 포함되는지 확인
+      return freedRow >= bStartRow && freedRow <= bEndRow;
+    });
+
+    console.log(`🔍 freedRow(${freedRow})를 차지하는 다른 블록:`, blocksStillOccupyingFreedRow.map(b => b.id));
+
+    // 4. 다른 블록이 아직 freedRow를 차지하고 있으면 아래 블록들을 올리지 않음
+    if (blocksStillOccupyingFreedRow.length > 0) {
+      console.log('⚠️ 다른 블록이 아직 해당 행을 차지 → 아래 블록 이동 없음');
+      return blockPositions.map(b =>
+        b.id === blockId ? { ...b, height: newHeight } : b
+      );
+    }
+
+    // 5. freedRow가 완전히 비어있으면 아래 블록들을 1행씩 올리기
+    console.log('✅ 행이 완전히 비어있음 → 아래 블록들 올리기');
     return blockPositions.map(b => {
       if (b.id === blockId) {
         return { ...b, height: newHeight };
