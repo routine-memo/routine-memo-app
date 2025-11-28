@@ -1,5 +1,4 @@
 import { BlockPosition } from './types';
-import { getRowBlocks } from './blockUtils';
 
 const GRID_COLS = 6; // 전체 열 개수
 const ROW_HEIGHT = 120; // 각 행의 높이 (px)
@@ -19,86 +18,146 @@ const calculateRows = (height: number): number => {
   return Math.ceil((height + ROW_GAP) / (ROW_HEIGHT + ROW_GAP));
 };
 
-// 가로 리사이즈 (열 단위로 "먹기")
+// 블록이 특정 행을 차지하는지 확인
+const blockOccupiesRow = (block: BlockPosition, row: number): boolean => {
+  const blockRows = calculateRows(block.height || ROW_HEIGHT);
+  return row >= block.row && row < block.row + blockRows;
+};
+
+// 특정 행을 차지하는 모든 블록 가져오기
+const getBlocksOccupyingRow = (blocks: BlockPosition[], row: number): BlockPosition[] => {
+  return blocks.filter(b => blockOccupiesRow(b, row));
+};
+
+// 가로 리사이즈 (열 단위로 "먹기") - 멀티행 블록 지원
 export const handleWidthResize = (
   block: BlockPosition,
   direction: 'increase' | 'decrease',
   blockPositions: BlockPosition[],
-  side: 'left' | 'right' = 'right' // 어느 쪽을 드래그했는지
+  side: 'left' | 'right' = 'right'
 ): BlockPosition[] | null => {
-  const rowBlocks = getRowBlocks(blockPositions, block.row);
-  const blockIndex = rowBlocks.findIndex(b => b.id === block.id);
+  // 현재 블록이 차지하는 모든 행 계산
+  const blockRows = calculateRows(block.height || ROW_HEIGHT);
+  const occupiedRows: number[] = [];
+  for (let i = 0; i < blockRows; i++) {
+    occupiedRows.push(block.row + i);
+  }
 
-  if (blockIndex === -1) return null;
+  console.log(`📐 가로 리사이즈: 블록 ${block.id}, 방향 ${direction}, side ${side}`);
+  console.log(`  블록이 차지하는 행: ${occupiedRows.join(', ')}`);
 
-  // 왼쪽 리사이즈
+  // 각 행에서 영향받는 블록들 찾기
+  const affectedBlockIds = new Set<string>();
+
   if (side === 'left') {
-    if (direction === 'increase') {
-      // 왼쪽 블록의 열을 1개 빼앗기
-      const leftBlock = rowBlocks[blockIndex - 1];
-      if (!leftBlock) return null; // 왼쪽 블록이 없으면 증가 불가
+    // 왼쪽 리사이즈: 각 행에서 현재 블록 바로 왼쪽에 있는 블록 찾기
+    for (const row of occupiedRows) {
+      const blocksInRow = getBlocksOccupyingRow(blockPositions, row);
+      // 현재 블록의 colStart보다 작고, colEnd가 현재 블록의 colStart와 맞닿는 블록
+      const leftNeighbor = blocksInRow.find(b =>
+        b.id !== block.id &&
+        b.colStart + b.colSpan === block.colStart
+      );
+      if (leftNeighbor) {
+        affectedBlockIds.add(leftNeighbor.id);
+      }
+    }
 
-      // 왼쪽 블록이 최소 크기(2열)보다 크면 가능
-      if (leftBlock.colSpan <= 2) return null;
+    const affectedBlocks = blockPositions.filter(b => affectedBlockIds.has(b.id));
+    console.log(`  영향받는 왼쪽 블록들: ${affectedBlocks.map(b => b.id).join(', ')}`);
+
+    if (affectedBlocks.length === 0) {
+      console.log('  ❌ 왼쪽에 인접 블록 없음');
+      return null;
+    }
+
+    if (direction === 'increase') {
+      // 모든 영향받는 블록이 최소 크기(2열)보다 커야 함
+      const canResize = affectedBlocks.every(b => b.colSpan > 2);
+      if (!canResize) {
+        console.log('  ❌ 일부 블록이 최소 크기(2열)');
+        return null;
+      }
 
       return blockPositions.map(b => {
         if (b.id === block.id) {
           return { ...b, colStart: b.colStart - 1, colSpan: b.colSpan + 1 };
         }
-        if (b.id === leftBlock.id) {
+        if (affectedBlockIds.has(b.id)) {
           return { ...b, colSpan: b.colSpan - 1 };
         }
         return b;
       });
     } else {
-      // decrease: 현재 블록의 왼쪽 열을 1개 줄이고 왼쪽 블록에게 주기
-      if (block.colSpan <= 2) return null; // 최소 크기면 감소 불가
-
-      const leftBlock = rowBlocks[blockIndex - 1];
-      if (!leftBlock) return null; // 왼쪽 블록이 없으면 감소 불가
+      // decrease
+      if (block.colSpan <= 2) {
+        console.log('  ❌ 현재 블록이 최소 크기(2열)');
+        return null;
+      }
 
       return blockPositions.map(b => {
         if (b.id === block.id) {
           return { ...b, colStart: b.colStart + 1, colSpan: b.colSpan - 1 };
         }
-        if (b.id === leftBlock.id) {
+        if (affectedBlockIds.has(b.id)) {
           return { ...b, colSpan: b.colSpan + 1 };
         }
         return b;
       });
     }
-  }
-  // 오른쪽 리사이즈 (기존 로직)
-  else {
-    if (direction === 'increase') {
-      // 오른쪽 블록의 열을 1개 빼앗기
-      const rightBlock = rowBlocks[blockIndex + 1];
-      if (!rightBlock) return null; // 오른쪽 블록이 없으면 증가 불가
+  } else {
+    // 오른쪽 리사이즈: 각 행에서 현재 블록 바로 오른쪽에 있는 블록 찾기
+    const blockColEnd = block.colStart + block.colSpan;
 
-      // 오른쪽 블록이 최소 크기(2열)보다 크면 가능
-      if (rightBlock.colSpan <= 2) return null;
+    for (const row of occupiedRows) {
+      const blocksInRow = getBlocksOccupyingRow(blockPositions, row);
+      // 현재 블록의 colEnd와 colStart가 맞닿는 블록
+      const rightNeighbor = blocksInRow.find(b =>
+        b.id !== block.id &&
+        b.colStart === blockColEnd
+      );
+      if (rightNeighbor) {
+        affectedBlockIds.add(rightNeighbor.id);
+      }
+    }
+
+    const affectedBlocks = blockPositions.filter(b => affectedBlockIds.has(b.id));
+    console.log(`  영향받는 오른쪽 블록들: ${affectedBlocks.map(b => b.id).join(', ')}`);
+
+    if (affectedBlocks.length === 0) {
+      console.log('  ❌ 오른쪽에 인접 블록 없음');
+      return null;
+    }
+
+    if (direction === 'increase') {
+      // 모든 영향받는 블록이 최소 크기(2열)보다 커야 함
+      const canResize = affectedBlocks.every(b => b.colSpan > 2);
+      if (!canResize) {
+        console.log('  ❌ 일부 블록이 최소 크기(2열)');
+        return null;
+      }
 
       return blockPositions.map(b => {
         if (b.id === block.id) {
           return { ...b, colSpan: b.colSpan + 1 };
         }
-        if (b.id === rightBlock.id) {
+        if (affectedBlockIds.has(b.id)) {
           return { ...b, colStart: b.colStart + 1, colSpan: b.colSpan - 1 };
         }
         return b;
       });
     } else {
-      // decrease: 현재 블록의 열을 1개 줄이고 오른쪽 블록에게 주기
-      if (block.colSpan <= 2) return null; // 최소 크기면 감소 불가
-
-      const rightBlock = rowBlocks[blockIndex + 1];
-      if (!rightBlock) return null; // 오른쪽 블록이 없으면 감소 불가
+      // decrease
+      if (block.colSpan <= 2) {
+        console.log('  ❌ 현재 블록이 최소 크기(2열)');
+        return null;
+      }
 
       return blockPositions.map(b => {
         if (b.id === block.id) {
           return { ...b, colSpan: b.colSpan - 1 };
         }
-        if (b.id === rightBlock.id) {
+        if (affectedBlockIds.has(b.id)) {
           return { ...b, colStart: b.colStart - 1, colSpan: b.colSpan + 1 };
         }
         return b;
