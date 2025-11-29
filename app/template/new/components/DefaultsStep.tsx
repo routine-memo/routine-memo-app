@@ -184,21 +184,33 @@ export const DefaultsStep = ({
                 }}
               >
                 {/* 헤더 영역 */}
-                <div className="absolute top-0 left-0 right-0 h-10 flex items-center px-3 bg-gray-50/80">
-                  <div className="flex items-center gap-2">
-                    <Icon className="w-4 h-4 text-gray-700" />
-                    <span className="text-sm font-medium text-gray-900">
+                <div className="absolute top-0 left-0 right-0 h-8 flex items-center px-2 bg-gray-50/90 z-10">
+                  <div className="flex items-center gap-1.5">
+                    <Icon className="w-3.5 h-3.5 text-gray-600" />
+                    <span className="text-xs font-medium text-gray-700">
                       {paletteItem?.label}
                     </span>
                   </div>
                   {hasDefault && (
-                    <span className="ml-auto text-xs text-green-600 font-medium">설정됨</span>
+                    <span className="ml-auto text-[10px] text-green-600 font-medium">설정됨</span>
                   )}
                 </div>
 
-                {/* 탭하여 설정 안내 */}
-                <div className="absolute inset-0 pt-10 flex items-center justify-center">
-                  <span className="text-xs text-gray-400">탭하여 설정</span>
+                {/* 콘텐츠 미리보기 또는 안내 */}
+                <div className="absolute inset-0 pt-8 overflow-hidden">
+                  {block.type === 'text' && block.defaultValue?.type === 'text' && block.defaultValue.value.richText && block.defaultValue.value.richText !== '<p></p>' ? (
+                    <div
+                      className="block-preview p-2 text-xs text-gray-600 leading-relaxed overflow-hidden h-full break-words whitespace-pre-wrap"
+                      style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}
+                      dangerouslySetInnerHTML={{
+                        __html: block.defaultValue.value.richText
+                      }}
+                    />
+                  ) : (
+                    <div className="h-full flex items-center justify-center">
+                      <span className="text-xs text-gray-400">탭하여 설정</span>
+                    </div>
+                  )}
                 </div>
               </div>
             );

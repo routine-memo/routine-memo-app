@@ -74,3 +74,36 @@ body {
   user-select: text;
   -webkit-touch-callout: default;
 }
+
+/* 블록 미리보기 스타일 */
+.block-preview ul {
+  list-style-type: disc;
+  padding-left: 1rem;
+  margin: 0.25rem 0;
+}
+
+.block-preview ol {
+  list-style-type: decimal;
+  padding-left: 1rem;
+  margin: 0.25rem 0;
+}
+
+.block-preview li {
+  margin: 0.125rem 0;
+}
+
+.block-preview p {
+  margin: 0.125rem 0;
+}
+
+.block-preview strong {
+  font-weight: 700;
+}
+
+.block-preview em {
+  font-style: italic;
+}
+
+.block-preview s {
+  text-decoration: line-through;
+}
