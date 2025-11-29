@@ -197,10 +197,10 @@ export const DefaultsStep = ({
                 </div>
 
                 {/* 콘텐츠 미리보기 또는 안내 */}
-                <div className="absolute inset-0 pt-8 overflow-hidden">
+                <div className="absolute inset-0 pt-8 overflow-y-auto">
                   {block.type === 'text' && block.defaultValue?.type === 'text' && block.defaultValue.value.richText && block.defaultValue.value.richText !== '<p></p>' ? (
                     <div
-                      className="block-preview p-2 text-xs text-gray-600 leading-relaxed overflow-hidden h-full break-words whitespace-pre-wrap"
+                      className="block-preview p-2 text-xs text-gray-600 leading-relaxed break-words whitespace-pre-wrap"
                       style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}
                       dangerouslySetInnerHTML={{
                         __html: block.defaultValue.value.richText
