@@ -21,6 +21,9 @@
   },
   "homepage": "https://github.com/routine-memo/routine-memo-app#readme",
   "dependencies": {
+    "@tiptap/extension-history": "^3.11.1",
+    "@tiptap/extension-task-item": "^3.11.1",
+    "@tiptap/extension-task-list": "^3.11.1",
     "@tiptap/pm": "^3.11.1",
     "@tiptap/react": "^3.11.1",
     "@tiptap/starter-kit": "^3.11.1",

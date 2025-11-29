@@ -2,9 +2,10 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { ArrowLeft, X } from 'lucide-react';
-import { BlockPosition, BlockDefaultValue, TextBlockDefault, IconMap } from '../types';
+import { BlockPosition, BlockDefaultValue, TextBlockDefault, ChecklistBlockDefault, IconMap } from '../types';
 import { blockPalette } from '../blockPalette';
 import { TextBlockEditor, TextBlockEditorHandle } from './TextBlockEditor';
+import { ChecklistBlockEditor, ChecklistBlockEditorHandle } from './ChecklistBlockEditor';
 import { calculateRows } from '../blockUtils';
 
 interface DefaultsStepProps {
@@ -35,7 +36,8 @@ export const DefaultsStep = ({
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [gridWidth, setGridWidth] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
-  const editorRef = useRef<TextBlockEditorHandle>(null);
+  const textEditorRef = useRef<TextBlockEditorHandle>(null);
+  const checklistEditorRef = useRef<ChecklistBlockEditorHandle>(null);
 
   // 컨테이너 너비 감지
   useEffect(() => {
@@ -73,13 +75,21 @@ export const DefaultsStep = ({
     updateBlockDefault(blockId, { type: 'text', value });
   }, [updateBlockDefault]);
 
+  // 체크리스트 블록 기본값 변경 핸들러
+  const handleChecklistBlockChange = useCallback((blockId: string, value: ChecklistBlockDefault) => {
+    updateBlockDefault(blockId, { type: 'checklist', value });
+  }, [updateBlockDefault]);
+
   // 선택된 블록
   const selectedBlock = blocks.find(b => b.id === selectedBlockId);
 
   // 모달 닫기 (저장 후)
   const closeModal = useCallback(async () => {
-    if (editorRef.current) {
-      await editorRef.current.save();
+    if (textEditorRef.current) {
+      await textEditorRef.current.save();
+    }
+    if (checklistEditorRef.current) {
+      await checklistEditorRef.current.save();
     }
     setSelectedBlockId(null);
   }, []);
@@ -93,9 +103,20 @@ export const DefaultsStep = ({
           : { richText: '', sketchData: '' };
         return (
           <TextBlockEditor
-            ref={editorRef}
+            ref={textEditorRef}
             initialValue={textDefault}
             onChange={(value) => handleTextBlockChange(block.id, value)}
+          />
+        );
+      case 'checklist':
+        const checklistDefault = block.defaultValue?.type === 'checklist'
+          ? block.defaultValue.value
+          : { html: '' };
+        return (
+          <ChecklistBlockEditor
+            ref={checklistEditorRef}
+            initialValue={checklistDefault}
+            onChange={(value) => handleChecklistBlockChange(block.id, value)}
           />
         );
       default:
@@ -204,6 +225,13 @@ export const DefaultsStep = ({
                       style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}
                       dangerouslySetInnerHTML={{
                         __html: block.defaultValue.value.richText
+                      }}
+                    />
+                  ) : block.type === 'checklist' && block.defaultValue?.type === 'checklist' && block.defaultValue.value.html ? (
+                    <div
+                      className="checklist-preview p-2 text-xs text-gray-600 leading-relaxed"
+                      dangerouslySetInnerHTML={{
+                        __html: block.defaultValue.value.html
                       }}
                     />
                   ) : (

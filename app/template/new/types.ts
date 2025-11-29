@@ -23,12 +23,17 @@ export interface TextBlockDefault {
   sketchData: string; // react-sketch-canvas 데이터 (JSON 문자열)
 }
 
+// 체크리스트 블록 기본값 타입
+export interface ChecklistBlockDefault {
+  html: string;  // Tiptap TaskList HTML 콘텐츠
+}
+
 // 블록 타입별 기본값 타입
 export type BlockDefaultValue =
   | { type: 'text'; value: TextBlockDefault }
   | { type: 'timeline'; value: unknown }
   | { type: 'image'; value: unknown }
-  | { type: 'checklist'; value: unknown }
+  | { type: 'checklist'; value: ChecklistBlockDefault }
   | { type: 'emotion'; value: unknown }
   | { type: 'date'; value: unknown }
   | { type: 'weather'; value: unknown }
