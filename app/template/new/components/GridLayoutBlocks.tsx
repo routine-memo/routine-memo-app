@@ -1,8 +1,8 @@
 'use client';
 
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useState, useRef, useEffect } from 'react';
 import GridLayout, { Layout } from 'react-grid-layout';
-import { X } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { BlockPosition, IconMap } from '../types';
 import { blockPalette } from '../blockPalette';
 import { calculateRows } from '../blockUtils';
@@ -69,6 +69,12 @@ export const GridLayoutBlocks = ({
   onLayoutChange,
   onRemove,
 }: GridLayoutBlocksProps) => {
+  // 드래그 상태
+  const [isDragging, setIsDragging] = useState(false);
+  const [isOverTrash, setIsOverTrash] = useState(false);
+  const draggingBlockId = useRef<string | null>(null);
+  const lastMouseY = useRef<number>(0);
+
   // 동적 행 높이 계산
   const rowHeight = useMemo(() => getRowHeight(gridWidth), [gridWidth]);
 
@@ -102,6 +108,53 @@ export const GridLayoutBlocks = ({
     }
   }, [blockPositions, onLayoutChange, rowHeight]);
 
+  // 전역 터치/마우스 이벤트로 위치 추적
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const handleMove = (e: TouchEvent | MouseEvent) => {
+      const clientY = 'touches' in e ? e.touches[0]?.clientY : e.clientY;
+      if (clientY === undefined) return;
+
+      lastMouseY.current = clientY;
+
+      const windowHeight = window.innerHeight;
+      const trashZoneTop = windowHeight - 96;
+      const isOver = clientY >= trashZoneTop;
+      setIsOverTrash(isOver);
+    };
+
+    window.addEventListener('touchmove', handleMove);
+    window.addEventListener('mousemove', handleMove);
+
+    return () => {
+      window.removeEventListener('touchmove', handleMove);
+      window.removeEventListener('mousemove', handleMove);
+    };
+  }, [isDragging]);
+
+  // 드래그 시작
+  const handleDragStart = useCallback((_layout: Layout[], _oldItem: Layout, newItem: Layout) => {
+    setIsDragging(true);
+    draggingBlockId.current = newItem.i;
+  }, []);
+
+  // 드래그 종료
+  const handleDragStop = useCallback(() => {
+    const windowHeight = window.innerHeight;
+    const trashZoneTop = windowHeight - 96;
+    const shouldDelete = lastMouseY.current >= trashZoneTop && draggingBlockId.current;
+
+    if (shouldDelete) {
+      onRemove(draggingBlockId.current!);
+    }
+
+    setIsDragging(false);
+    setIsOverTrash(false);
+    draggingBlockId.current = null;
+    lastMouseY.current = 0;
+  }, [onRemove]);
+
   // 블록이 없을 때는 빈 상태 표시 (gridWidth와 무관)
   if (blockPositions.length === 0) {
     return (
@@ -124,8 +177,25 @@ export const GridLayoutBlocks = ({
     );
   }
 
+  // 그리드 배경 스타일 계산
+  const colWidth = (gridWidth - MARGIN[0] * (GRID_COLS - 1)) / GRID_COLS;
+  const gridBackground = {
+    backgroundImage: `
+      linear-gradient(to right, #e5e7eb 1px, transparent 1px),
+      linear-gradient(to bottom, #e5e7eb 1px, transparent 1px)
+    `,
+    backgroundSize: `${colWidth + MARGIN[0]}px ${rowHeight + MARGIN[1]}px`,
+    backgroundPosition: `${-MARGIN[0] / 2}px ${-MARGIN[1] / 2}px`,
+  };
+
   return (
-    <div className="grid-layout-container w-full overflow-hidden">
+    <div className={`grid-layout-container w-full ${isDragging ? 'is-dragging' : ''}`} style={gridBackground}>
+      {/* 드래그 중인 블록 z-index 높이기 */}
+      <style>{`
+        .is-dragging .react-grid-item.react-draggable-dragging {
+          z-index: 50 !important;
+        }
+      `}</style>
       <GridLayout
         className="layout"
         layout={layout}
@@ -135,10 +205,12 @@ export const GridLayoutBlocks = ({
         margin={MARGIN}
         containerPadding={[0, 0]}
         onLayoutChange={handleLayoutChange}
+        onDragStart={handleDragStart}
+        onDragStop={handleDragStop}
         isDraggable={true}
         isResizable={true}
-        compactType={null}
-        preventCollision={true}
+        compactType="vertical"
+        preventCollision={false}
         useCSSTransforms={true}
         resizeHandles={['s', 'w', 'e', 'n', 'sw', 'nw', 'se', 'ne']}
       >
@@ -152,24 +224,13 @@ export const GridLayoutBlocks = ({
               className="bg-white border-2 border-gray-900 rounded-lg shadow-sm overflow-hidden cursor-move"
             >
               {/* 헤더 영역 */}
-              <div className="absolute top-0 left-0 right-0 h-10 flex items-center justify-between px-3 bg-gray-50/50 pointer-events-none">
+              <div className="absolute top-0 left-0 right-0 h-10 flex items-center px-3 bg-gray-50/50 pointer-events-none">
                 <div className="flex items-center gap-2">
                   <Icon className="w-4 h-4 text-gray-700" />
                   <span className="text-sm font-medium text-gray-900">
                     {label}
                   </span>
                 </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onRemove(block.id);
-                  }}
-                  onMouseDown={(e) => e.stopPropagation()}
-                  onTouchStart={(e) => e.stopPropagation()}
-                  className="text-gray-400 hover:text-red-600 transition-colors pointer-events-auto"
-                >
-                  <X className="w-4 h-4" />
-                </button>
               </div>
 
               {/* 블록 콘텐츠 영역 */}
@@ -180,6 +241,23 @@ export const GridLayoutBlocks = ({
           );
         })}
       </GridLayout>
+
+      {/* 쓰레기통 영역 - 드래그 중일 때만 표시 */}
+      {isDragging && (
+        <div
+          className={`
+            fixed bottom-0 left-0 right-0 h-24 z-40
+            flex items-center justify-center gap-2
+            transition-colors duration-200
+            ${isOverTrash ? 'bg-red-500' : 'bg-gray-800'}
+          `}
+        >
+          <Trash2 className={`w-6 h-6 ${isOverTrash ? 'text-white' : 'text-gray-300'}`} />
+          <span className={`font-medium ${isOverTrash ? 'text-white' : 'text-gray-300'}`}>
+            {isOverTrash ? '놓으면 삭제됩니다' : '여기에 놓아서 삭제'}
+          </span>
+        </div>
+      )}
     </div>
   );
 };

@@ -20,7 +20,8 @@
       "Bash(npx tsc:*)",
       "Skill(claude-self-review-loop)",
       "Bash(\"c:\\Users\\ghpjj\\OneDrive\\Desktop\\project\\routine-memo\\app\\template\\new\\blockUtils\\moveToRowSide_temp.ts\")",
-      "Bash(taskkill:*)"
+      "Bash(taskkill:*)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []
