@@ -33,6 +33,10 @@ const TextBlockEditorInner = forwardRef<TextBlockEditorHandle, TextBlockEditorPr
   const [strokeWidth, setStrokeWidth] = useState(3);
   const [isEraser, setIsEraser] = useState(false);
 
+  // Undo/Redo 버튼 상태 (리렌더링 트리거용)
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+
   // 내부 데이터 ref (리렌더링 방지)
   const richTextRef = useRef<string>(initialValue?.richText || '<p></p>');
 
@@ -57,6 +61,14 @@ const TextBlockEditorInner = forwardRef<TextBlockEditorHandle, TextBlockEditorPr
     immediatelyRender: false,
     onUpdate: ({ editor }) => {
       richTextRef.current = editor.getHTML();
+      // Undo/Redo 상태 업데이트
+      setCanUndo(editor.can().undo());
+      setCanRedo(editor.can().redo());
+    },
+    onTransaction: ({ editor }) => {
+      // 트랜잭션마다 Undo/Redo 상태 업데이트
+      setCanUndo(editor.can().undo());
+      setCanRedo(editor.can().redo());
     },
     editorProps: {
       attributes: {
@@ -200,8 +212,9 @@ const TextBlockEditorInner = forwardRef<TextBlockEditorHandle, TextBlockEditorPr
         {inputMode === 'text' && (
           <>
             <button
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => editor?.chain().focus().toggleBold().run()}
-              className={`p-2 rounded transition-colors ${
+              className={`p-1.5 rounded transition-colors ${
                 editor?.isActive('bold') ? 'bg-gray-900 text-white' : 'hover:bg-gray-200 text-gray-600'
               }`}
               title="굵게"
@@ -209,8 +222,9 @@ const TextBlockEditorInner = forwardRef<TextBlockEditorHandle, TextBlockEditorPr
               <Bold className="w-4 h-4" />
             </button>
             <button
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => editor?.chain().focus().toggleItalic().run()}
-              className={`p-2 rounded transition-colors ${
+              className={`p-1.5 rounded transition-colors ${
                 editor?.isActive('italic') ? 'bg-gray-900 text-white' : 'hover:bg-gray-200 text-gray-600'
               }`}
               title="기울임"
@@ -218,20 +232,19 @@ const TextBlockEditorInner = forwardRef<TextBlockEditorHandle, TextBlockEditorPr
               <Italic className="w-4 h-4" />
             </button>
             <button
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => editor?.chain().focus().toggleStrike().run()}
-              className={`p-2 rounded transition-colors ${
+              className={`p-1.5 rounded transition-colors ${
                 editor?.isActive('strike') ? 'bg-gray-900 text-white' : 'hover:bg-gray-200 text-gray-600'
               }`}
               title="취소선"
             >
               <Strikethrough className="w-4 h-4" />
             </button>
-
-            <div className="w-px h-6 bg-gray-200 mx-1" />
-
             <button
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => editor?.chain().focus().toggleBulletList().run()}
-              className={`p-2 rounded transition-colors ${
+              className={`p-1.5 rounded transition-colors ${
                 editor?.isActive('bulletList') ? 'bg-gray-900 text-white' : 'hover:bg-gray-200 text-gray-600'
               }`}
               title="글머리 기호"
@@ -239,8 +252,9 @@ const TextBlockEditorInner = forwardRef<TextBlockEditorHandle, TextBlockEditorPr
               <List className="w-4 h-4" />
             </button>
             <button
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => editor?.chain().focus().toggleOrderedList().run()}
-              className={`p-2 rounded transition-colors ${
+              className={`p-1.5 rounded transition-colors ${
                 editor?.isActive('orderedList') ? 'bg-gray-900 text-white' : 'hover:bg-gray-200 text-gray-600'
               }`}
               title="번호 매기기"
@@ -248,23 +262,25 @@ const TextBlockEditorInner = forwardRef<TextBlockEditorHandle, TextBlockEditorPr
               <ListOrdered className="w-4 h-4" />
             </button>
 
-            <div className="w-px h-6 bg-gray-200 mx-1" />
+            <div className="w-px h-5 bg-gray-200 mx-0.5" />
 
             <button
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => editor?.chain().focus().undo().run()}
-              disabled={!editor?.can().undo()}
-              className={`p-2 rounded hover:bg-gray-200 ${
-                !editor?.can().undo() ? 'opacity-30' : ''
+              disabled={!canUndo}
+              className={`p-1.5 rounded hover:bg-gray-200 ${
+                !canUndo ? 'opacity-30' : ''
               }`}
               title="실행 취소"
             >
               <Undo className="w-4 h-4" />
             </button>
             <button
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => editor?.chain().focus().redo().run()}
-              disabled={!editor?.can().redo()}
-              className={`p-2 rounded hover:bg-gray-200 ${
-                !editor?.can().redo() ? 'opacity-30' : ''
+              disabled={!canRedo}
+              className={`p-1.5 rounded hover:bg-gray-200 ${
+                !canRedo ? 'opacity-30' : ''
               }`}
               title="다시 실행"
             >
