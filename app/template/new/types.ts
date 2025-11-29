@@ -15,7 +15,29 @@ export type BlockType =
   | 'file'
   | 'map';
 
-export type Step = 'name' | 'blocks' | 'notification';
+export type Step = 'name' | 'blocks' | 'defaults' | 'notification';
+
+// 텍스트 블록 기본값 타입
+export interface TextBlockDefault {
+  richText: string;  // Tiptap HTML 콘텐츠
+  sketchData: string; // react-sketch-canvas 데이터 (JSON 문자열)
+}
+
+// 블록 타입별 기본값 타입
+export type BlockDefaultValue =
+  | { type: 'text'; value: TextBlockDefault }
+  | { type: 'timeline'; value: unknown }
+  | { type: 'image'; value: unknown }
+  | { type: 'checklist'; value: unknown }
+  | { type: 'emotion'; value: unknown }
+  | { type: 'date'; value: unknown }
+  | { type: 'weather'; value: unknown }
+  | { type: 'data'; value: unknown }
+  | { type: 'chart'; value: unknown }
+  | { type: 'video'; value: unknown }
+  | { type: 'link'; value: unknown }
+  | { type: 'file'; value: unknown }
+  | { type: 'map'; value: unknown };
 
 export interface BlockPosition {
   id: string;
@@ -24,6 +46,7 @@ export interface BlockPosition {
   colStart: number;  // 시작 열 (0-5, 6열 시스템)
   colSpan: number;   // 차지하는 열 개수 (기본 2, 범위: 1-6)
   height: number;    // 블록의 높이 (픽셀, 기본 120)
+  defaultValue?: BlockDefaultValue; // 블록의 기본값
 }
 
 export interface BlockPaletteItem {

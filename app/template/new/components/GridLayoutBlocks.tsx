@@ -190,10 +190,76 @@ export const GridLayoutBlocks = ({
 
   return (
     <div className={`grid-layout-container w-full ${isDragging ? 'is-dragging' : ''}`} style={gridBackground}>
-      {/* 드래그 중인 블록 z-index 높이기 */}
+      {/* 드래그 중인 블록 z-index 높이기 + 리사이즈 핸들 영역 확장 */}
       <style>{`
         .is-dragging .react-grid-item.react-draggable-dragging {
           z-index: 50 !important;
+        }
+        /* 리사이즈 핸들 영역 확장 (모바일 터치 최적화) */
+        .react-resizable-handle {
+          position: absolute;
+          width: 20px;
+          height: 20px;
+        }
+        .react-resizable-handle-s {
+          bottom: -4px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 60%;
+          height: 16px;
+          cursor: s-resize;
+        }
+        .react-resizable-handle-n {
+          top: -4px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 60%;
+          height: 16px;
+          cursor: n-resize;
+        }
+        .react-resizable-handle-e {
+          right: -4px;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 16px;
+          height: 60%;
+          cursor: e-resize;
+        }
+        .react-resizable-handle-w {
+          left: -4px;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 16px;
+          height: 60%;
+          cursor: w-resize;
+        }
+        .react-resizable-handle-se {
+          bottom: -4px;
+          right: -4px;
+          width: 24px;
+          height: 24px;
+          cursor: se-resize;
+        }
+        .react-resizable-handle-sw {
+          bottom: -4px;
+          left: -4px;
+          width: 24px;
+          height: 24px;
+          cursor: sw-resize;
+        }
+        .react-resizable-handle-ne {
+          top: -4px;
+          right: -4px;
+          width: 24px;
+          height: 24px;
+          cursor: ne-resize;
+        }
+        .react-resizable-handle-nw {
+          top: -4px;
+          left: -4px;
+          width: 24px;
+          height: 24px;
+          cursor: nw-resize;
         }
       `}</style>
       <GridLayout

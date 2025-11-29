@@ -11,6 +11,7 @@ import { iconMap } from './iconMap';
 import { createBlock, deleteBlock } from './blockManagement';
 import { GridLayoutBlocks } from './components/GridLayoutBlocks';
 import { BlockPalette } from './components/BlockPalette';
+import { DefaultsStep } from './components/DefaultsStep';
 
 export default function NewTemplatePage() {
   const router = useRouter();
@@ -124,7 +125,7 @@ export default function NewTemplatePage() {
           </button>
           <h1 className="text-lg font-semibold text-gray-900">{templateName}</h1>
           <button
-            onClick={() => setStep('notification')}
+            onClick={() => setStep('defaults')}
             className="px-4 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
           >
             다음
@@ -158,11 +159,27 @@ export default function NewTemplatePage() {
     );
   }
 
+  // defaults step
+  if (step === 'defaults') {
+    return (
+      <DefaultsStep
+        templateName={templateName}
+        blockPositions={blockPositions}
+        iconMap={iconMap}
+        onBack={() => setStep('blocks')}
+        onNext={(updatedBlocks) => {
+          setBlockPositions(updatedBlocks);
+          setStep('notification');
+        }}
+      />
+    );
+  }
+
   // notification step
   return (
     <main className="fixed inset-0 bg-white flex items-center justify-center">
       <div className="w-full max-w-md px-4">
-        <button onClick={() => setStep('blocks')} className="mb-6 text-gray-900">
+        <button onClick={() => setStep('defaults')} className="mb-6 text-gray-900">
           <ArrowLeft className="w-6 h-6" />
         </button>
 
