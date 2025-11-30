@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useImperativeHandle, forwardRef, useRef, useEffect } from 'react';
-import { Plus, X, Video, Play, Pause, Volume2, VolumeX } from 'lucide-react';
+import { Plus, X, Video, Play, Pause, Volume2, VolumeX, Maximize2 } from 'lucide-react';
 import { VideoBlockDefault } from '../types';
 
 interface VideoBlockEditorProps {
@@ -35,6 +35,7 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
     const fileInputRef = useRef<HTMLInputElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
+    const videoContainerRefs = useRef<(HTMLDivElement | null)[]>([]);
     const isScrollingRef = useRef(false);
     const progressRef = useRef<HTMLDivElement>(null);
     const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -211,6 +212,20 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
       }
     }, [currentIndex, showControlsWithTimer]);
 
+    // 전체화면 토글 - 컨테이너를 전체화면으로 (커스텀 컨트롤 유지)
+    const toggleFullscreen = useCallback((e: React.MouseEvent) => {
+      e.stopPropagation();
+      showControlsWithTimer();
+      const videoContainer = videoContainerRefs.current[currentIndex];
+      if (videoContainer) {
+        if (document.fullscreenElement) {
+          document.exitFullscreen();
+        } else {
+          videoContainer.requestFullscreen().catch(() => {});
+        }
+      }
+    }, [currentIndex, showControlsWithTimer]);
+
     // 영상 추가 핸들러
     const handleAddVideos = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = e.target.files;
@@ -383,6 +398,7 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
                     onClick={() => !isActive && scrollToIndex(index)}
                   >
                     <div
+                      ref={el => { videoContainerRefs.current[index] = el; }}
                       className="relative overflow-hidden shadow-2xl bg-black"
                       style={{
                         width: isActive ? '100%' : '85%',
@@ -495,6 +511,14 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
                                   {formatTime(currentTime)} / {formatTime(duration)}
                                 </span>
                               </div>
+
+                              {/* 전체화면 버튼 */}
+                              <button
+                                onClick={toggleFullscreen}
+                                className="p-1.5 hover:bg-white/20 rounded-full transition-colors"
+                              >
+                                <Maximize2 className="w-5 h-5 text-white" />
+                              </button>
                             </div>
                           </div>
                         </>
