@@ -55,6 +55,11 @@ export interface ImageBlockDefault {
   images: string[];  // base64 인코딩된 이미지 배열
 }
 
+// 영상 블록 기본값 타입
+export interface VideoBlockDefault {
+  videos: string[];  // base64 인코딩된 영상 배열
+}
+
 // 블록 타입별 기본값 타입
 export type BlockDefaultValue =
   | { type: 'text'; value: TextBlockDefault }
@@ -66,7 +71,7 @@ export type BlockDefaultValue =
   | { type: 'weather'; value: WeatherBlockDefault }
   | { type: 'data'; value: unknown }
   | { type: 'chart'; value: unknown }
-  | { type: 'video'; value: unknown }
+  | { type: 'video'; value: VideoBlockDefault }
   | { type: 'link'; value: unknown }
   | { type: 'file'; value: unknown }
   | { type: 'map'; value: unknown };

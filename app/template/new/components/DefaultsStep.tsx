@@ -1,14 +1,16 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { ArrowLeft, X } from 'lucide-react';
-import { BlockPosition, BlockDefaultValue, TextBlockDefault, ChecklistBlockDefault, WeatherBlockDefault, EmotionBlockDefault, ImageBlockDefault, IconMap } from '../types';
+import { ArrowLeft, X, Volume2, VolumeX } from 'lucide-react';
+import { BlockPosition, BlockDefaultValue, TextBlockDefault, ChecklistBlockDefault, WeatherBlockDefault, EmotionBlockDefault, ImageBlockDefault, VideoBlockDefault, IconMap } from '../types';
 import { blockPalette } from '../blockPalette';
 import { TextBlockEditor, TextBlockEditorHandle } from './TextBlockEditor';
 import { ChecklistBlockEditor, ChecklistBlockEditorHandle } from './ChecklistBlockEditor';
 import { WeatherBlockEditor, WeatherBlockEditorHandle, getWeatherInfo } from './WeatherBlockEditor';
 import { EmotionBlockEditor, EmotionBlockEditorHandle, getEmotionInfo } from './EmotionBlockEditor';
 import { ImageBlockEditor, ImageBlockEditorHandle } from './ImageBlockEditor';
+import { VideoBlockEditor, VideoBlockEditorHandle } from './VideoBlockEditor';
+import { VideoBlockPreview } from './VideoBlockPreview';
 import { calculateRows } from '../blockUtils';
 
 interface DefaultsStepProps {
@@ -44,6 +46,7 @@ export const DefaultsStep = ({
   const weatherEditorRef = useRef<WeatherBlockEditorHandle>(null);
   const emotionEditorRef = useRef<EmotionBlockEditorHandle>(null);
   const imageEditorRef = useRef<ImageBlockEditorHandle>(null);
+  const videoEditorRef = useRef<VideoBlockEditorHandle>(null);
 
   // 컨테이너 너비 감지
   useEffect(() => {
@@ -101,6 +104,11 @@ export const DefaultsStep = ({
     updateBlockDefault(blockId, { type: 'image', value });
   }, [updateBlockDefault]);
 
+  // 영상 블록 기본값 변경 핸들러
+  const handleVideoBlockChange = useCallback((blockId: string, value: VideoBlockDefault) => {
+    updateBlockDefault(blockId, { type: 'video', value });
+  }, [updateBlockDefault]);
+
   // 선택된 블록
   const selectedBlock = blocks.find(b => b.id === selectedBlockId);
 
@@ -120,6 +128,9 @@ export const DefaultsStep = ({
     }
     if (imageEditorRef.current) {
       await imageEditorRef.current.save();
+    }
+    if (videoEditorRef.current) {
+      await videoEditorRef.current.save();
     }
     setSelectedBlockId(null);
   }, []);
@@ -182,6 +193,17 @@ export const DefaultsStep = ({
             ref={imageEditorRef}
             initialValue={imageDefault}
             onChange={(value) => handleImageBlockChange(block.id, value)}
+          />
+        );
+      case 'video':
+        const videoDefault = block.defaultValue?.type === 'video'
+          ? block.defaultValue.value
+          : { videos: [] };
+        return (
+          <VideoBlockEditor
+            ref={videoEditorRef}
+            initialValue={videoDefault}
+            onChange={(value) => handleVideoBlockChange(block.id, value)}
           />
         );
       default:
@@ -322,6 +344,8 @@ export const DefaultsStep = ({
                         </div>
                       )}
                     </div>
+                  ) : block.type === 'video' && block.defaultValue?.type === 'video' && block.defaultValue.value.videos.length > 0 ? (
+                    <VideoBlockPreview videos={block.defaultValue.value.videos} />
                   ) : (
                     <div className="h-full flex items-center justify-center">
                       <span className="text-xs text-gray-400">탭하여 설정</span>
