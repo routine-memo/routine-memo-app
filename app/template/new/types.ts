@@ -28,15 +28,37 @@ export interface ChecklistBlockDefault {
   html: string;  // Tiptap TaskList HTML 콘텐츠
 }
 
+// 날씨 타입
+export type WeatherType = 'sunny' | 'cloudy' | 'rainy' | 'snowy' | 'foggy' | 'typhoon' | 'dusty' | 'cold' | 'hot';
+
+// 날씨 블록 기본값 타입
+export interface WeatherBlockDefault {
+  weather: WeatherType | null;  // 선택된 날씨
+}
+
+// 감정 타입
+export type EmotionType =
+  // 긍정적 감정
+  | 'happy' | 'joyful' | 'glad' | 'interested' | 'passionate'
+  | 'fun' | 'hopeful' | 'comfortable' | 'excited' | 'pleasant'
+  // 부정적 감정
+  | 'sad' | 'angry' | 'surprised' | 'fearful' | 'depressed'
+  | 'anxious' | 'unpleasant' | 'embarrassed' | 'regretful';
+
+// 감정 블록 기본값 타입
+export interface EmotionBlockDefault {
+  emotion: EmotionType | null;  // 선택된 감정
+}
+
 // 블록 타입별 기본값 타입
 export type BlockDefaultValue =
   | { type: 'text'; value: TextBlockDefault }
   | { type: 'timeline'; value: unknown }
   | { type: 'image'; value: unknown }
   | { type: 'checklist'; value: ChecklistBlockDefault }
-  | { type: 'emotion'; value: unknown }
+  | { type: 'emotion'; value: EmotionBlockDefault }
   | { type: 'date'; value: unknown }
-  | { type: 'weather'; value: unknown }
+  | { type: 'weather'; value: WeatherBlockDefault }
   | { type: 'data'; value: unknown }
   | { type: 'chart'; value: unknown }
   | { type: 'video'; value: unknown }

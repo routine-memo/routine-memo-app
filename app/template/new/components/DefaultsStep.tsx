@@ -2,10 +2,12 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { ArrowLeft, X } from 'lucide-react';
-import { BlockPosition, BlockDefaultValue, TextBlockDefault, ChecklistBlockDefault, IconMap } from '../types';
+import { BlockPosition, BlockDefaultValue, TextBlockDefault, ChecklistBlockDefault, WeatherBlockDefault, EmotionBlockDefault, IconMap } from '../types';
 import { blockPalette } from '../blockPalette';
 import { TextBlockEditor, TextBlockEditorHandle } from './TextBlockEditor';
 import { ChecklistBlockEditor, ChecklistBlockEditorHandle } from './ChecklistBlockEditor';
+import { WeatherBlockEditor, WeatherBlockEditorHandle, getWeatherInfo } from './WeatherBlockEditor';
+import { EmotionBlockEditor, EmotionBlockEditorHandle, getEmotionInfo } from './EmotionBlockEditor';
 import { calculateRows } from '../blockUtils';
 
 interface DefaultsStepProps {
@@ -38,6 +40,8 @@ export const DefaultsStep = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const textEditorRef = useRef<TextBlockEditorHandle>(null);
   const checklistEditorRef = useRef<ChecklistBlockEditorHandle>(null);
+  const weatherEditorRef = useRef<WeatherBlockEditorHandle>(null);
+  const emotionEditorRef = useRef<EmotionBlockEditorHandle>(null);
 
   // 컨테이너 너비 감지
   useEffect(() => {
@@ -80,6 +84,16 @@ export const DefaultsStep = ({
     updateBlockDefault(blockId, { type: 'checklist', value });
   }, [updateBlockDefault]);
 
+  // 날씨 블록 기본값 변경 핸들러
+  const handleWeatherBlockChange = useCallback((blockId: string, value: WeatherBlockDefault) => {
+    updateBlockDefault(blockId, { type: 'weather', value });
+  }, [updateBlockDefault]);
+
+  // 감정 블록 기본값 변경 핸들러
+  const handleEmotionBlockChange = useCallback((blockId: string, value: EmotionBlockDefault) => {
+    updateBlockDefault(blockId, { type: 'emotion', value });
+  }, [updateBlockDefault]);
+
   // 선택된 블록
   const selectedBlock = blocks.find(b => b.id === selectedBlockId);
 
@@ -90,6 +104,12 @@ export const DefaultsStep = ({
     }
     if (checklistEditorRef.current) {
       await checklistEditorRef.current.save();
+    }
+    if (weatherEditorRef.current) {
+      await weatherEditorRef.current.save();
+    }
+    if (emotionEditorRef.current) {
+      await emotionEditorRef.current.save();
     }
     setSelectedBlockId(null);
   }, []);
@@ -117,6 +137,30 @@ export const DefaultsStep = ({
             ref={checklistEditorRef}
             initialValue={checklistDefault}
             onChange={(value) => handleChecklistBlockChange(block.id, value)}
+          />
+        );
+      case 'weather':
+        const weatherDefault = block.defaultValue?.type === 'weather'
+          ? block.defaultValue.value
+          : { weather: null };
+        return (
+          <WeatherBlockEditor
+            ref={weatherEditorRef}
+            initialValue={weatherDefault}
+            onChange={(value) => handleWeatherBlockChange(block.id, value)}
+            onClose={() => setSelectedBlockId(null)}
+          />
+        );
+      case 'emotion':
+        const emotionDefault = block.defaultValue?.type === 'emotion'
+          ? block.defaultValue.value
+          : { emotion: null };
+        return (
+          <EmotionBlockEditor
+            ref={emotionEditorRef}
+            initialValue={emotionDefault}
+            onChange={(value) => handleEmotionBlockChange(block.id, value)}
+            onClose={() => setSelectedBlockId(null)}
           />
         );
       default:
@@ -234,6 +278,16 @@ export const DefaultsStep = ({
                         __html: block.defaultValue.value.html
                       }}
                     />
+                  ) : block.type === 'weather' && block.defaultValue?.type === 'weather' && block.defaultValue.value.weather ? (
+                    <div className="h-full flex flex-col items-center justify-center">
+                      <span className="text-4xl">{getWeatherInfo(block.defaultValue.value.weather)?.emoji}</span>
+                      <span className="text-xs text-gray-600 mt-1">{getWeatherInfo(block.defaultValue.value.weather)?.label}</span>
+                    </div>
+                  ) : block.type === 'emotion' && block.defaultValue?.type === 'emotion' && block.defaultValue.value.emotion ? (
+                    <div className="h-full flex flex-col items-center justify-center">
+                      <span className="text-4xl">{getEmotionInfo(block.defaultValue.value.emotion)?.emoji}</span>
+                      <span className="text-xs text-gray-600 mt-1">{getEmotionInfo(block.defaultValue.value.emotion)?.label}</span>
+                    </div>
                   ) : (
                     <div className="h-full flex items-center justify-center">
                       <span className="text-xs text-gray-400">탭하여 설정</span>
@@ -271,14 +325,13 @@ export const DefaultsStep = ({
           onClick={closeModal}
         />
 
-        {/* 편집 패널 */}
+        {/* 편집 패널 - 전체 화면 */}
         <div
           className={`
-            absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl
+            absolute inset-0 bg-white
             transition-transform duration-300 ease-out
             ${selectedBlockId ? 'translate-y-0' : 'translate-y-full'}
           `}
-          style={{ height: '85vh' }}
         >
           {selectedBlock && (
             <>
@@ -307,7 +360,7 @@ export const DefaultsStep = ({
               </div>
 
               {/* 에디터 영역 */}
-              <div className="flex-1 overflow-hidden" style={{ height: 'calc(85vh - 56px)' }}>
+              <div className="flex-1 overflow-hidden" style={{ height: 'calc(100vh - 56px)' }}>
                 {renderBlockEditor(selectedBlock)}
               </div>
             </>
