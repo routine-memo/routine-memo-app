@@ -8,8 +8,7 @@ export type BlockType =
   | 'emotion'
   | 'date'
   | 'weather'
-  | 'data'
-  | 'chart'
+  | 'dataGraph'
   | 'video'
   | 'link'
   | 'file'
@@ -123,6 +122,19 @@ export interface TimelineBlockDefault {
   items: TimelineItem[];
 }
 
+// 데이터 그래프 항목 정의
+export interface DataGraphField {
+  id: string;
+  name: string;           // 항목 이름 (예: "턱걸이 갯수", "체중")
+  unit: string;           // 단위 (예: "개", "kg", "%")
+  color: string;          // 그래프 선 색상
+}
+
+// 데이터 그래프 블록 기본값 타입 (템플릿 기본값 단계에서는 항목 정의만)
+export interface DataGraphBlockDefault {
+  fields: DataGraphField[];  // 추적할 항목들 정의
+}
+
 // 블록 타입별 기본값 타입
 export type BlockDefaultValue =
   | { type: 'text'; value: TextBlockDefault }
@@ -132,8 +144,7 @@ export type BlockDefaultValue =
   | { type: 'emotion'; value: EmotionBlockDefault }
   | { type: 'date'; value: DateBlockDefault }
   | { type: 'weather'; value: WeatherBlockDefault }
-  | { type: 'data'; value: unknown }
-  | { type: 'chart'; value: unknown }
+  | { type: 'dataGraph'; value: DataGraphBlockDefault }
   | { type: 'video'; value: VideoBlockDefault }
   | { type: 'link'; value: LinkBlockDefault }
   | { type: 'file'; value: FileBlockDefault }

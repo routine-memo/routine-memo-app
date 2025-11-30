@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { ArrowLeft, X, Volume2, VolumeX } from 'lucide-react';
-import { BlockPosition, BlockDefaultValue, TextBlockDefault, ChecklistBlockDefault, WeatherBlockDefault, EmotionBlockDefault, ImageBlockDefault, VideoBlockDefault, LinkBlockDefault, FileBlockDefault, DateBlockDefault, TimelineBlockDefault, IconMap } from '../types';
+import { BlockPosition, BlockDefaultValue, TextBlockDefault, ChecklistBlockDefault, WeatherBlockDefault, EmotionBlockDefault, ImageBlockDefault, VideoBlockDefault, LinkBlockDefault, FileBlockDefault, DateBlockDefault, TimelineBlockDefault, DataGraphBlockDefault, IconMap } from '../types';
 import { blockPalette } from '../blockPalette';
 import { TextBlockEditor, TextBlockEditorHandle } from './TextBlockEditor';
 import { ChecklistBlockEditor, ChecklistBlockEditorHandle } from './ChecklistBlockEditor';
@@ -14,10 +14,12 @@ import { LinkBlockEditor, LinkBlockEditorHandle } from './LinkBlockEditor';
 import { FileBlockEditor, FileBlockEditorHandle } from './FileBlockEditor';
 import { DateBlockEditor, DateBlockEditorHandle } from './DateBlockEditor';
 import { TimelineBlockEditor, TimelineBlockEditorHandle } from './TimelineBlockEditor';
+import { DataGraphBlockEditor, DataGraphBlockEditorHandle } from './DataGraphBlockEditor';
 import { LinkBlockPreview } from './LinkBlockPreview';
 import { FileBlockPreview } from './FileBlockPreview';
 import { DateBlockPreview } from './DateBlockPreview';
 import { TimelineBlockPreview } from './TimelineBlockPreview';
+import { DataGraphBlockPreview } from './DataGraphBlockPreview';
 import { SwipeablePreview } from './SwipeablePreview';
 import { calculateRows } from '../blockUtils';
 
@@ -59,6 +61,7 @@ export const DefaultsStep = ({
   const fileEditorRef = useRef<FileBlockEditorHandle>(null);
   const dateEditorRef = useRef<DateBlockEditorHandle>(null);
   const timelineEditorRef = useRef<TimelineBlockEditorHandle>(null);
+  const dataGraphEditorRef = useRef<DataGraphBlockEditorHandle>(null);
 
   // 컨테이너 너비 감지
   useEffect(() => {
@@ -141,6 +144,11 @@ export const DefaultsStep = ({
     updateBlockDefault(blockId, { type: 'timeline', value });
   }, [updateBlockDefault]);
 
+  // 데이터 그래프 블록 기본값 변경 핸들러
+  const handleDataGraphBlockChange = useCallback((blockId: string, value: DataGraphBlockDefault) => {
+    updateBlockDefault(blockId, { type: 'dataGraph', value });
+  }, [updateBlockDefault]);
+
   // 선택된 블록
   const selectedBlock = blocks.find(b => b.id === selectedBlockId);
 
@@ -175,6 +183,9 @@ export const DefaultsStep = ({
     }
     if (timelineEditorRef.current) {
       await timelineEditorRef.current.save();
+    }
+    if (dataGraphEditorRef.current) {
+      await dataGraphEditorRef.current.save();
     }
     setSelectedBlockId(null);
   }, []);
@@ -293,6 +304,17 @@ export const DefaultsStep = ({
             ref={timelineEditorRef}
             initialValue={timelineDefault}
             onChange={(value) => handleTimelineBlockChange(block.id, value)}
+          />
+        );
+      case 'dataGraph':
+        const dataGraphDefault = block.defaultValue?.type === 'dataGraph'
+          ? block.defaultValue.value
+          : { fields: [] };
+        return (
+          <DataGraphBlockEditor
+            ref={dataGraphEditorRef}
+            initialValue={dataGraphDefault}
+            onChange={(value) => handleDataGraphBlockChange(block.id, value)}
           />
         );
       default:
@@ -461,6 +483,8 @@ export const DefaultsStep = ({
                     <DateBlockPreview date={block.defaultValue.value} />
                   ) : block.type === 'timeline' && block.defaultValue?.type === 'timeline' && block.defaultValue.value.items?.length > 0 ? (
                     <TimelineBlockPreview value={block.defaultValue.value} />
+                  ) : block.type === 'dataGraph' && block.defaultValue?.type === 'dataGraph' && block.defaultValue.value.fields?.length > 0 ? (
+                    <DataGraphBlockPreview value={block.defaultValue.value} />
                   ) : (
                     <div className="h-full flex items-center justify-center">
                       <span className="text-xs text-gray-400">탭하여 설정</span>
