@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { ArrowLeft, X, Volume2, VolumeX } from 'lucide-react';
-import { BlockPosition, BlockDefaultValue, TextBlockDefault, ChecklistBlockDefault, WeatherBlockDefault, EmotionBlockDefault, ImageBlockDefault, VideoBlockDefault, IconMap } from '../types';
+import { BlockPosition, BlockDefaultValue, TextBlockDefault, ChecklistBlockDefault, WeatherBlockDefault, EmotionBlockDefault, ImageBlockDefault, VideoBlockDefault, LinkBlockDefault, IconMap } from '../types';
 import { blockPalette } from '../blockPalette';
 import { TextBlockEditor, TextBlockEditorHandle } from './TextBlockEditor';
 import { ChecklistBlockEditor, ChecklistBlockEditorHandle } from './ChecklistBlockEditor';
@@ -11,6 +11,8 @@ import { EmotionBlockEditor, EmotionBlockEditorHandle, getEmotionInfo } from './
 import { ImageBlockEditor, ImageBlockEditorHandle } from './ImageBlockEditor';
 import { VideoBlockEditor, VideoBlockEditorHandle } from './VideoBlockEditor';
 import { VideoBlockPreview } from './VideoBlockPreview';
+import { LinkBlockEditor, LinkBlockEditorHandle } from './LinkBlockEditor';
+import { LinkBlockPreview } from './LinkBlockPreview';
 import { calculateRows } from '../blockUtils';
 
 interface DefaultsStepProps {
@@ -47,6 +49,7 @@ export const DefaultsStep = ({
   const emotionEditorRef = useRef<EmotionBlockEditorHandle>(null);
   const imageEditorRef = useRef<ImageBlockEditorHandle>(null);
   const videoEditorRef = useRef<VideoBlockEditorHandle>(null);
+  const linkEditorRef = useRef<LinkBlockEditorHandle>(null);
 
   // 컨테이너 너비 감지
   useEffect(() => {
@@ -109,6 +112,11 @@ export const DefaultsStep = ({
     updateBlockDefault(blockId, { type: 'video', value });
   }, [updateBlockDefault]);
 
+  // 링크 블록 기본값 변경 핸들러
+  const handleLinkBlockChange = useCallback((blockId: string, value: LinkBlockDefault) => {
+    updateBlockDefault(blockId, { type: 'link', value });
+  }, [updateBlockDefault]);
+
   // 선택된 블록
   const selectedBlock = blocks.find(b => b.id === selectedBlockId);
 
@@ -131,6 +139,9 @@ export const DefaultsStep = ({
     }
     if (videoEditorRef.current) {
       await videoEditorRef.current.save();
+    }
+    if (linkEditorRef.current) {
+      await linkEditorRef.current.save();
     }
     setSelectedBlockId(null);
   }, []);
@@ -204,6 +215,17 @@ export const DefaultsStep = ({
             ref={videoEditorRef}
             initialValue={videoDefault}
             onChange={(value) => handleVideoBlockChange(block.id, value)}
+          />
+        );
+      case 'link':
+        const linkDefault = block.defaultValue?.type === 'link'
+          ? block.defaultValue.value
+          : { links: [] };
+        return (
+          <LinkBlockEditor
+            ref={linkEditorRef}
+            initialValue={linkDefault}
+            onChange={(value) => handleLinkBlockChange(block.id, value)}
           />
         );
       default:
@@ -346,6 +368,8 @@ export const DefaultsStep = ({
                     </div>
                   ) : block.type === 'video' && block.defaultValue?.type === 'video' && block.defaultValue.value.videos.length > 0 ? (
                     <VideoBlockPreview videos={block.defaultValue.value.videos} />
+                  ) : block.type === 'link' && block.defaultValue?.type === 'link' && block.defaultValue.value.links?.length > 0 ? (
+                    <LinkBlockPreview link={block.defaultValue.value} />
                   ) : (
                     <div className="h-full flex items-center justify-center">
                       <span className="text-xs text-gray-400">탭하여 설정</span>

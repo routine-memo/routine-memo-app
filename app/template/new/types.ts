@@ -60,6 +60,30 @@ export interface VideoBlockDefault {
   videos: string[];  // base64 인코딩된 영상 배열
 }
 
+// 링크 표시 모드
+export type LinkDisplayMode = 'embed' | 'preview';
+
+// 링크 메타데이터
+export interface LinkMetadata {
+  title?: string;
+  description?: string;
+  image?: string;
+  siteName?: string;
+  favicon?: string;
+}
+
+// 개별 링크 아이템
+export interface LinkItem {
+  url: string;
+  displayMode: LinkDisplayMode;
+  metadata?: LinkMetadata;
+}
+
+// 링크 블록 기본값 타입 (다중 링크 지원)
+export interface LinkBlockDefault {
+  links: LinkItem[];
+}
+
 // 블록 타입별 기본값 타입
 export type BlockDefaultValue =
   | { type: 'text'; value: TextBlockDefault }
@@ -72,7 +96,7 @@ export type BlockDefaultValue =
   | { type: 'data'; value: unknown }
   | { type: 'chart'; value: unknown }
   | { type: 'video'; value: VideoBlockDefault }
-  | { type: 'link'; value: unknown }
+  | { type: 'link'; value: LinkBlockDefault }
   | { type: 'file'; value: unknown }
   | { type: 'map'; value: unknown };
 
