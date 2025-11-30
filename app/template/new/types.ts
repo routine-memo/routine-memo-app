@@ -98,6 +98,11 @@ export interface FileBlockDefault {
   files: FileItem[];
 }
 
+// 날짜 블록 기본값 타입
+export interface DateBlockDefault {
+  date: string | null;  // ISO 8601 형식 (YYYY-MM-DD)
+}
+
 // 블록 타입별 기본값 타입
 export type BlockDefaultValue =
   | { type: 'text'; value: TextBlockDefault }
@@ -105,7 +110,7 @@ export type BlockDefaultValue =
   | { type: 'image'; value: ImageBlockDefault }
   | { type: 'checklist'; value: ChecklistBlockDefault }
   | { type: 'emotion'; value: EmotionBlockDefault }
-  | { type: 'date'; value: unknown }
+  | { type: 'date'; value: DateBlockDefault }
   | { type: 'weather'; value: WeatherBlockDefault }
   | { type: 'data'; value: unknown }
   | { type: 'chart'; value: unknown }
