@@ -2,12 +2,13 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { ArrowLeft, X } from 'lucide-react';
-import { BlockPosition, BlockDefaultValue, TextBlockDefault, ChecklistBlockDefault, WeatherBlockDefault, EmotionBlockDefault, IconMap } from '../types';
+import { BlockPosition, BlockDefaultValue, TextBlockDefault, ChecklistBlockDefault, WeatherBlockDefault, EmotionBlockDefault, ImageBlockDefault, IconMap } from '../types';
 import { blockPalette } from '../blockPalette';
 import { TextBlockEditor, TextBlockEditorHandle } from './TextBlockEditor';
 import { ChecklistBlockEditor, ChecklistBlockEditorHandle } from './ChecklistBlockEditor';
 import { WeatherBlockEditor, WeatherBlockEditorHandle, getWeatherInfo } from './WeatherBlockEditor';
 import { EmotionBlockEditor, EmotionBlockEditorHandle, getEmotionInfo } from './EmotionBlockEditor';
+import { ImageBlockEditor, ImageBlockEditorHandle } from './ImageBlockEditor';
 import { calculateRows } from '../blockUtils';
 
 interface DefaultsStepProps {
@@ -42,6 +43,7 @@ export const DefaultsStep = ({
   const checklistEditorRef = useRef<ChecklistBlockEditorHandle>(null);
   const weatherEditorRef = useRef<WeatherBlockEditorHandle>(null);
   const emotionEditorRef = useRef<EmotionBlockEditorHandle>(null);
+  const imageEditorRef = useRef<ImageBlockEditorHandle>(null);
 
   // 컨테이너 너비 감지
   useEffect(() => {
@@ -94,6 +96,11 @@ export const DefaultsStep = ({
     updateBlockDefault(blockId, { type: 'emotion', value });
   }, [updateBlockDefault]);
 
+  // 이미지 블록 기본값 변경 핸들러
+  const handleImageBlockChange = useCallback((blockId: string, value: ImageBlockDefault) => {
+    updateBlockDefault(blockId, { type: 'image', value });
+  }, [updateBlockDefault]);
+
   // 선택된 블록
   const selectedBlock = blocks.find(b => b.id === selectedBlockId);
 
@@ -110,6 +117,9 @@ export const DefaultsStep = ({
     }
     if (emotionEditorRef.current) {
       await emotionEditorRef.current.save();
+    }
+    if (imageEditorRef.current) {
+      await imageEditorRef.current.save();
     }
     setSelectedBlockId(null);
   }, []);
@@ -161,6 +171,17 @@ export const DefaultsStep = ({
             initialValue={emotionDefault}
             onChange={(value) => handleEmotionBlockChange(block.id, value)}
             onClose={() => setSelectedBlockId(null)}
+          />
+        );
+      case 'image':
+        const imageDefault = block.defaultValue?.type === 'image'
+          ? block.defaultValue.value
+          : { images: [] };
+        return (
+          <ImageBlockEditor
+            ref={imageEditorRef}
+            initialValue={imageDefault}
+            onChange={(value) => handleImageBlockChange(block.id, value)}
           />
         );
       default:
@@ -287,6 +308,19 @@ export const DefaultsStep = ({
                     <div className="h-full flex flex-col items-center justify-center">
                       <span className="text-4xl">{getEmotionInfo(block.defaultValue.value.emotion)?.emoji}</span>
                       <span className="text-xs text-gray-600 mt-1">{getEmotionInfo(block.defaultValue.value.emotion)?.label}</span>
+                    </div>
+                  ) : block.type === 'image' && block.defaultValue?.type === 'image' && block.defaultValue.value.images.length > 0 ? (
+                    <div className="h-full w-full relative">
+                      <img
+                        src={block.defaultValue.value.images[0]}
+                        alt="미리보기"
+                        className="w-full h-full object-cover"
+                      />
+                      {block.defaultValue.value.images.length > 1 && (
+                        <div className="absolute bottom-1 right-1 px-1.5 py-0.5 bg-black/60 rounded text-[10px] text-white">
+                          +{block.defaultValue.value.images.length - 1}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="h-full flex items-center justify-center">

@@ -50,11 +50,16 @@ export interface EmotionBlockDefault {
   emotion: EmotionType | null;  // 선택된 감정
 }
 
+// 이미지 블록 기본값 타입
+export interface ImageBlockDefault {
+  images: string[];  // base64 인코딩된 이미지 배열
+}
+
 // 블록 타입별 기본값 타입
 export type BlockDefaultValue =
   | { type: 'text'; value: TextBlockDefault }
   | { type: 'timeline'; value: unknown }
-  | { type: 'image'; value: unknown }
+  | { type: 'image'; value: ImageBlockDefault }
   | { type: 'checklist'; value: ChecklistBlockDefault }
   | { type: 'emotion'; value: EmotionBlockDefault }
   | { type: 'date'; value: unknown }
