@@ -103,10 +103,30 @@ export interface DateBlockDefault {
   date: string | null;  // ISO 8601 형식 (YYYY-MM-DD)
 }
 
+// 타임라인 행별 열 범위
+export interface TimelineRowSpan {
+  hour: number;         // 시간 (6-23)
+  startCol: number;     // 시작 열 (0-4, 0=:00, 1=:15, 2=:30, 3=:45, 4=:60)
+  endCol: number;       // 끝 열 (1-5, 배타적)
+}
+
+// 타임라인 일정 아이템
+export interface TimelineItem {
+  id: string;
+  title: string;
+  rows: TimelineRowSpan[];  // 행별 열 범위 배열
+  color: string;            // 일정 색상
+}
+
+// 타임라인 블록 기본값 타입
+export interface TimelineBlockDefault {
+  items: TimelineItem[];
+}
+
 // 블록 타입별 기본값 타입
 export type BlockDefaultValue =
   | { type: 'text'; value: TextBlockDefault }
-  | { type: 'timeline'; value: unknown }
+  | { type: 'timeline'; value: TimelineBlockDefault }
   | { type: 'image'; value: ImageBlockDefault }
   | { type: 'checklist'; value: ChecklistBlockDefault }
   | { type: 'emotion'; value: EmotionBlockDefault }

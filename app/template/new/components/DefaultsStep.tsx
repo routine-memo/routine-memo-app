@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { ArrowLeft, X, Volume2, VolumeX } from 'lucide-react';
-import { BlockPosition, BlockDefaultValue, TextBlockDefault, ChecklistBlockDefault, WeatherBlockDefault, EmotionBlockDefault, ImageBlockDefault, VideoBlockDefault, LinkBlockDefault, FileBlockDefault, DateBlockDefault, IconMap } from '../types';
+import { BlockPosition, BlockDefaultValue, TextBlockDefault, ChecklistBlockDefault, WeatherBlockDefault, EmotionBlockDefault, ImageBlockDefault, VideoBlockDefault, LinkBlockDefault, FileBlockDefault, DateBlockDefault, TimelineBlockDefault, IconMap } from '../types';
 import { blockPalette } from '../blockPalette';
 import { TextBlockEditor, TextBlockEditorHandle } from './TextBlockEditor';
 import { ChecklistBlockEditor, ChecklistBlockEditorHandle } from './ChecklistBlockEditor';
@@ -13,9 +13,11 @@ import { VideoBlockEditor, VideoBlockEditorHandle } from './VideoBlockEditor';
 import { LinkBlockEditor, LinkBlockEditorHandle } from './LinkBlockEditor';
 import { FileBlockEditor, FileBlockEditorHandle } from './FileBlockEditor';
 import { DateBlockEditor, DateBlockEditorHandle } from './DateBlockEditor';
+import { TimelineBlockEditor, TimelineBlockEditorHandle } from './TimelineBlockEditor';
 import { LinkBlockPreview } from './LinkBlockPreview';
 import { FileBlockPreview } from './FileBlockPreview';
 import { DateBlockPreview } from './DateBlockPreview';
+import { TimelineBlockPreview } from './TimelineBlockPreview';
 import { SwipeablePreview } from './SwipeablePreview';
 import { calculateRows } from '../blockUtils';
 
@@ -56,6 +58,7 @@ export const DefaultsStep = ({
   const linkEditorRef = useRef<LinkBlockEditorHandle>(null);
   const fileEditorRef = useRef<FileBlockEditorHandle>(null);
   const dateEditorRef = useRef<DateBlockEditorHandle>(null);
+  const timelineEditorRef = useRef<TimelineBlockEditorHandle>(null);
 
   // 컨테이너 너비 감지
   useEffect(() => {
@@ -133,6 +136,11 @@ export const DefaultsStep = ({
     updateBlockDefault(blockId, { type: 'date', value });
   }, [updateBlockDefault]);
 
+  // 타임라인 블록 기본값 변경 핸들러
+  const handleTimelineBlockChange = useCallback((blockId: string, value: TimelineBlockDefault) => {
+    updateBlockDefault(blockId, { type: 'timeline', value });
+  }, [updateBlockDefault]);
+
   // 선택된 블록
   const selectedBlock = blocks.find(b => b.id === selectedBlockId);
 
@@ -164,6 +172,9 @@ export const DefaultsStep = ({
     }
     if (dateEditorRef.current) {
       await dateEditorRef.current.save();
+    }
+    if (timelineEditorRef.current) {
+      await timelineEditorRef.current.save();
     }
     setSelectedBlockId(null);
   }, []);
@@ -271,6 +282,17 @@ export const DefaultsStep = ({
             initialValue={dateDefault}
             onChange={(value) => handleDateBlockChange(block.id, value)}
             onSelectComplete={() => setSelectedBlockId(null)}
+          />
+        );
+      case 'timeline':
+        const timelineDefault = block.defaultValue?.type === 'timeline'
+          ? block.defaultValue.value
+          : { items: [] };
+        return (
+          <TimelineBlockEditor
+            ref={timelineEditorRef}
+            initialValue={timelineDefault}
+            onChange={(value) => handleTimelineBlockChange(block.id, value)}
           />
         );
       default:
@@ -437,6 +459,8 @@ export const DefaultsStep = ({
                     </SwipeablePreview>
                   ) : block.type === 'date' && block.defaultValue?.type === 'date' && block.defaultValue.value.date ? (
                     <DateBlockPreview date={block.defaultValue.value} />
+                  ) : block.type === 'timeline' && block.defaultValue?.type === 'timeline' && block.defaultValue.value.items?.length > 0 ? (
+                    <TimelineBlockPreview value={block.defaultValue.value} />
                   ) : (
                     <div className="h-full flex items-center justify-center">
                       <span className="text-xs text-gray-400">탭하여 설정</span>
