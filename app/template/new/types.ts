@@ -84,6 +84,20 @@ export interface LinkBlockDefault {
   links: LinkItem[];
 }
 
+// 파일 아이템
+export interface FileItem {
+  name: string;       // 파일명
+  size: number;       // 파일 크기 (bytes)
+  type: string;       // MIME 타입
+  data: string;       // base64 인코딩된 파일 데이터
+  lastModified?: number; // 수정 시간
+}
+
+// 파일 블록 기본값 타입
+export interface FileBlockDefault {
+  files: FileItem[];
+}
+
 // 블록 타입별 기본값 타입
 export type BlockDefaultValue =
   | { type: 'text'; value: TextBlockDefault }
@@ -97,7 +111,7 @@ export type BlockDefaultValue =
   | { type: 'chart'; value: unknown }
   | { type: 'video'; value: VideoBlockDefault }
   | { type: 'link'; value: LinkBlockDefault }
-  | { type: 'file'; value: unknown }
+  | { type: 'file'; value: FileBlockDefault }
   | { type: 'map'; value: unknown };
 
 export interface BlockPosition {

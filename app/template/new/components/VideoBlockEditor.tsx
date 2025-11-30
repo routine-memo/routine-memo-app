@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useCallback, useImperativeHandle, forwardRef, useRef, useEffect } from 'react';
-import { Plus, Trash2, Video, Play, Pause, Volume2, VolumeX, Maximize2, Minimize2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Trash2, Video, Play, Pause, Volume2, VolumeX, Maximize2, Minimize2, ChevronLeft, ChevronRight, Download, Loader2 } from 'lucide-react';
 import { VideoBlockDefault } from '../types';
+import { useCarousel } from '../hooks/useCarousel';
 
 interface VideoBlockEditorProps {
   initialValue?: VideoBlockDefault;
@@ -22,24 +23,35 @@ const formatTime = (seconds: number): string => {
 
 const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEditorProps>(
   ({ initialValue, onChange }, ref) => {
-    const [videos, setVideos] = useState<string[]>(initialValue?.videos || []);
-    const [currentIndex, setCurrentIndex] = useState(0);
     const [isPlaying, setIsPlaying] = useState(true);
-    const [isMuted, setIsMuted] = useState(false); // 에디터에서는 음소거 해제가 기본
+    const [isMuted, setIsMuted] = useState(false);
     const [volume, setVolume] = useState(1);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
     const [showVolumeSlider, setShowVolumeSlider] = useState(false);
-    const [showControls, setShowControls] = useState(true); // 컨트롤 표시 여부
-    const [isFullscreen, setIsFullscreen] = useState(false); // 모달 전체화면
+    const [showControls, setShowControls] = useState(true);
+    const [isFullscreen, setIsFullscreen] = useState(false);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const containerRef = useRef<HTMLDivElement>(null);
     const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
     const fullscreenVideoRef = useRef<HTMLVideoElement | null>(null);
-    const isScrollingRef = useRef(false);
     const progressRef = useRef<HTMLDivElement>(null);
     const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+    // 캐러셀 훅 사용
+    const {
+      items: videos,
+      currentIndex,
+      containerRef,
+      isScrollingRef,
+      setItems: setVideos,
+      setCurrentIndex,
+      scrollToIndex,
+      handleScroll: baseHandleScroll,
+      handleScrollEnd,
+      removeItem: handleRemoveVideo,
+      getItemStyle,
+    } = useCarousel<string>(initialValue?.videos || []);
 
     // onChange를 ref로 관리해서 의존성 문제 해결
     const onChangeRef = useRef(onChange);
@@ -55,13 +67,28 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
       onChangeRef.current({ videos });
     }, [videos]);
 
+    // 스크롤 핸들러 래퍼 (시간 리셋 추가)
+    const handleScroll = useCallback(() => {
+      const prevIndex = currentIndex;
+      baseHandleScroll();
+      // 인덱스가 변경되면 시간 리셋 (useEffect에서 처리)
+    }, [baseHandleScroll, currentIndex]);
+
+    // 인덱스 변경 시 시간 리셋
+    const prevIndexRef = useRef(currentIndex);
+    useEffect(() => {
+      if (prevIndexRef.current !== currentIndex) {
+        prevIndexRef.current = currentIndex;
+        setCurrentTime(0);
+        setDuration(0);
+      }
+    }, [currentIndex]);
+
     // 컨트롤 자동 숨김 타이머 시작
     const startControlsTimer = useCallback(() => {
-      // 기존 타이머 클리어
       if (controlsTimeoutRef.current) {
         clearTimeout(controlsTimeoutRef.current);
       }
-      // 3초 후 컨트롤 숨김
       controlsTimeoutRef.current = setTimeout(() => {
         setShowControls(false);
       }, 3000);
@@ -78,26 +105,19 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
       if (videos.length > 0) {
         showControlsWithTimer();
       }
-      // 언마운트 시 타이머 클리어
       return () => {
         if (controlsTimeoutRef.current) {
           clearTimeout(controlsTimeoutRef.current);
         }
       };
-    }, []); // 마운트 시 1회만 실행
+    }, []);
 
     // 영상 인덱스 변경 시 컨트롤 표시
-    const prevIndexRef = useRef(currentIndex);
     useEffect(() => {
-      // 실제로 인덱스가 변경된 경우에만 실행
       if (prevIndexRef.current !== currentIndex && videos.length > 0) {
-        prevIndexRef.current = currentIndex;
         showControlsWithTimer();
       }
     }, [currentIndex, showControlsWithTimer, videos.length]);
-
-    // 현재 영상 ref
-    const currentVideo = videoRefs.current[currentIndex];
 
     // 현재 인덱스가 변경될 때 자동 재생
     useEffect(() => {
@@ -117,12 +137,11 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
       });
     }, [currentIndex, isPlaying, isMuted, volume]);
 
-    // 시간 업데이트 핸들러 - 매 프레임마다 호출됨
+    // 시간 업데이트 핸들러
     const handleTimeUpdate = useCallback((index: number) => {
       const video = videoRefs.current[index];
       if (video && index === currentIndex) {
         setCurrentTime(video.currentTime);
-        // duration이 아직 설정되지 않았다면 설정
         if (video.duration && !isNaN(video.duration) && duration === 0) {
           setDuration(video.duration);
         }
@@ -138,17 +157,15 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
       }
     }, [currentIndex]);
 
-    // 영상 터치/클릭 핸들러 (컨트롤 표시/숨김 토글)
+    // 영상 터치/클릭 핸들러
     const handleVideoClick = useCallback((e: React.MouseEvent) => {
       e.stopPropagation();
       if (showControls) {
-        // 컨트롤이 보이는 상태에서 클릭하면 숨김
         setShowControls(false);
         if (controlsTimeoutRef.current) {
           clearTimeout(controlsTimeoutRef.current);
         }
       } else {
-        // 컨트롤이 숨겨진 상태에서 클릭하면 표시 + 타이머 시작
         showControlsWithTimer();
       }
     }, [showControls, showControlsWithTimer]);
@@ -156,7 +173,7 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
     // 재생/일시정지 토글
     const togglePlayPause = useCallback((e: React.MouseEvent) => {
       e.stopPropagation();
-      showControlsWithTimer(); // 타이머 리셋
+      showControlsWithTimer();
       const video = videoRefs.current[currentIndex];
       if (video) {
         if (isPlaying) {
@@ -171,7 +188,7 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
     // 음소거 토글
     const toggleMute = useCallback((e: React.MouseEvent) => {
       e.stopPropagation();
-      showControlsWithTimer(); // 타이머 리셋
+      showControlsWithTimer();
       const video = videoRefs.current[currentIndex];
       if (video) {
         video.muted = !isMuted;
@@ -182,7 +199,7 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
     // 볼륨 변경
     const handleVolumeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
       e.stopPropagation();
-      showControlsWithTimer(); // 타이머 리셋
+      showControlsWithTimer();
       const newVolume = parseFloat(e.target.value);
       setVolume(newVolume);
       const video = videoRefs.current[currentIndex];
@@ -198,10 +215,10 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
       }
     }, [currentIndex, isMuted, showControlsWithTimer]);
 
-    // 재생 위치 변경 (프로그레스 바 클릭)
+    // 재생 위치 변경
     const handleProgressClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
       e.stopPropagation();
-      showControlsWithTimer(); // 타이머 리셋
+      showControlsWithTimer();
       const video = videoRefs.current[currentIndex];
       if (video && progressRef.current) {
         const rect = progressRef.current.getBoundingClientRect();
@@ -219,7 +236,6 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
 
       setIsFullscreen(prev => {
         if (!prev) {
-          // 전체화면 열 때: 기존 영상의 현재 시간 저장 후 일시정지
           const currentVideo = videoRefs.current[currentIndex];
           if (currentVideo) {
             setCurrentTime(currentVideo.currentTime);
@@ -227,10 +243,8 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
             currentVideo.pause();
           }
         } else {
-          // 전체화면 닫을 때: 기존 영상에 현재 시간 동기화 후 재생 재개
           const currentVideo = videoRefs.current[currentIndex];
           if (currentVideo) {
-            // 전체화면 비디오의 현재 시간으로 동기화
             if (fullscreenVideoRef.current) {
               currentVideo.currentTime = fullscreenVideoRef.current.currentTime;
             }
@@ -242,7 +256,6 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
         return !prev;
       });
 
-      // 전체화면 열 때 컨트롤 표시
       setShowControls(true);
       startControlsTimer();
     }, [currentIndex, isPlaying, startControlsTimer]);
@@ -255,7 +268,7 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
       setCurrentIndex(prevIndex);
       setCurrentTime(0);
       setDuration(0);
-    }, [currentIndex, videos.length, showControlsWithTimer]);
+    }, [currentIndex, videos.length, showControlsWithTimer, setCurrentIndex]);
 
     const goToNextVideo = useCallback((e: React.MouseEvent) => {
       e.stopPropagation();
@@ -264,7 +277,7 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
       setCurrentIndex(nextIndex);
       setCurrentTime(0);
       setDuration(0);
-    }, [currentIndex, videos.length, showControlsWithTimer]);
+    }, [currentIndex, videos.length, showControlsWithTimer, setCurrentIndex]);
 
     // 전체화면 비디오 동기화
     useEffect(() => {
@@ -345,128 +358,72 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
       }
     }, [showControlsWithTimer]);
 
+    // 영상 다운로드
+    const handleDownload = useCallback((videoData: string, index: number) => {
+      const link = document.createElement('a');
+      link.href = videoData;
+      const mimeMatch = videoData.match(/data:video\/(\w+);/);
+      const ext = mimeMatch ? mimeMatch[1] : 'mp4';
+      link.download = `video_${index + 1}.${ext}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }, []);
+
     // 영상 추가 핸들러
     const handleAddVideos = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = e.target.files;
       if (!files || files.length === 0) return;
 
-      const readFile = (file: File): Promise<string> => {
-        return new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = (event) => {
-            const result = event.target?.result as string;
-            resolve(result);
-          };
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
-      };
+      const fileArray = Array.from(files);
+      const newIndex = videos.length;
+      const placeholderCount = fileArray.length;
 
-      try {
-        const loadedVideos = await Promise.all(
-          Array.from(files).map(file => readFile(file))
-        );
+      // 1. 먼저 플레이스홀더로 상태 업데이트
+      const placeholders = new Array(placeholderCount).fill('');
+      setVideos(prev => [...prev, ...placeholders]);
 
-        // 새로 추가될 첫 번째 영상의 인덱스 저장
-        const newIndex = videos.length;
+      // 영상 추가 후 자동 재생
+      setIsPlaying(true);
 
-        setVideos(prev => [...prev, ...loadedVideos]);
-
-        // 영상 추가 후 자동 재생
-        setIsPlaying(true);
-
-        // DOM 업데이트 후 스크롤
-        setTimeout(() => {
-          if (containerRef.current) {
-            const inactiveHeight = 128;
-            const gap = 16;
-            const scrollPosition = newIndex * (inactiveHeight + gap);
-
-            isScrollingRef.current = true;
-            containerRef.current.scrollTo({
-              top: scrollPosition,
-              behavior: 'smooth'
-            });
-
-            setTimeout(() => {
-              isScrollingRef.current = false;
-            }, 300);
-          }
-          setCurrentIndex(newIndex);
-          setCurrentTime(0);
-          setDuration(0);
-        }, 150);
-      } catch (error) {
-        console.error('Error loading videos:', error);
-      }
-
-      e.target.value = '';
-    }, []);
-
-    // 영상 삭제 핸들러
-    const handleRemoveVideo = useCallback((index: number) => {
-      setVideos((prev) => {
-        const updated = prev.filter((_, i) => i !== index);
-        if (currentIndex >= updated.length && updated.length > 0) {
-          setCurrentIndex(updated.length - 1);
-        } else if (updated.length === 0) {
-          setCurrentIndex(0);
-        }
-        return updated;
-      });
-    }, [currentIndex]);
-
-    // 특정 인덱스로 스크롤
-    const scrollToIndex = useCallback((index: number) => {
-      if (!containerRef.current || videos.length === 0) return;
-
-      const container = containerRef.current;
-      const inactiveHeight = 128; // 비활성 아이템 높이
-      const gap = 16;
-
-      // 각 아이템까지의 누적 높이 계산
-      const scrollPosition = index * (inactiveHeight + gap);
-
-      isScrollingRef.current = true;
-      container.scrollTo({
-        top: scrollPosition,
-        behavior: 'smooth'
-      });
-
+      // 2. 즉시 캐러셀 이동
       setTimeout(() => {
-        isScrollingRef.current = false;
-      }, 300);
+        if (containerRef.current) {
+          const inactiveHeight = 128;
+          const gap = 16;
+          const scrollPosition = newIndex * (inactiveHeight + gap);
 
-      setCurrentIndex(index);
-      setCurrentTime(0);
-      setDuration(0);
-    }, [videos.length]);
+          isScrollingRef.current = true;
+          containerRef.current.scrollTo({
+            top: scrollPosition,
+            behavior: 'smooth'
+          });
 
-    // 스크롤 이벤트 핸들러
-    const handleScroll = useCallback(() => {
-      if (!containerRef.current || isScrollingRef.current || videos.length === 0) return;
-
-      const container = containerRef.current;
-      const scrollTop = container.scrollTop;
-      const inactiveHeight = 128;
-      const gap = 16;
-      const itemHeight = inactiveHeight + gap;
-
-      const newIndex = Math.round(scrollTop / itemHeight);
-      const clampedIndex = Math.max(0, Math.min(newIndex, videos.length - 1));
-
-      if (clampedIndex !== currentIndex) {
-        setCurrentIndex(clampedIndex);
+          setTimeout(() => {
+            isScrollingRef.current = false;
+          }, 300);
+        }
+        setCurrentIndex(newIndex);
         setCurrentTime(0);
         setDuration(0);
-      }
-    }, [currentIndex, videos.length]);
+      }, 50);
 
-    // 스크롤 종료 시 스냅
-    const handleScrollEnd = useCallback(() => {
-      if (isScrollingRef.current) return;
-      scrollToIndex(currentIndex);
-    }, [currentIndex, scrollToIndex]);
+      // 3. 백그라운드에서 실제 영상 로드
+      fileArray.forEach((file, idx) => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const result = event.target?.result as string;
+          setVideos(prev => {
+            const updated = [...prev];
+            updated[newIndex + idx] = result;
+            return updated;
+          });
+        };
+        reader.readAsDataURL(file);
+      });
+
+      e.target.value = '';
+    }, [videos.length, containerRef, isScrollingRef, setVideos, setCurrentIndex]);
 
     // 저장 함수
     const save = useCallback(async () => {
@@ -476,26 +433,20 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
     // 부모에게 save 메서드 노출
     useImperativeHandle(ref, () => ({ save }), [save]);
 
-    // 파일 입력 요소
-    const fileInput = (
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="video/*"
-        multiple
-        onChange={handleAddVideos}
-        className="hidden"
-      />
-    );
-
     const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
 
     return (
       <div className="flex flex-col h-full bg-gray-100">
-        {fileInput}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="video/*"
+          multiple
+          onChange={handleAddVideos}
+          className="hidden"
+        />
 
         {videos.length === 0 ? (
-          // 영상이 없을 때 - 중앙에 추가 버튼
           <div className="flex-1 flex flex-col items-center justify-center">
             <button
               onClick={() => fileInputRef.current?.click()}
@@ -506,7 +457,6 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
             </button>
           </div>
         ) : (
-          // 영상이 있을 때 - 수직 캐러셀
           <>
             {/* 영상 카운트 */}
             <div className="absolute top-16 left-1/2 -translate-x-1/2 z-20 px-4 py-1.5 bg-black/60 rounded-full text-white text-sm font-medium">
@@ -525,23 +475,17 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
                 scrollBehavior: 'smooth',
               }}
             >
-              {/* 상단 패딩 (첫 영상이 중앙에 오도록) */}
               <div style={{ height: 'calc(50% - 140px)' }} />
 
               {videos.map((video, index) => {
-                const isActive = index === currentIndex;
-                const distance = Math.abs(index - currentIndex);
-
-                const scale = isActive ? 1 : Math.max(0.6, 1 - distance * 0.15);
-                const opacity = isActive ? 1 : Math.max(0.5, 1 - distance * 0.2);
-                const blur = isActive ? 0 : Math.min(distance * 2, 4);
+                const { isActive, scale, opacity, blur, height, width } = getItemStyle(index);
 
                 return (
                   <div
                     key={index}
                     className="flex justify-center items-center px-4"
                     style={{
-                      height: isActive ? '280px' : '128px',
+                      height,
                       scrollSnapAlign: 'center',
                       transition: 'all 0.3s ease-out',
                       marginBottom: '16px',
@@ -551,7 +495,7 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
                     <div
                       className="relative overflow-hidden shadow-2xl bg-black"
                       style={{
-                        width: isActive ? '100%' : '85%',
+                        width,
                         height: '100%',
                         borderRadius: isActive ? '16px' : '24px',
                         transform: `scale(${scale})`,
@@ -560,32 +504,50 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
                         transition: 'all 0.3s ease-out',
                       }}
                     >
-                      <video
-                        ref={el => { videoRefs.current[index] = el; }}
-                        src={video}
-                        className="w-full h-full object-contain cursor-pointer"
-                        loop
-                        playsInline
-                        onTimeUpdate={() => handleTimeUpdate(index)}
-                        onLoadedMetadata={() => handleLoadedMetadata(index)}
-                        onClick={isActive ? handleVideoClick : undefined}
-                      />
+                      {/* 로딩 중 */}
+                      {!video ? (
+                        <div className="w-full h-full flex items-center justify-center bg-gray-800">
+                          <Loader2 className="w-8 h-8 text-white animate-spin" />
+                        </div>
+                      ) : (
+                        <video
+                          ref={el => { videoRefs.current[index] = el; }}
+                          src={video}
+                          className="w-full h-full object-contain cursor-pointer"
+                          loop
+                          playsInline
+                          onTimeUpdate={() => handleTimeUpdate(index)}
+                          onLoadedMetadata={() => handleLoadedMetadata(index)}
+                          onClick={isActive ? handleVideoClick : undefined}
+                        />
+                      )}
 
                       {/* 활성 영상일 때 컨트롤 */}
-                      {isActive && (
+                      {isActive && video && (
                         <>
-                          {/* 삭제 버튼 - 항상 표시 */}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleRemoveVideo(index);
-                            }}
-                            className="absolute top-3 right-3 p-2 bg-black/50 hover:bg-black/70 rounded-full transition-colors z-10"
-                          >
-                            <Trash2 className="w-5 h-5 text-white" />
-                          </button>
+                          {/* 상단 버튼들 */}
+                          <div className="absolute top-3 right-3 flex gap-2 z-10">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDownload(video, index);
+                              }}
+                              className="p-2 bg-black/50 hover:bg-black/70 rounded-full transition-colors"
+                            >
+                              <Download className="w-5 h-5 text-white" />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRemoveVideo(index);
+                              }}
+                              className="p-2 bg-black/50 hover:bg-black/70 rounded-full transition-colors"
+                            >
+                              <Trash2 className="w-5 h-5 text-white" />
+                            </button>
+                          </div>
 
-                          {/* 하단 컨트롤 바 - 조건부 표시 */}
+                          {/* 하단 컨트롤 바 */}
                           <div
                             className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3 pt-8 transition-opacity duration-300 ${
                               showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
@@ -608,7 +570,6 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
                             {/* 컨트롤 버튼들 */}
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-3">
-                                {/* 재생/일시정지 */}
                                 <button
                                   onClick={togglePlayPause}
                                   className="p-1.5 hover:bg-white/20 rounded-full transition-colors"
@@ -620,7 +581,6 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
                                   )}
                                 </button>
 
-                                {/* 볼륨 컨트롤 */}
                                 <div
                                   className="relative flex items-center"
                                   onMouseEnter={() => setShowVolumeSlider(true)}
@@ -637,7 +597,6 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
                                     )}
                                   </button>
 
-                                  {/* 볼륨 슬라이더 */}
                                   <div
                                     className={`ml-2 transition-all duration-200 overflow-hidden ${
                                       showVolumeSlider ? 'w-20 opacity-100' : 'w-0 opacity-0'
@@ -656,13 +615,11 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
                                   </div>
                                 </div>
 
-                                {/* 시간 표시 */}
                                 <span className="text-white text-xs">
                                   {formatTime(currentTime)} / {formatTime(duration)}
                                 </span>
                               </div>
 
-                              {/* 전체화면 버튼 */}
                               <button
                                 onClick={toggleFullscreen}
                                 className="p-1.5 hover:bg-white/20 rounded-full transition-colors"
@@ -678,34 +635,35 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
                 );
               })}
 
-              {/* 하단 패딩 (마지막 영상이 중앙에 오도록) */}
               <div style={{ height: 'calc(50% - 140px)' }} />
             </div>
 
             {/* 하단 컨트롤 영역 */}
             <div className="flex-none p-4 bg-white border-t border-gray-200">
-              {/* 썸네일 리스트 */}
               <div className="flex gap-2 overflow-x-auto pb-3 mb-3">
                 {videos.map((video, index) => (
                   <button
                     key={index}
                     onClick={() => scrollToIndex(index)}
-                    className={`flex-none w-14 h-14 rounded-lg overflow-hidden border-2 transition-all bg-black ${
+                    className={`flex-none w-14 h-14 rounded-lg overflow-hidden border-2 transition-all bg-black flex items-center justify-center ${
                       index === currentIndex
                         ? 'border-amber-500 shadow-md'
                         : 'border-transparent opacity-70 hover:opacity-100'
                     }`}
                   >
-                    <video
-                      src={video}
-                      className="w-full h-full object-cover"
-                      muted
-                    />
+                    {video ? (
+                      <video
+                        src={video}
+                        className="w-full h-full object-cover"
+                        muted
+                      />
+                    ) : (
+                      <Loader2 className="w-4 h-4 text-gray-400 animate-spin" />
+                    )}
                   </button>
                 ))}
               </div>
 
-              {/* 영상 추가 버튼 */}
               <button
                 onClick={() => fileInputRef.current?.click()}
                 className="w-full py-3 flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-medium transition-colors"
@@ -717,7 +675,7 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
           </>
         )}
 
-        {/* 전체화면 모달 (모바일 호환) */}
+        {/* 전체화면 모달 */}
         {isFullscreen && videos[currentIndex] && (
           <div
             className="fixed inset-0 z-50 bg-black flex flex-col"
@@ -729,18 +687,29 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
               }
             }}
           >
-            {/* 영상 카운트 */}
-            {videos.length > 1 && (
-              <div
-                className={`absolute top-4 left-1/2 -translate-x-1/2 z-10 px-4 py-2 bg-black/50 rounded-full text-white text-sm font-medium transition-opacity duration-300 ${
-                  showControls ? 'opacity-100' : 'opacity-0'
-                }`}
-              >
-                {currentIndex + 1} / {videos.length}
+            <div
+              className={`absolute top-4 left-0 right-0 flex items-center justify-between px-4 z-10 transition-opacity duration-300 ${
+                showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
+              }`}
+            >
+              <div className="flex-1 flex justify-center">
+                {videos.length > 1 && (
+                  <div className="px-4 py-2 bg-black/50 rounded-full text-white text-sm font-medium">
+                    {currentIndex + 1} / {videos.length}
+                  </div>
+                )}
               </div>
-            )}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDownload(videos[currentIndex], currentIndex);
+                }}
+                className="absolute right-4 p-3 bg-black/50 hover:bg-black/70 rounded-full transition-colors"
+              >
+                <Download className="w-6 h-6 text-white" />
+              </button>
+            </div>
 
-            {/* 전체화면 비디오 */}
             <div className="flex-1 flex items-center justify-center">
               <video
                 ref={fullscreenVideoRef}
@@ -758,7 +727,6 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
                 }}
                 onClick={(e) => {
                   e.stopPropagation();
-                  // 비디오 클릭 시 컨트롤 토글
                   if (showControls) {
                     setShowControls(false);
                     if (controlsTimeoutRef.current) {
@@ -771,7 +739,6 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
               />
             </div>
 
-            {/* 이전/다음 버튼 (여러 영상일 때) */}
             {videos.length > 1 && (
               <>
                 <button
@@ -793,14 +760,12 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
               </>
             )}
 
-            {/* 하단 컨트롤 바 */}
             <div
               className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 pt-10 transition-opacity duration-300 ${
                 showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
               }`}
               onClick={(e) => e.stopPropagation()}
             >
-              {/* 프로그레스 바 */}
               <div
                 className="w-full h-1.5 bg-white/30 rounded-full mb-4 cursor-pointer"
                 onClick={handleFullscreenProgressClick}
@@ -813,10 +778,8 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
                 </div>
               </div>
 
-              {/* 컨트롤 버튼들 */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  {/* 재생/일시정지 */}
                   <button
                     onClick={toggleFullscreenPlayPause}
                     className="p-2 hover:bg-white/20 rounded-full transition-colors"
@@ -828,7 +791,6 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
                     )}
                   </button>
 
-                  {/* 볼륨 컨트롤 */}
                   <div
                     className="relative flex items-center"
                     onMouseEnter={() => setShowVolumeSlider(true)}
@@ -845,7 +807,6 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
                       )}
                     </button>
 
-                    {/* 볼륨 슬라이더 */}
                     <div
                       className={`ml-2 transition-all duration-200 overflow-hidden ${
                         showVolumeSlider ? 'w-24 opacity-100' : 'w-0 opacity-0'
@@ -864,13 +825,11 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
                     </div>
                   </div>
 
-                  {/* 시간 표시 */}
                   <span className="text-white text-sm">
                     {formatTime(currentTime)} / {formatTime(duration)}
                   </span>
                 </div>
 
-                {/* 축소 버튼 (전체화면 버튼 위치) */}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();

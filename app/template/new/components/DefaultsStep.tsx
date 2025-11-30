@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { ArrowLeft, X, Volume2, VolumeX } from 'lucide-react';
-import { BlockPosition, BlockDefaultValue, TextBlockDefault, ChecklistBlockDefault, WeatherBlockDefault, EmotionBlockDefault, ImageBlockDefault, VideoBlockDefault, LinkBlockDefault, IconMap } from '../types';
+import { BlockPosition, BlockDefaultValue, TextBlockDefault, ChecklistBlockDefault, WeatherBlockDefault, EmotionBlockDefault, ImageBlockDefault, VideoBlockDefault, LinkBlockDefault, FileBlockDefault, IconMap } from '../types';
 import { blockPalette } from '../blockPalette';
 import { TextBlockEditor, TextBlockEditorHandle } from './TextBlockEditor';
 import { ChecklistBlockEditor, ChecklistBlockEditorHandle } from './ChecklistBlockEditor';
@@ -11,7 +11,9 @@ import { EmotionBlockEditor, EmotionBlockEditorHandle, getEmotionInfo } from './
 import { ImageBlockEditor, ImageBlockEditorHandle } from './ImageBlockEditor';
 import { VideoBlockEditor, VideoBlockEditorHandle } from './VideoBlockEditor';
 import { LinkBlockEditor, LinkBlockEditorHandle } from './LinkBlockEditor';
+import { FileBlockEditor, FileBlockEditorHandle } from './FileBlockEditor';
 import { LinkBlockPreview } from './LinkBlockPreview';
+import { FileBlockPreview } from './FileBlockPreview';
 import { SwipeablePreview } from './SwipeablePreview';
 import { calculateRows } from '../blockUtils';
 
@@ -50,6 +52,7 @@ export const DefaultsStep = ({
   const imageEditorRef = useRef<ImageBlockEditorHandle>(null);
   const videoEditorRef = useRef<VideoBlockEditorHandle>(null);
   const linkEditorRef = useRef<LinkBlockEditorHandle>(null);
+  const fileEditorRef = useRef<FileBlockEditorHandle>(null);
 
   // 컨테이너 너비 감지
   useEffect(() => {
@@ -117,6 +120,11 @@ export const DefaultsStep = ({
     updateBlockDefault(blockId, { type: 'link', value });
   }, [updateBlockDefault]);
 
+  // 파일 블록 기본값 변경 핸들러
+  const handleFileBlockChange = useCallback((blockId: string, value: FileBlockDefault) => {
+    updateBlockDefault(blockId, { type: 'file', value });
+  }, [updateBlockDefault]);
+
   // 선택된 블록
   const selectedBlock = blocks.find(b => b.id === selectedBlockId);
 
@@ -142,6 +150,9 @@ export const DefaultsStep = ({
     }
     if (linkEditorRef.current) {
       await linkEditorRef.current.save();
+    }
+    if (fileEditorRef.current) {
+      await fileEditorRef.current.save();
     }
     setSelectedBlockId(null);
   }, []);
@@ -226,6 +237,17 @@ export const DefaultsStep = ({
             ref={linkEditorRef}
             initialValue={linkDefault}
             onChange={(value) => handleLinkBlockChange(block.id, value)}
+          />
+        );
+      case 'file':
+        const fileDefault = block.defaultValue?.type === 'file'
+          ? block.defaultValue.value
+          : { files: [] };
+        return (
+          <FileBlockEditor
+            ref={fileEditorRef}
+            initialValue={fileDefault}
+            onChange={(value) => handleFileBlockChange(block.id, value)}
           />
         );
       default:
@@ -353,9 +375,9 @@ export const DefaultsStep = ({
                       <span className="text-4xl">{getEmotionInfo(block.defaultValue.value.emotion)?.emoji}</span>
                       <span className="text-xs text-gray-600 mt-1">{getEmotionInfo(block.defaultValue.value.emotion)?.label}</span>
                     </div>
-                  ) : block.type === 'image' && block.defaultValue?.type === 'image' && block.defaultValue.value.images.length > 0 ? (
+                  ) : block.type === 'image' && block.defaultValue?.type === 'image' && block.defaultValue.value.images.filter(img => img).length > 0 ? (
                     <SwipeablePreview>
-                      {block.defaultValue.value.images.map((img, idx) => (
+                      {block.defaultValue.value.images.filter(img => img).map((img, idx) => (
                         <img
                           key={idx}
                           src={img}
@@ -364,9 +386,9 @@ export const DefaultsStep = ({
                         />
                       ))}
                     </SwipeablePreview>
-                  ) : block.type === 'video' && block.defaultValue?.type === 'video' && block.defaultValue.value.videos.length > 0 ? (
+                  ) : block.type === 'video' && block.defaultValue?.type === 'video' && block.defaultValue.value.videos.filter(v => v).length > 0 ? (
                     <SwipeablePreview>
-                      {block.defaultValue.value.videos.map((video, idx) => (
+                      {block.defaultValue.value.videos.filter(v => v).map((video, idx) => (
                         <video
                           key={idx}
                           src={video}
@@ -382,6 +404,12 @@ export const DefaultsStep = ({
                     <SwipeablePreview>
                       {block.defaultValue.value.links.map((link, idx) => (
                         <LinkBlockPreview key={idx} link={{ links: [link] }} />
+                      ))}
+                    </SwipeablePreview>
+                  ) : block.type === 'file' && block.defaultValue?.type === 'file' && block.defaultValue.value.files?.filter(f => f.data).length > 0 ? (
+                    <SwipeablePreview>
+                      {block.defaultValue.value.files.filter(f => f.data).map((file, idx) => (
+                        <FileBlockPreview key={idx} file={{ files: [file] }} />
                       ))}
                     </SwipeablePreview>
                   ) : (

@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useCallback, useImperativeHandle, forwardRef, useRef, useEffect } from 'react';
-import { Plus, Trash2, ImagePlus } from 'lucide-react';
+import { Plus, Trash2, ImagePlus, Download, Loader2 } from 'lucide-react';
 import { ImageBlockDefault } from '../types';
+import { useCarousel } from '../hooks/useCarousel';
 
 interface ImageBlockEditorProps {
   initialValue?: ImageBlockDefault;
@@ -15,12 +16,23 @@ export interface ImageBlockEditorHandle {
 
 const ImageBlockEditorInner = forwardRef<ImageBlockEditorHandle, ImageBlockEditorProps>(
   ({ initialValue, onChange }, ref) => {
-    const [images, setImages] = useState<string[]>(initialValue?.images || []);
-    const [currentIndex, setCurrentIndex] = useState(0);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const containerRef = useRef<HTMLDivElement>(null);
-    const isScrollingRef = useRef(false);
+
+    // 캐러셀 훅 사용
+    const {
+      items: images,
+      currentIndex,
+      containerRef,
+      isScrollingRef,
+      setItems: setImages,
+      setCurrentIndex,
+      scrollToIndex,
+      handleScroll,
+      handleScrollEnd,
+      removeItem: handleRemoveImage,
+      getItemStyle,
+    } = useCarousel<string>(initialValue?.images || []);
 
     // onChange를 ref로 관리해서 의존성 문제 해결
     const onChangeRef = useRef(onChange);
@@ -41,118 +53,67 @@ const ImageBlockEditorInner = forwardRef<ImageBlockEditorHandle, ImageBlockEdito
       const files = e.target.files;
       if (!files || files.length === 0) return;
 
-      const readFile = (file: File): Promise<string> => {
-        return new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = (event) => {
-            const result = event.target?.result as string;
-            resolve(result);
-          };
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
-      };
+      const fileArray = Array.from(files);
+      const newIndex = images.length;
+      const placeholderCount = fileArray.length;
 
-      try {
-        const loadedImages = await Promise.all(
-          Array.from(files).map(file => readFile(file))
-        );
+      // 1. 먼저 플레이스홀더로 상태 업데이트 (빈 문자열)
+      const placeholders = new Array(placeholderCount).fill('');
+      setImages(prev => [...prev, ...placeholders]);
 
-        // 새로 추가될 첫 번째 이미지의 인덱스 저장
-        const newIndex = images.length;
+      // 2. 즉시 캐러셀 이동
+      setTimeout(() => {
+        if (containerRef.current) {
+          const inactiveHeight = 128;
+          const gap = 16;
+          const scrollPosition = newIndex * (inactiveHeight + gap);
 
-        setImages(prev => [...prev, ...loadedImages]);
+          isScrollingRef.current = true;
+          containerRef.current.scrollTo({
+            top: scrollPosition,
+            behavior: 'smooth'
+          });
 
-        // DOM 업데이트 후 스크롤
-        setTimeout(() => {
-          if (containerRef.current) {
-            const inactiveHeight = 128;
-            const gap = 16;
-            const scrollPosition = newIndex * (inactiveHeight + gap);
+          setTimeout(() => {
+            isScrollingRef.current = false;
+          }, 300);
+        }
+        setCurrentIndex(newIndex);
+      }, 50);
 
-            isScrollingRef.current = true;
-            containerRef.current.scrollTo({
-              top: scrollPosition,
-              behavior: 'smooth'
-            });
-
-            setTimeout(() => {
-              isScrollingRef.current = false;
-            }, 300);
-          }
-          setCurrentIndex(newIndex);
-        }, 150);
-      } catch (error) {
-        console.error('Error loading images:', error);
-      }
+      // 3. 백그라운드에서 실제 이미지 로드
+      fileArray.forEach((file, idx) => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const result = event.target?.result as string;
+          setImages(prev => {
+            const updated = [...prev];
+            updated[newIndex + idx] = result;
+            return updated;
+          });
+        };
+        reader.readAsDataURL(file);
+      });
 
       e.target.value = '';
-    }, [images.length]);
-
-    // 이미지 삭제 핸들러
-    const handleRemoveImage = useCallback((index: number) => {
-      setImages((prev) => {
-        const updated = prev.filter((_, i) => i !== index);
-        if (currentIndex >= updated.length && updated.length > 0) {
-          setCurrentIndex(updated.length - 1);
-        } else if (updated.length === 0) {
-          setCurrentIndex(0);
-        }
-        return updated;
-      });
-    }, [currentIndex]);
-
-    // 특정 인덱스로 스크롤
-    const scrollToIndex = useCallback((index: number) => {
-      if (!containerRef.current || images.length === 0) return;
-
-      const container = containerRef.current;
-      const inactiveHeight = 128; // 비활성 아이템 높이
-      const gap = 16;
-
-      // 각 아이템까지의 누적 높이 계산
-      const scrollPosition = index * (inactiveHeight + gap);
-
-      isScrollingRef.current = true;
-      container.scrollTo({
-        top: scrollPosition,
-        behavior: 'smooth'
-      });
-
-      setTimeout(() => {
-        isScrollingRef.current = false;
-      }, 300);
-
-      setCurrentIndex(index);
-    }, [images.length]);
-
-    // 스크롤 이벤트 핸들러
-    const handleScroll = useCallback(() => {
-      if (!containerRef.current || isScrollingRef.current || images.length === 0) return;
-
-      const container = containerRef.current;
-      const scrollTop = container.scrollTop;
-      const inactiveHeight = 128;
-      const gap = 16;
-      const itemHeight = inactiveHeight + gap;
-
-      const newIndex = Math.round(scrollTop / itemHeight);
-      const clampedIndex = Math.max(0, Math.min(newIndex, images.length - 1));
-
-      if (clampedIndex !== currentIndex) {
-        setCurrentIndex(clampedIndex);
-      }
-    }, [currentIndex, images.length]);
-
-    // 스크롤 종료 시 스냅
-    const handleScrollEnd = useCallback(() => {
-      if (isScrollingRef.current) return;
-      scrollToIndex(currentIndex);
-    }, [currentIndex, scrollToIndex]);
+    }, [images.length, containerRef, isScrollingRef, setImages, setCurrentIndex]);
 
     // 전체화면 모달 토글 (모바일 호환)
     const toggleFullscreen = useCallback(() => {
       setIsFullscreen(prev => !prev);
+    }, []);
+
+    // 이미지 다운로드
+    const handleDownload = useCallback((imageData: string, index: number) => {
+      const link = document.createElement('a');
+      link.href = imageData;
+      // 확장자 추출 (base64 데이터에서)
+      const mimeMatch = imageData.match(/data:image\/(\w+);/);
+      const ext = mimeMatch ? mimeMatch[1] : 'png';
+      link.download = `image_${index + 1}.${ext}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }, []);
 
     // 저장 함수
@@ -214,20 +175,14 @@ const ImageBlockEditorInner = forwardRef<ImageBlockEditorHandle, ImageBlockEdito
               <div style={{ height: 'calc(50% - 140px)' }} />
 
               {images.map((img, index) => {
-                const isActive = index === currentIndex;
-                const distance = Math.abs(index - currentIndex);
-
-                // 거리에 따른 스케일과 투명도 계산
-                const scale = isActive ? 1 : Math.max(0.6, 1 - distance * 0.15);
-                const opacity = isActive ? 1 : Math.max(0.5, 1 - distance * 0.2);
-                const blur = isActive ? 0 : Math.min(distance * 2, 4);
+                const { isActive, scale, opacity, blur, height, width } = getItemStyle(index);
 
                 return (
                   <div
                     key={index}
                     className="flex justify-center items-center px-4"
                     style={{
-                      height: isActive ? '280px' : '128px',
+                      height,
                       scrollSnapAlign: 'center',
                       transition: 'all 0.3s ease-out',
                       marginBottom: '16px',
@@ -237,7 +192,7 @@ const ImageBlockEditorInner = forwardRef<ImageBlockEditorHandle, ImageBlockEdito
                     <div
                       className="relative overflow-hidden shadow-2xl bg-black"
                       style={{
-                        width: isActive ? '100%' : '85%',
+                        width,
                         height: '100%',
                         borderRadius: isActive ? '16px' : '24px',
                         transform: `scale(${scale})`,
@@ -246,27 +201,45 @@ const ImageBlockEditorInner = forwardRef<ImageBlockEditorHandle, ImageBlockEdito
                         transition: 'all 0.3s ease-out',
                       }}
                     >
-                      <img
-                        src={img}
-                        alt={`이미지 ${index + 1}`}
-                        className="w-full h-full object-contain cursor-pointer"
-                        onClick={isActive ? (e) => {
-                          e.stopPropagation();
-                          toggleFullscreen();
-                        } : undefined}
-                      />
-
-                      {/* 활성 이미지일 때 삭제 버튼 */}
-                      {isActive && (
-                        <button
-                          onClick={(e) => {
+                      {/* 로딩 중 (플레이스홀더) */}
+                      {!img ? (
+                        <div className="w-full h-full flex items-center justify-center bg-gray-800">
+                          <Loader2 className="w-8 h-8 text-white animate-spin" />
+                        </div>
+                      ) : (
+                        <img
+                          src={img}
+                          alt={`이미지 ${index + 1}`}
+                          className="w-full h-full object-contain cursor-pointer"
+                          onClick={isActive ? (e) => {
                             e.stopPropagation();
-                            handleRemoveImage(index);
-                          }}
-                          className="absolute top-3 right-3 p-2 bg-black/50 hover:bg-black/70 rounded-full transition-colors z-10"
-                        >
-                          <Trash2 className="w-5 h-5 text-white" />
-                        </button>
+                            toggleFullscreen();
+                          } : undefined}
+                        />
+                      )}
+
+                      {/* 활성 이미지일 때 버튼들 */}
+                      {isActive && img && (
+                        <div className="absolute top-3 right-3 flex gap-2 z-10">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDownload(img, index);
+                            }}
+                            className="p-2 bg-black/50 hover:bg-black/70 rounded-full transition-colors"
+                          >
+                            <Download className="w-5 h-5 text-white" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRemoveImage(index);
+                            }}
+                            className="p-2 bg-black/50 hover:bg-black/70 rounded-full transition-colors"
+                          >
+                            <Trash2 className="w-5 h-5 text-white" />
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -285,17 +258,21 @@ const ImageBlockEditorInner = forwardRef<ImageBlockEditorHandle, ImageBlockEdito
                   <button
                     key={index}
                     onClick={() => scrollToIndex(index)}
-                    className={`flex-none w-14 h-14 rounded-lg overflow-hidden border-2 transition-all ${
+                    className={`flex-none w-14 h-14 rounded-lg overflow-hidden border-2 transition-all bg-gray-200 flex items-center justify-center ${
                       index === currentIndex
                         ? 'border-amber-500 shadow-md'
                         : 'border-transparent opacity-70 hover:opacity-100'
                     }`}
                   >
-                    <img
-                      src={img}
-                      alt={`썸네일 ${index + 1}`}
-                      className="w-full h-full object-cover"
-                    />
+                    {img ? (
+                      <img
+                        src={img}
+                        alt={`썸네일 ${index + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <Loader2 className="w-4 h-4 text-gray-400 animate-spin" />
+                    )}
                   </button>
                 ))}
               </div>
@@ -318,12 +295,27 @@ const ImageBlockEditorInner = forwardRef<ImageBlockEditorHandle, ImageBlockEdito
             className="fixed inset-0 z-50 bg-black flex items-center justify-center"
             onClick={toggleFullscreen}
           >
-            {/* 이미지 카운트 */}
-            {images.length > 1 && (
-              <div className="absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 bg-black/50 rounded-full text-white text-sm font-medium">
-                {currentIndex + 1} / {images.length}
+            {/* 상단 컨트롤 */}
+            <div className="absolute top-4 left-0 right-0 flex items-center justify-between px-4">
+              {/* 이미지 카운트 */}
+              <div className="flex-1 flex justify-center">
+                {images.length > 1 && (
+                  <div className="px-4 py-2 bg-black/50 rounded-full text-white text-sm font-medium">
+                    {currentIndex + 1} / {images.length}
+                  </div>
+                )}
               </div>
-            )}
+              {/* 다운로드 버튼 */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDownload(images[currentIndex], currentIndex);
+                }}
+                className="absolute right-4 p-3 bg-black/50 hover:bg-black/70 rounded-full transition-colors"
+              >
+                <Download className="w-6 h-6 text-white" />
+              </button>
+            </div>
 
             {/* 전체화면 이미지 - 클릭하면 닫힘 */}
             <img

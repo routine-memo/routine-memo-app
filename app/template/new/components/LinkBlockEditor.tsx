@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useCallback, useImperativeHandle, forwardRef, useRef, useEffect } from 'react';
-import { Link2, ExternalLink, Image, Globe, Loader2, X, Check, Plus, Play, Pencil } from 'lucide-react';
+import { Link2, ExternalLink, Image, Globe, Loader2, X, Check, Play, Pencil } from 'lucide-react';
 import { LinkBlockDefault, LinkItem, LinkDisplayMode, LinkMetadata } from '../types';
+import { useCarousel } from '../hooks/useCarousel';
 
 interface LinkBlockEditorProps {
   initialValue?: LinkBlockDefault;
@@ -79,14 +80,25 @@ const isYoutubeUrl = (url: string): boolean => {
 
 const LinkBlockEditorInner = forwardRef<LinkBlockEditorHandle, LinkBlockEditorProps>(
   ({ initialValue, onChange }, ref) => {
-    const [links, setLinks] = useState<LinkItem[]>(initialValue?.links || []);
-    const [currentIndex, setCurrentIndex] = useState(0);
     const [url, setUrl] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
-    const containerRef = useRef<HTMLDivElement>(null);
-    const isScrollingRef = useRef(false);
+
+    // 캐러셀 훅 사용
+    const {
+      items: links,
+      currentIndex,
+      containerRef,
+      isScrollingRef,
+      setItems: setLinks,
+      setCurrentIndex,
+      scrollToIndex,
+      handleScroll,
+      handleScrollEnd,
+      removeItem: handleRemoveLink,
+      getItemStyle,
+    } = useCarousel<LinkItem>(initialValue?.links || []);
 
     // onChange를 ref로 관리
     const onChangeRef = useRef(onChange);
@@ -136,7 +148,6 @@ const LinkBlockEditorInner = forwardRef<LinkBlockEditorHandle, LinkBlockEditorPr
 
         setLinks(prev => {
           const updated = [...prev, newLink];
-          // 새로 추가된 링크로 이동
           setTimeout(() => {
             setCurrentIndex(updated.length - 1);
             scrollToIndex(updated.length - 1);
@@ -144,14 +155,13 @@ const LinkBlockEditorInner = forwardRef<LinkBlockEditorHandle, LinkBlockEditorPr
           return updated;
         });
 
-        // URL 입력 초기화
         setUrl('');
       } catch (err) {
         setError('링크 정보를 가져오는데 실패했습니다');
       } finally {
         setIsLoading(false);
       }
-    }, [url, isLoading, fetchMetadata]);
+    }, [url, isLoading, fetchMetadata, setLinks, setCurrentIndex, scrollToIndex]);
 
     // URL 입력 핸들러
     const handleUrlChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -165,7 +175,6 @@ const LinkBlockEditorInner = forwardRef<LinkBlockEditorHandle, LinkBlockEditorPr
       if (isValidUrl(pastedText)) {
         e.preventDefault();
         setUrl(pastedText);
-        // 자동으로 추가
         setTimeout(async () => {
           if (!isValidUrl(pastedText)) return;
 
@@ -199,20 +208,7 @@ const LinkBlockEditorInner = forwardRef<LinkBlockEditorHandle, LinkBlockEditorPr
           }
         }, 100);
       }
-    }, [fetchMetadata]);
-
-    // 링크 삭제 핸들러
-    const handleRemoveLink = useCallback((index: number) => {
-      setLinks((prev) => {
-        const updated = prev.filter((_, i) => i !== index);
-        if (currentIndex >= updated.length && updated.length > 0) {
-          setCurrentIndex(updated.length - 1);
-        } else if (updated.length === 0) {
-          setCurrentIndex(0);
-        }
-        return updated;
-      });
-    }, [currentIndex]);
+    }, [fetchMetadata, setLinks, setCurrentIndex, scrollToIndex]);
 
     // 디스플레이 모드 변경
     const handleDisplayModeChange = useCallback((mode: LinkDisplayMode) => {
@@ -223,7 +219,7 @@ const LinkBlockEditorInner = forwardRef<LinkBlockEditorHandle, LinkBlockEditorPr
         }
         return updated;
       });
-    }, [currentIndex]);
+    }, [currentIndex, setLinks]);
 
     // 제목 변경
     const handleTitleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -241,55 +237,7 @@ const LinkBlockEditorInner = forwardRef<LinkBlockEditorHandle, LinkBlockEditorPr
         }
         return updated;
       });
-    }, [currentIndex]);
-
-    // 특정 인덱스로 스크롤
-    const scrollToIndex = useCallback((index: number) => {
-      if (!containerRef.current || links.length === 0) return;
-
-      const container = containerRef.current;
-      const inactiveHeight = 128; // 비활성 아이템 높이
-      const gap = 16;
-
-      // 각 아이템까지의 누적 높이 계산
-      const scrollPosition = index * (inactiveHeight + gap);
-
-      isScrollingRef.current = true;
-      container.scrollTo({
-        top: scrollPosition,
-        behavior: 'smooth'
-      });
-
-      setTimeout(() => {
-        isScrollingRef.current = false;
-      }, 300);
-
-      setCurrentIndex(index);
-    }, [links.length]);
-
-    // 스크롤 이벤트 핸들러
-    const handleScroll = useCallback(() => {
-      if (!containerRef.current || isScrollingRef.current || links.length === 0) return;
-
-      const container = containerRef.current;
-      const scrollTop = container.scrollTop;
-      const inactiveHeight = 128;
-      const gap = 16;
-      const itemHeight = inactiveHeight + gap;
-
-      const newIndex = Math.round(scrollTop / itemHeight);
-      const clampedIndex = Math.max(0, Math.min(newIndex, links.length - 1));
-
-      if (clampedIndex !== currentIndex) {
-        setCurrentIndex(clampedIndex);
-      }
-    }, [currentIndex, links.length]);
-
-    // 스크롤 종료 시 스냅
-    const handleScrollEnd = useCallback(() => {
-      if (isScrollingRef.current) return;
-      scrollToIndex(currentIndex);
-    }, [currentIndex, scrollToIndex]);
+    }, [currentIndex, setLinks]);
 
     // 저장 함수
     const save = useCallback(async () => {
@@ -301,7 +249,6 @@ const LinkBlockEditorInner = forwardRef<LinkBlockEditorHandle, LinkBlockEditorPr
 
     // 현재 링크 정보
     const currentLink = links[currentIndex];
-    const currentYoutubeEmbed = currentLink ? getYoutubeEmbedUrl(currentLink.url) : null;
     const canEmbed = currentLink ? isEmbeddable(currentLink.url) : false;
 
     // 링크 열기 핸들러
@@ -316,10 +263,8 @@ const LinkBlockEditorInner = forwardRef<LinkBlockEditorHandle, LinkBlockEditorPr
       const youtubeEmbedUrl = getYoutubeEmbedUrl(link.url);
       const isYoutube = isYoutubeUrl(link.url);
 
-      // 임베드 모드이고 YouTube인 경우 - 활성 상태면 실제 iframe 재생
       if (link.displayMode === 'embed' && isYoutube) {
         if (isActive && youtubeEmbedUrl) {
-          // 활성 상태: 실제 YouTube iframe 재생
           return (
             <div className="h-full w-full relative bg-black rounded-2xl overflow-hidden">
               <iframe
@@ -331,7 +276,6 @@ const LinkBlockEditorInner = forwardRef<LinkBlockEditorHandle, LinkBlockEditorPr
             </div>
           );
         } else if (youtubeThumbnail) {
-          // 비활성 상태: 썸네일만 표시
           return (
             <div className="h-full w-full relative bg-black rounded-2xl overflow-hidden">
               <img
@@ -349,13 +293,11 @@ const LinkBlockEditorInner = forwardRef<LinkBlockEditorHandle, LinkBlockEditorPr
         }
       }
 
-      // 미리보기 카드 모드 - 클릭하면 링크 열기
       return (
         <div
           className="h-full w-full p-4 flex flex-col bg-white rounded-2xl cursor-pointer hover:bg-gray-50 transition-colors"
           onClick={isActive ? (e) => handleOpenLink(e, link.url) : undefined}
         >
-          {/* 메타 이미지 또는 파비콘 */}
           <div className="flex-1 min-h-0 flex items-center justify-center bg-gray-50 rounded-xl mb-3">
             {link.metadata?.favicon ? (
               <img
@@ -371,7 +313,6 @@ const LinkBlockEditorInner = forwardRef<LinkBlockEditorHandle, LinkBlockEditorPr
             )}
           </div>
 
-          {/* 타이틀 및 도메인 */}
           <div className="flex-none text-center">
             <p className="text-base font-medium text-gray-800 truncate">
               {link.metadata?.title || getDomain(link.url)}
@@ -382,7 +323,6 @@ const LinkBlockEditorInner = forwardRef<LinkBlockEditorHandle, LinkBlockEditorPr
             </p>
           </div>
 
-          {/* 링크 열기 안내 - 활성 상태일 때만 */}
           {isActive && (
             <div className="flex-none mt-2 text-center">
               <span className="text-xs text-amber-600 font-medium">탭하여 링크 열기</span>
@@ -432,14 +372,12 @@ const LinkBlockEditorInner = forwardRef<LinkBlockEditorHandle, LinkBlockEditorPr
         </div>
 
         {links.length === 0 ? (
-          // 링크가 없을 때
           <div className="flex-1 flex flex-col items-center justify-center text-gray-400">
             <Link2 className="w-16 h-16 mb-4" />
             <p className="text-lg font-medium">링크를 추가하세요</p>
             <p className="text-sm mt-1">URL을 붙여넣거나 입력하세요</p>
           </div>
         ) : (
-          // 링크가 있을 때 - 수직 캐러셀
           <>
             {/* 링크 카운트 */}
             <div className="absolute top-28 left-1/2 -translate-x-1/2 z-20 px-4 py-1.5 bg-black/60 rounded-full text-white text-sm font-medium">
@@ -458,26 +396,17 @@ const LinkBlockEditorInner = forwardRef<LinkBlockEditorHandle, LinkBlockEditorPr
                 scrollBehavior: 'smooth',
               }}
             >
-              {/* 상단 패딩 */}
               <div style={{ height: 'calc(50% - 140px)' }} />
 
               {links.map((link, index) => {
-                const isActive = index === currentIndex;
-                const distance = Math.abs(index - currentIndex);
-
-                const scale = isActive ? 1 : Math.max(0.6, 1 - distance * 0.15);
-                const opacity = isActive ? 1 : Math.max(0.5, 1 - distance * 0.2);
-                const blur = isActive ? 0 : Math.min(distance * 2, 4);
-
-                // 임베드 모드가 아닌 경우에만 클릭 시 링크 열기
-                const shouldOpenOnClick = isActive && link.displayMode !== 'embed';
+                const { isActive, scale, opacity, blur, height, width } = getItemStyle(index);
 
                 return (
                   <div
                     key={index}
                     className="flex justify-center items-center px-4"
                     style={{
-                      height: isActive ? '280px' : '128px',
+                      height,
                       scrollSnapAlign: 'center',
                       transition: 'all 0.3s ease-out',
                       marginBottom: '16px',
@@ -491,7 +420,7 @@ const LinkBlockEditorInner = forwardRef<LinkBlockEditorHandle, LinkBlockEditorPr
                     <div
                       className="relative overflow-hidden shadow-2xl"
                       style={{
-                        width: isActive ? '100%' : '85%',
+                        width,
                         height: '100%',
                         borderRadius: '16px',
                         transform: `scale(${scale})`,
@@ -502,7 +431,6 @@ const LinkBlockEditorInner = forwardRef<LinkBlockEditorHandle, LinkBlockEditorPr
                     >
                       {renderLinkPreview(link, isActive)}
 
-                      {/* 활성 링크일 때 삭제 버튼 */}
                       {isActive && (
                         <button
                           onClick={(e) => {
@@ -519,7 +447,6 @@ const LinkBlockEditorInner = forwardRef<LinkBlockEditorHandle, LinkBlockEditorPr
                 );
               })}
 
-              {/* 하단 패딩 */}
               <div style={{ height: 'calc(50% - 140px)' }} />
             </div>
 
@@ -527,7 +454,6 @@ const LinkBlockEditorInner = forwardRef<LinkBlockEditorHandle, LinkBlockEditorPr
             <div className="flex-none p-4 bg-white border-t border-gray-200">
               {currentLink && (
                 <>
-                  {/* 제목 수정 */}
                   <div className="mb-3">
                     <div className="relative">
                       <Pencil className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -541,7 +467,6 @@ const LinkBlockEditorInner = forwardRef<LinkBlockEditorHandle, LinkBlockEditorPr
                     </div>
                   </div>
 
-                  {/* 디스플레이 모드 선택 */}
                   <div className="mb-3">
                     <div className="flex gap-2">
                       <button
@@ -572,7 +497,6 @@ const LinkBlockEditorInner = forwardRef<LinkBlockEditorHandle, LinkBlockEditorPr
                 </>
               )}
 
-              {/* 썸네일 리스트 */}
               <div className="flex gap-2 overflow-x-auto pb-1">
                 {links.map((link, index) => {
                   const isYoutube = isYoutubeUrl(link.url);
