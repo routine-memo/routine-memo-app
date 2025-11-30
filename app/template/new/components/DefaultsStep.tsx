@@ -10,9 +10,9 @@ import { WeatherBlockEditor, WeatherBlockEditorHandle, getWeatherInfo } from './
 import { EmotionBlockEditor, EmotionBlockEditorHandle, getEmotionInfo } from './EmotionBlockEditor';
 import { ImageBlockEditor, ImageBlockEditorHandle } from './ImageBlockEditor';
 import { VideoBlockEditor, VideoBlockEditorHandle } from './VideoBlockEditor';
-import { VideoBlockPreview } from './VideoBlockPreview';
 import { LinkBlockEditor, LinkBlockEditorHandle } from './LinkBlockEditor';
 import { LinkBlockPreview } from './LinkBlockPreview';
+import { SwipeablePreview } from './SwipeablePreview';
 import { calculateRows } from '../blockUtils';
 
 interface DefaultsStepProps {
@@ -354,22 +354,36 @@ export const DefaultsStep = ({
                       <span className="text-xs text-gray-600 mt-1">{getEmotionInfo(block.defaultValue.value.emotion)?.label}</span>
                     </div>
                   ) : block.type === 'image' && block.defaultValue?.type === 'image' && block.defaultValue.value.images.length > 0 ? (
-                    <div className="h-full w-full relative">
-                      <img
-                        src={block.defaultValue.value.images[0]}
-                        alt="미리보기"
-                        className="w-full h-full object-cover"
-                      />
-                      {block.defaultValue.value.images.length > 1 && (
-                        <div className="absolute bottom-1 right-1 px-1.5 py-0.5 bg-black/60 rounded text-[10px] text-white">
-                          +{block.defaultValue.value.images.length - 1}
-                        </div>
-                      )}
-                    </div>
+                    <SwipeablePreview>
+                      {block.defaultValue.value.images.map((img, idx) => (
+                        <img
+                          key={idx}
+                          src={img}
+                          alt={`이미지 ${idx + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                      ))}
+                    </SwipeablePreview>
                   ) : block.type === 'video' && block.defaultValue?.type === 'video' && block.defaultValue.value.videos.length > 0 ? (
-                    <VideoBlockPreview videos={block.defaultValue.value.videos} />
+                    <SwipeablePreview>
+                      {block.defaultValue.value.videos.map((video, idx) => (
+                        <video
+                          key={idx}
+                          src={video}
+                          className="w-full h-full object-cover"
+                          muted
+                          loop
+                          playsInline
+                          autoPlay
+                        />
+                      ))}
+                    </SwipeablePreview>
                   ) : block.type === 'link' && block.defaultValue?.type === 'link' && block.defaultValue.value.links?.length > 0 ? (
-                    <LinkBlockPreview link={block.defaultValue.value} />
+                    <SwipeablePreview>
+                      {block.defaultValue.value.links.map((link, idx) => (
+                        <LinkBlockPreview key={idx} link={{ links: [link] }} />
+                      ))}
+                    </SwipeablePreview>
                   ) : (
                     <div className="h-full flex items-center justify-center">
                       <span className="text-xs text-gray-400">탭하여 설정</span>
