@@ -248,10 +248,11 @@ const LinkBlockEditorInner = forwardRef<LinkBlockEditorHandle, LinkBlockEditorPr
       if (!containerRef.current || links.length === 0) return;
 
       const container = containerRef.current;
-      const itemHeight = 280;
+      const inactiveHeight = 128; // 비활성 아이템 높이
       const gap = 16;
 
-      const scrollPosition = index * (itemHeight * 0.4 + gap);
+      // 각 아이템까지의 누적 높이 계산
+      const scrollPosition = index * (inactiveHeight + gap);
 
       isScrollingRef.current = true;
       container.scrollTo({
@@ -272,7 +273,9 @@ const LinkBlockEditorInner = forwardRef<LinkBlockEditorHandle, LinkBlockEditorPr
 
       const container = containerRef.current;
       const scrollTop = container.scrollTop;
-      const itemHeight = 280 * 0.4 + 16;
+      const inactiveHeight = 128;
+      const gap = 16;
+      const itemHeight = inactiveHeight + gap;
 
       const newIndex = Math.round(scrollTop / itemHeight);
       const clampedIndex = Math.max(0, Math.min(newIndex, links.length - 1));

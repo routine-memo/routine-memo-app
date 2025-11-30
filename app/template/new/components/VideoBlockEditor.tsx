@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useImperativeHandle, forwardRef, useRef, useEffect } from 'react';
-import { Plus, X, Video, Play, Pause, Volume2, VolumeX, Maximize2 } from 'lucide-react';
+import { Plus, Trash2, Video, Play, Pause, Volume2, VolumeX, Maximize2, Minimize2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { VideoBlockDefault } from '../types';
 
 interface VideoBlockEditorProps {
@@ -31,11 +31,12 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
     const [duration, setDuration] = useState(0);
     const [showVolumeSlider, setShowVolumeSlider] = useState(false);
     const [showControls, setShowControls] = useState(true); // 컨트롤 표시 여부
+    const [isFullscreen, setIsFullscreen] = useState(false); // 모달 전체화면
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
-    const videoContainerRefs = useRef<(HTMLDivElement | null)[]>([]);
+    const fullscreenVideoRef = useRef<HTMLVideoElement | null>(null);
     const isScrollingRef = useRef(false);
     const progressRef = useRef<HTMLDivElement>(null);
     const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -212,19 +213,137 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
       }
     }, [currentIndex, showControlsWithTimer]);
 
-    // 전체화면 토글 - 컨테이너를 전체화면으로 (커스텀 컨트롤 유지)
-    const toggleFullscreen = useCallback((e: React.MouseEvent) => {
+    // 전체화면 모달 토글
+    const toggleFullscreen = useCallback((e?: React.MouseEvent) => {
+      if (e) e.stopPropagation();
+
+      setIsFullscreen(prev => {
+        if (!prev) {
+          // 전체화면 열 때: 기존 영상의 현재 시간 저장 후 일시정지
+          const currentVideo = videoRefs.current[currentIndex];
+          if (currentVideo) {
+            setCurrentTime(currentVideo.currentTime);
+            setDuration(currentVideo.duration);
+            currentVideo.pause();
+          }
+        } else {
+          // 전체화면 닫을 때: 기존 영상에 현재 시간 동기화 후 재생 재개
+          const currentVideo = videoRefs.current[currentIndex];
+          if (currentVideo) {
+            // 전체화면 비디오의 현재 시간으로 동기화
+            if (fullscreenVideoRef.current) {
+              currentVideo.currentTime = fullscreenVideoRef.current.currentTime;
+            }
+            if (isPlaying) {
+              currentVideo.play().catch(() => {});
+            }
+          }
+        }
+        return !prev;
+      });
+
+      // 전체화면 열 때 컨트롤 표시
+      setShowControls(true);
+      startControlsTimer();
+    }, [currentIndex, isPlaying, startControlsTimer]);
+
+    // 전체화면 모달에서 이전/다음 영상
+    const goToPrevVideo = useCallback((e: React.MouseEvent) => {
       e.stopPropagation();
       showControlsWithTimer();
-      const videoContainer = videoContainerRefs.current[currentIndex];
-      if (videoContainer) {
-        if (document.fullscreenElement) {
-          document.exitFullscreen();
-        } else {
-          videoContainer.requestFullscreen().catch(() => {});
+      const prevIndex = currentIndex > 0 ? currentIndex - 1 : videos.length - 1;
+      setCurrentIndex(prevIndex);
+      setCurrentTime(0);
+      setDuration(0);
+    }, [currentIndex, videos.length, showControlsWithTimer]);
+
+    const goToNextVideo = useCallback((e: React.MouseEvent) => {
+      e.stopPropagation();
+      showControlsWithTimer();
+      const nextIndex = currentIndex < videos.length - 1 ? currentIndex + 1 : 0;
+      setCurrentIndex(nextIndex);
+      setCurrentTime(0);
+      setDuration(0);
+    }, [currentIndex, videos.length, showControlsWithTimer]);
+
+    // 전체화면 비디오 동기화
+    useEffect(() => {
+      if (isFullscreen && fullscreenVideoRef.current) {
+        const fsVideo = fullscreenVideoRef.current;
+        fsVideo.muted = isMuted;
+        fsVideo.volume = volume;
+        fsVideo.currentTime = currentTime;
+        if (isPlaying) {
+          fsVideo.play().catch(() => {});
         }
       }
-    }, [currentIndex, showControlsWithTimer]);
+    }, [isFullscreen]);
+
+    // 전체화면 비디오 시간 업데이트
+    const handleFullscreenTimeUpdate = useCallback(() => {
+      if (fullscreenVideoRef.current) {
+        setCurrentTime(fullscreenVideoRef.current.currentTime);
+        if (fullscreenVideoRef.current.duration && !isNaN(fullscreenVideoRef.current.duration)) {
+          setDuration(fullscreenVideoRef.current.duration);
+        }
+      }
+    }, []);
+
+    // 전체화면에서 재생/일시정지
+    const toggleFullscreenPlayPause = useCallback((e: React.MouseEvent) => {
+      e.stopPropagation();
+      showControlsWithTimer();
+      if (fullscreenVideoRef.current) {
+        if (isPlaying) {
+          fullscreenVideoRef.current.pause();
+        } else {
+          fullscreenVideoRef.current.play().catch(() => {});
+        }
+        setIsPlaying(!isPlaying);
+      }
+    }, [isPlaying, showControlsWithTimer]);
+
+    // 전체화면에서 음소거 토글
+    const toggleFullscreenMute = useCallback((e: React.MouseEvent) => {
+      e.stopPropagation();
+      showControlsWithTimer();
+      if (fullscreenVideoRef.current) {
+        fullscreenVideoRef.current.muted = !isMuted;
+        setIsMuted(!isMuted);
+      }
+    }, [isMuted, showControlsWithTimer]);
+
+    // 전체화면에서 볼륨 변경
+    const handleFullscreenVolumeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+      e.stopPropagation();
+      showControlsWithTimer();
+      const newVolume = parseFloat(e.target.value);
+      setVolume(newVolume);
+      if (fullscreenVideoRef.current) {
+        fullscreenVideoRef.current.volume = newVolume;
+        if (newVolume === 0) {
+          setIsMuted(true);
+          fullscreenVideoRef.current.muted = true;
+        } else if (isMuted) {
+          setIsMuted(false);
+          fullscreenVideoRef.current.muted = false;
+        }
+      }
+    }, [isMuted, showControlsWithTimer]);
+
+    // 전체화면에서 재생 위치 변경
+    const handleFullscreenProgressClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+      e.stopPropagation();
+      showControlsWithTimer();
+      if (fullscreenVideoRef.current) {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const clickX = e.clientX - rect.left;
+        const percentage = clickX / rect.width;
+        const newTime = percentage * fullscreenVideoRef.current.duration;
+        fullscreenVideoRef.current.currentTime = newTime;
+        setCurrentTime(newTime);
+      }
+    }, [showControlsWithTimer]);
 
     // 영상 추가 핸들러
     const handleAddVideos = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -247,7 +366,36 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
         const loadedVideos = await Promise.all(
           Array.from(files).map(file => readFile(file))
         );
+
+        // 새로 추가될 첫 번째 영상의 인덱스 저장
+        const newIndex = videos.length;
+
         setVideos(prev => [...prev, ...loadedVideos]);
+
+        // 영상 추가 후 자동 재생
+        setIsPlaying(true);
+
+        // DOM 업데이트 후 스크롤
+        setTimeout(() => {
+          if (containerRef.current) {
+            const inactiveHeight = 128;
+            const gap = 16;
+            const scrollPosition = newIndex * (inactiveHeight + gap);
+
+            isScrollingRef.current = true;
+            containerRef.current.scrollTo({
+              top: scrollPosition,
+              behavior: 'smooth'
+            });
+
+            setTimeout(() => {
+              isScrollingRef.current = false;
+            }, 300);
+          }
+          setCurrentIndex(newIndex);
+          setCurrentTime(0);
+          setDuration(0);
+        }, 150);
       } catch (error) {
         console.error('Error loading videos:', error);
       }
@@ -273,10 +421,11 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
       if (!containerRef.current || videos.length === 0) return;
 
       const container = containerRef.current;
-      const itemHeight = 280;
+      const inactiveHeight = 128; // 비활성 아이템 높이
       const gap = 16;
 
-      const scrollPosition = index * (itemHeight * 0.4 + gap);
+      // 각 아이템까지의 누적 높이 계산
+      const scrollPosition = index * (inactiveHeight + gap);
 
       isScrollingRef.current = true;
       container.scrollTo({
@@ -299,7 +448,9 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
 
       const container = containerRef.current;
       const scrollTop = container.scrollTop;
-      const itemHeight = 280 * 0.4 + 16;
+      const inactiveHeight = 128;
+      const gap = 16;
+      const itemHeight = inactiveHeight + gap;
 
       const newIndex = Math.round(scrollTop / itemHeight);
       const clampedIndex = Math.max(0, Math.min(newIndex, videos.length - 1));
@@ -398,7 +549,6 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
                     onClick={() => !isActive && scrollToIndex(index)}
                   >
                     <div
-                      ref={el => { videoContainerRefs.current[index] = el; }}
                       className="relative overflow-hidden shadow-2xl bg-black"
                       style={{
                         width: isActive ? '100%' : '85%',
@@ -432,7 +582,7 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
                             }}
                             className="absolute top-3 right-3 p-2 bg-black/50 hover:bg-black/70 rounded-full transition-colors z-10"
                           >
-                            <X className="w-5 h-5 text-white" />
+                            <Trash2 className="w-5 h-5 text-white" />
                           </button>
 
                           {/* 하단 컨트롤 바 - 조건부 표시 */}
@@ -565,6 +715,174 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
               </button>
             </div>
           </>
+        )}
+
+        {/* 전체화면 모달 (모바일 호환) */}
+        {isFullscreen && videos[currentIndex] && (
+          <div
+            className="fixed inset-0 z-50 bg-black flex flex-col"
+            onClick={() => {
+              if (showControls) {
+                setShowControls(false);
+              } else {
+                showControlsWithTimer();
+              }
+            }}
+          >
+            {/* 영상 카운트 */}
+            {videos.length > 1 && (
+              <div
+                className={`absolute top-4 left-1/2 -translate-x-1/2 z-10 px-4 py-2 bg-black/50 rounded-full text-white text-sm font-medium transition-opacity duration-300 ${
+                  showControls ? 'opacity-100' : 'opacity-0'
+                }`}
+              >
+                {currentIndex + 1} / {videos.length}
+              </div>
+            )}
+
+            {/* 전체화면 비디오 */}
+            <div className="flex-1 flex items-center justify-center">
+              <video
+                ref={fullscreenVideoRef}
+                src={videos[currentIndex]}
+                className="max-w-full max-h-full object-contain"
+                loop
+                playsInline
+                autoPlay={isPlaying}
+                muted={isMuted}
+                onTimeUpdate={handleFullscreenTimeUpdate}
+                onLoadedMetadata={() => {
+                  if (fullscreenVideoRef.current) {
+                    setDuration(fullscreenVideoRef.current.duration);
+                  }
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  // 비디오 클릭 시 컨트롤 토글
+                  if (showControls) {
+                    setShowControls(false);
+                    if (controlsTimeoutRef.current) {
+                      clearTimeout(controlsTimeoutRef.current);
+                    }
+                  } else {
+                    showControlsWithTimer();
+                  }
+                }}
+              />
+            </div>
+
+            {/* 이전/다음 버튼 (여러 영상일 때) */}
+            {videos.length > 1 && (
+              <>
+                <button
+                  onClick={goToPrevVideo}
+                  className={`absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-black/50 hover:bg-black/70 rounded-full transition-all duration-300 ${
+                    showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                  }`}
+                >
+                  <ChevronLeft className="w-6 h-6 text-white" />
+                </button>
+                <button
+                  onClick={goToNextVideo}
+                  className={`absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-black/50 hover:bg-black/70 rounded-full transition-all duration-300 ${
+                    showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                  }`}
+                >
+                  <ChevronRight className="w-6 h-6 text-white" />
+                </button>
+              </>
+            )}
+
+            {/* 하단 컨트롤 바 */}
+            <div
+              className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 pt-10 transition-opacity duration-300 ${
+                showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
+              }`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* 프로그레스 바 */}
+              <div
+                className="w-full h-1.5 bg-white/30 rounded-full mb-4 cursor-pointer"
+                onClick={handleFullscreenProgressClick}
+              >
+                <div
+                  className="h-full bg-amber-500 rounded-full relative"
+                  style={{ width: `${progressPercent}%` }}
+                >
+                  <div className="absolute right-0 top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow" />
+                </div>
+              </div>
+
+              {/* 컨트롤 버튼들 */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  {/* 재생/일시정지 */}
+                  <button
+                    onClick={toggleFullscreenPlayPause}
+                    className="p-2 hover:bg-white/20 rounded-full transition-colors"
+                  >
+                    {isPlaying ? (
+                      <Pause className="w-6 h-6 text-white" fill="white" />
+                    ) : (
+                      <Play className="w-6 h-6 text-white" fill="white" />
+                    )}
+                  </button>
+
+                  {/* 볼륨 컨트롤 */}
+                  <div
+                    className="relative flex items-center"
+                    onMouseEnter={() => setShowVolumeSlider(true)}
+                    onMouseLeave={() => setShowVolumeSlider(false)}
+                  >
+                    <button
+                      onClick={toggleFullscreenMute}
+                      className="p-2 hover:bg-white/20 rounded-full transition-colors"
+                    >
+                      {isMuted || volume === 0 ? (
+                        <VolumeX className="w-6 h-6 text-white" />
+                      ) : (
+                        <Volume2 className="w-6 h-6 text-white" />
+                      )}
+                    </button>
+
+                    {/* 볼륨 슬라이더 */}
+                    <div
+                      className={`ml-2 transition-all duration-200 overflow-hidden ${
+                        showVolumeSlider ? 'w-24 opacity-100' : 'w-0 opacity-0'
+                      }`}
+                    >
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.1"
+                        value={isMuted ? 0 : volume}
+                        onChange={handleFullscreenVolumeChange}
+                        onClick={(e) => e.stopPropagation()}
+                        className="w-full h-1.5 accent-amber-500 cursor-pointer"
+                      />
+                    </div>
+                  </div>
+
+                  {/* 시간 표시 */}
+                  <span className="text-white text-sm">
+                    {formatTime(currentTime)} / {formatTime(duration)}
+                  </span>
+                </div>
+
+                {/* 축소 버튼 (전체화면 버튼 위치) */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleFullscreen();
+                  }}
+                  className="p-2 hover:bg-white/20 rounded-full transition-colors"
+                >
+                  <Minimize2 className="w-6 h-6 text-white" />
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     );
