@@ -1,6 +1,7 @@
 'use client';
 
-import { MapPin } from 'lucide-react';
+import { useState } from 'react';
+import { MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Map, CustomOverlayMap } from 'react-kakao-maps-sdk';
 import { MapBlockDefault } from '../types';
 import useKakaoLoader from '@/lib/hooks/useKakaoLoader';
@@ -12,8 +13,25 @@ interface MapBlockPreviewProps {
 export const MapBlockPreview = ({ value }: MapBlockPreviewProps) => {
   const { loading, error } = useKakaoLoader();
   const markers = value?.markers || [];
-  const center = value?.center || { lat: 37.5665, lng: 126.9780 };
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  // 현재 선택된 마커를 중심으로 설정
+  const currentMarker = markers[currentIndex];
+  const center = currentMarker
+    ? { lat: currentMarker.lat, lng: currentMarker.lng }
+    : value?.center || { lat: 37.5665, lng: 126.9780 };
   const level = value?.level || 5;
+
+  // 이전/다음 마커로 이동
+  const goToPrev = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCurrentIndex((prev) => (prev > 0 ? prev - 1 : markers.length - 1));
+  };
+
+  const goToNext = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCurrentIndex((prev) => (prev < markers.length - 1 ? prev + 1 : 0));
+  };
 
   // 마커가 없는 경우
   if (markers.length === 0) {
@@ -57,7 +75,7 @@ export const MapBlockPreview = ({ value }: MapBlockPreviewProps) => {
 
   // 실제 지도 표시
   return (
-    <div className="h-full w-full rounded-xl overflow-hidden">
+    <div className="h-full w-full rounded-xl overflow-hidden relative">
       <Map
         center={center}
         level={level}
@@ -67,21 +85,63 @@ export const MapBlockPreview = ({ value }: MapBlockPreviewProps) => {
         disableDoubleClick={true}
         disableDoubleClickZoom={true}
       >
-        {/* 마커들 표시 */}
-        {markers.map((marker) => (
+        {/* 현재 마커만 표시 */}
+        {currentMarker && (
           <CustomOverlayMap
-            key={marker.id}
-            position={{ lat: marker.lat, lng: marker.lng }}
+            position={{ lat: currentMarker.lat, lng: currentMarker.lng }}
           >
-            <div
-              className="w-8 h-8 rounded-full border-2 border-white shadow-md flex items-center justify-center"
-              style={{ backgroundColor: marker.color }}
-            >
-              <MapPin className="w-4 h-4 text-white" />
+            <div className="flex flex-col items-center">
+              <div
+                className="w-8 h-8 rounded-full border-2 border-white flex items-center justify-center"
+                style={{
+                  backgroundColor: currentMarker.color,
+                  boxShadow: '0 6px 16px rgba(0, 0, 0, 0.45), 0 3px 6px rgba(0, 0, 0, 0.35)'
+                }}
+              >
+                <MapPin className="w-4 h-4 text-white" />
+              </div>
+              <span
+                className="mt-0.5 px-1.5 py-0.5 bg-white rounded text-[8px] font-medium text-gray-800 max-w-[80px] truncate"
+                style={{ boxShadow: '0 4px 8px rgba(0, 0, 0, 0.25), 0 2px 4px rgba(0, 0, 0, 0.15)' }}
+              >
+                {currentMarker.name}
+              </span>
             </div>
           </CustomOverlayMap>
-        ))}
+        )}
       </Map>
+
+      {/* 좌우 화살표 버튼 (마커가 2개 이상일 때만) */}
+      {markers.length > 1 && (
+        <>
+          <button
+            onClick={goToPrev}
+            className="absolute left-1 top-1/2 -translate-y-1/2 z-10 w-5 h-5 bg-white/90 rounded-full flex items-center justify-center hover:bg-white transition-colors"
+            style={{ boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)' }}
+          >
+            <ChevronLeft className="w-3 h-3 text-gray-600" />
+          </button>
+          <button
+            onClick={goToNext}
+            className="absolute right-1 top-1/2 -translate-y-1/2 z-10 w-5 h-5 bg-white/90 rounded-full flex items-center justify-center hover:bg-white transition-colors"
+            style={{ boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)' }}
+          >
+            <ChevronRight className="w-3 h-3 text-gray-600" />
+          </button>
+
+          {/* 인디케이터 */}
+          <div className="absolute bottom-1 left-1/2 -translate-x-1/2 z-10 flex gap-0.5">
+            {markers.map((_, idx) => (
+              <div
+                key={idx}
+                className={`w-1 h-1 rounded-full transition-colors ${
+                  idx === currentIndex ? 'bg-gray-800' : 'bg-gray-300'
+                }`}
+              />
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 };

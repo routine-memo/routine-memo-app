@@ -338,48 +338,61 @@ const MapBlockEditorInner = forwardRef<MapBlockEditorHandle, MapBlockEditorProps
               >
                 <button
                   onClick={() => setSelectedMarker(selectedMarker?.id === marker.id ? null : marker)}
-                  className="relative"
+                  className="flex flex-col items-center"
                 >
                   <div
-                    className="w-16 h-16 rounded-full border-4 border-white shadow-lg flex items-center justify-center transition-transform hover:scale-110"
-                    style={{ backgroundColor: marker.color }}
+                    className="w-16 h-16 rounded-full border-4 border-white flex items-center justify-center transition-transform hover:scale-110"
+                    style={{
+                      backgroundColor: marker.color,
+                      boxShadow: '0 6px 16px rgba(0, 0, 0, 0.45), 0 3px 6px rgba(0, 0, 0, 0.35)'
+                    }}
                   >
                     <MapPin className="w-8 h-8 text-white" />
                   </div>
+                  <span
+                    className="mt-1 px-2 py-0.5 bg-white rounded text-xs font-medium text-gray-800 max-w-[100px] truncate"
+                    style={{ boxShadow: '0 4px 8px rgba(0, 0, 0, 0.25), 0 2px 4px rgba(0, 0, 0, 0.15)' }}
+                  >
+                    {marker.name}
+                  </span>
                 </button>
               </CustomOverlayMap>
             ))}
 
-            {/* 선택된 마커 정보 */}
+            {/* 선택된 마커 정보 - 마커 상단 위 8px */}
             {selectedMarker && (
               <CustomOverlayMap
                 position={{ lat: selectedMarker.lat, lng: selectedMarker.lng }}
-                yAnchor={2.5}
+                xAnchor={0.5}
+                yAnchor={0}
               >
-                <div className="bg-white rounded-lg shadow-lg p-3 min-w-[150px] max-w-[200px]">
-                  <p className="font-medium text-gray-900 text-sm">{selectedMarker.name}</p>
-                  {selectedMarker.address && (
-                    <p className="text-xs text-gray-500 mt-0.5">{selectedMarker.address}</p>
-                  )}
-                  {selectedMarker.memo && (
-                    <p className="text-xs text-gray-600 mt-1 border-t pt-1">{selectedMarker.memo}</p>
-                  )}
-                  <div className="flex gap-1 mt-2">
-                    <button
-                      onClick={() => {
-                        setEditingMarker(selectedMarker);
-                        setSelectedMarker(null);
-                      }}
-                      className="flex-1 px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs hover:bg-gray-200 transition-colors"
-                    >
-                      수정
-                    </button>
-                    <button
-                      onClick={() => handleDeleteMarker(selectedMarker.id)}
-                      className="px-2 py-1 bg-red-100 text-red-600 rounded text-xs hover:bg-red-200 transition-colors"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
+                {/* 마커 yAnchor 1.3, 높이 64px → 상단이 좌표에서 83px 위 → 여기서 8px 더 위 */}
+                <div style={{ transform: 'translateY(calc(-100% - 83px - 8px))' }}>
+                  <div className="bg-white rounded-lg shadow-lg p-3 min-w-[150px] max-w-[200px]">
+                    <p className="font-medium text-gray-900 text-sm break-words whitespace-pre-wrap">{selectedMarker.name}</p>
+                    {selectedMarker.address && (
+                      <p className="text-xs text-gray-500 mt-0.5 break-words whitespace-pre-wrap">{selectedMarker.address}</p>
+                    )}
+                    {selectedMarker.memo && (
+                      <p className="text-xs text-gray-600 mt-1 border-t pt-1 break-words whitespace-pre-wrap">{selectedMarker.memo}</p>
+                    )}
+                    <div className="flex gap-1 mt-2">
+                      <button
+                        onClick={() => {
+                          setEditingMarker(selectedMarker);
+                          setSelectedMarker(null);
+                        }}
+                        className="flex-1 px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs hover:bg-gray-200 transition-colors"
+                      >
+                        수정
+                      </button>
+                      <button
+                        onClick={() => handleDeleteMarker(selectedMarker.id)}
+                        className="px-2 py-1 bg-red-100 text-red-600 rounded text-xs hover:bg-red-200 transition-colors"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </CustomOverlayMap>
