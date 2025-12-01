@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { ArrowLeft, X, Volume2, VolumeX } from 'lucide-react';
-import { BlockPosition, BlockDefaultValue, TextBlockDefault, ChecklistBlockDefault, WeatherBlockDefault, EmotionBlockDefault, ImageBlockDefault, VideoBlockDefault, LinkBlockDefault, FileBlockDefault, DateBlockDefault, TimelineBlockDefault, DataGraphBlockDefault, IconMap } from '../types';
+import { BlockPosition, BlockDefaultValue, TextBlockDefault, ChecklistBlockDefault, WeatherBlockDefault, EmotionBlockDefault, ImageBlockDefault, VideoBlockDefault, LinkBlockDefault, FileBlockDefault, DateBlockDefault, TimelineBlockDefault, DataGraphBlockDefault, MapBlockDefault, IconMap } from '../types';
 import { blockPalette } from '../blockPalette';
 import { TextBlockEditor, TextBlockEditorHandle } from './TextBlockEditor';
 import { ChecklistBlockEditor, ChecklistBlockEditorHandle } from './ChecklistBlockEditor';
@@ -15,11 +15,13 @@ import { FileBlockEditor, FileBlockEditorHandle } from './FileBlockEditor';
 import { DateBlockEditor, DateBlockEditorHandle } from './DateBlockEditor';
 import { TimelineBlockEditor, TimelineBlockEditorHandle } from './TimelineBlockEditor';
 import { DataGraphBlockEditor, DataGraphBlockEditorHandle } from './DataGraphBlockEditor';
+import { MapBlockEditor, MapBlockEditorHandle } from './MapBlockEditor';
 import { LinkBlockPreview } from './LinkBlockPreview';
 import { FileBlockPreview } from './FileBlockPreview';
 import { DateBlockPreview } from './DateBlockPreview';
 import { TimelineBlockPreview } from './TimelineBlockPreview';
 import { DataGraphBlockPreview } from './DataGraphBlockPreview';
+import { MapBlockPreview } from './MapBlockPreview';
 import { SwipeablePreview } from './SwipeablePreview';
 import { calculateRows } from '../blockUtils';
 
@@ -62,6 +64,7 @@ export const DefaultsStep = ({
   const dateEditorRef = useRef<DateBlockEditorHandle>(null);
   const timelineEditorRef = useRef<TimelineBlockEditorHandle>(null);
   const dataGraphEditorRef = useRef<DataGraphBlockEditorHandle>(null);
+  const mapEditorRef = useRef<MapBlockEditorHandle>(null);
 
   // 컨테이너 너비 감지
   useEffect(() => {
@@ -149,6 +152,11 @@ export const DefaultsStep = ({
     updateBlockDefault(blockId, { type: 'dataGraph', value });
   }, [updateBlockDefault]);
 
+  // 지도 블록 기본값 변경 핸들러
+  const handleMapBlockChange = useCallback((blockId: string, value: MapBlockDefault) => {
+    updateBlockDefault(blockId, { type: 'map', value });
+  }, [updateBlockDefault]);
+
   // 선택된 블록
   const selectedBlock = blocks.find(b => b.id === selectedBlockId);
 
@@ -186,6 +194,9 @@ export const DefaultsStep = ({
     }
     if (dataGraphEditorRef.current) {
       await dataGraphEditorRef.current.save();
+    }
+    if (mapEditorRef.current) {
+      await mapEditorRef.current.save();
     }
     setSelectedBlockId(null);
   }, []);
@@ -315,6 +326,17 @@ export const DefaultsStep = ({
             ref={dataGraphEditorRef}
             initialValue={dataGraphDefault}
             onChange={(value) => handleDataGraphBlockChange(block.id, value)}
+          />
+        );
+      case 'map':
+        const mapDefault = block.defaultValue?.type === 'map'
+          ? block.defaultValue.value
+          : { markers: [], center: { lat: 37.5665, lng: 126.9780 }, level: 5 };
+        return (
+          <MapBlockEditor
+            ref={mapEditorRef}
+            initialValue={mapDefault}
+            onChange={(value) => handleMapBlockChange(block.id, value)}
           />
         );
       default:
@@ -485,6 +507,8 @@ export const DefaultsStep = ({
                     <TimelineBlockPreview value={block.defaultValue.value} />
                   ) : block.type === 'dataGraph' && block.defaultValue?.type === 'dataGraph' && block.defaultValue.value.fields?.length > 0 ? (
                     <DataGraphBlockPreview value={block.defaultValue.value} />
+                  ) : block.type === 'map' && block.defaultValue?.type === 'map' && block.defaultValue.value.markers?.length > 0 ? (
+                    <MapBlockPreview value={block.defaultValue.value} />
                   ) : (
                     <div className="h-full flex items-center justify-center">
                       <span className="text-xs text-gray-400">탭하여 설정</span>

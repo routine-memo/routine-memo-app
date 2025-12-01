@@ -135,6 +135,27 @@ export interface DataGraphBlockDefault {
   fields: DataGraphField[];  // 추적할 항목들 정의
 }
 
+// 지도 마커 아이템
+export interface MapMarker {
+  id: string;
+  name: string;              // 장소 이름
+  address?: string;          // 주소
+  lat: number;               // 위도
+  lng: number;               // 경도
+  color: string;             // 마커 색상
+  memo?: string;             // 메모
+}
+
+// 지도 블록 기본값 타입
+export interface MapBlockDefault {
+  markers: MapMarker[];      // 저장된 마커들
+  center: {                  // 지도 중심 좌표
+    lat: number;
+    lng: number;
+  };
+  level: number;             // 지도 줌 레벨 (1-14, 작을수록 확대)
+}
+
 // 블록 타입별 기본값 타입
 export type BlockDefaultValue =
   | { type: 'text'; value: TextBlockDefault }
@@ -148,7 +169,7 @@ export type BlockDefaultValue =
   | { type: 'video'; value: VideoBlockDefault }
   | { type: 'link'; value: LinkBlockDefault }
   | { type: 'file'; value: FileBlockDefault }
-  | { type: 'map'; value: unknown };
+  | { type: 'map'; value: MapBlockDefault };
 
 export interface BlockPosition {
   id: string;
