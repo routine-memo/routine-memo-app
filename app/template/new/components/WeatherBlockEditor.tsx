@@ -75,13 +75,13 @@ const WeatherBlockEditorInner = forwardRef<WeatherBlockEditorHandle, WeatherBloc
                   flex flex-col items-center justify-center p-3 rounded-xl
                   transition-all duration-200 border-2
                   ${selectedWeather === weather.type
-                    ? 'border-amber-400 bg-amber-50 shadow-md scale-105'
+                    ? 'border-gray-900 bg-gray-100 shadow-md scale-105'
                     : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
                   }
                 `}
               >
                 <span className="text-3xl mb-1">{weather.emoji}</span>
-                <span className={`text-xs ${selectedWeather === weather.type ? 'text-amber-700 font-medium' : 'text-gray-600'}`}>
+                <span className={`text-xs ${selectedWeather === weather.type ? 'text-gray-900 font-medium' : 'text-gray-600'}`}>
                   {weather.label}
                 </span>
               </button>

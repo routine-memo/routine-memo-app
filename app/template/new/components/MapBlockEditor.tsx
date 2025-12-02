@@ -182,7 +182,7 @@ const MapBlockEditorInner = forwardRef<MapBlockEditorHandle, MapBlockEditorProps
                 value={editingMarker.name}
                 onChange={(e) => setEditingMarker({ ...editingMarker, name: e.target.value })}
                 placeholder="예: 맛있는 카페, 단골 맛집"
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
                 autoFocus
               />
             </div>
@@ -197,7 +197,7 @@ const MapBlockEditorInner = forwardRef<MapBlockEditorHandle, MapBlockEditorProps
                 value={editingMarker.address || ''}
                 onChange={(e) => setEditingMarker({ ...editingMarker, address: e.target.value })}
                 placeholder="주소 입력 (선택)"
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
               />
             </div>
 
@@ -211,7 +211,7 @@ const MapBlockEditorInner = forwardRef<MapBlockEditorHandle, MapBlockEditorProps
                 onChange={(e) => setEditingMarker({ ...editingMarker, memo: e.target.value })}
                 placeholder="이 장소에 대한 메모 (선택)"
                 rows={3}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-none"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent resize-none"
               />
             </div>
 
@@ -268,7 +268,7 @@ const MapBlockEditorInner = forwardRef<MapBlockEditorHandle, MapBlockEditorProps
             <button
               onClick={() => handleSaveMarker(editingMarker)}
               disabled={!editingMarker.name.trim()}
-              className="w-full py-3 bg-amber-500 text-white rounded-xl font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-amber-600 transition-colors"
+              className="w-full py-3 bg-gray-900 text-white rounded-xl font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-800 transition-colors"
             >
               저장
             </button>
@@ -290,13 +290,13 @@ const MapBlockEditorInner = forwardRef<MapBlockEditorHandle, MapBlockEditorProps
                 onChange={(e) => setSearchKeyword(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                 placeholder="장소 검색..."
-                className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent text-sm"
+                className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent text-sm"
               />
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             </div>
             <button
               onClick={handleSearch}
-              className="px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-medium hover:bg-amber-600 transition-colors"
+              className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors"
             >
               검색
             </button>
@@ -401,7 +401,7 @@ const MapBlockEditorInner = forwardRef<MapBlockEditorHandle, MapBlockEditorProps
 
           {/* 추가 모드 안내 */}
           {isAddMode && (
-            <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-amber-500 text-white px-4 py-2 rounded-full text-sm shadow-lg">
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-4 py-2 rounded-full text-sm shadow-lg">
               지도를 클릭해서 장소를 추가하세요
             </div>
           )}
@@ -410,7 +410,7 @@ const MapBlockEditorInner = forwardRef<MapBlockEditorHandle, MapBlockEditorProps
           <button
             onClick={() => setIsAddMode(!isAddMode)}
             className={`absolute bottom-4 right-4 w-12 h-12 rounded-full shadow-lg flex items-center justify-center transition-colors ${
-              isAddMode ? 'bg-gray-600 text-white' : 'bg-amber-500 text-white hover:bg-amber-600'
+              isAddMode ? 'bg-gray-600 text-white' : 'bg-gray-900 text-white hover:bg-gray-800'
             }`}
           >
             {isAddMode ? <X className="w-6 h-6" /> : <Plus className="w-6 h-6" />}

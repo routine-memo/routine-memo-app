@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { ArrowLeft, X, Volume2, VolumeX } from 'lucide-react';
+import { ArrowLeft, X, Pencil, Check } from 'lucide-react';
 import { BlockPosition, BlockDefaultValue, TextBlockDefault, ChecklistBlockDefault, WeatherBlockDefault, EmotionBlockDefault, ImageBlockDefault, VideoBlockDefault, LinkBlockDefault, FileBlockDefault, DateBlockDefault, TimelineBlockDefault, DataGraphBlockDefault, MapBlockDefault, ProgressBlockDefault, IconMap } from '../types';
 import { blockPalette } from '../blockPalette';
 import { TextBlockEditor, TextBlockEditorHandle } from './TextBlockEditor';
@@ -54,6 +54,9 @@ export const DefaultsStep = ({
   const [blocks, setBlocks] = useState<BlockPosition[]>(blockPositions);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [gridWidth, setGridWidth] = useState(0);
+  const [isEditingLabel, setIsEditingLabel] = useState(false);
+  const [editingLabelValue, setEditingLabelValue] = useState('');
+  const labelInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const textEditorRef = useRef<TextBlockEditorHandle>(null);
   const checklistEditorRef = useRef<ChecklistBlockEditorHandle>(null);
@@ -99,6 +102,33 @@ export const DefaultsStep = ({
       )
     );
   }, []);
+
+  // 블록 라벨 업데이트
+  const updateBlockLabel = useCallback((blockId: string, customLabel: string) => {
+    setBlocks(prev =>
+      prev.map(block =>
+        block.id === blockId
+          ? { ...block, customLabel: customLabel.trim() || undefined }
+          : block
+      )
+    );
+  }, []);
+
+  // 라벨 편집 시작
+  const startEditingLabel = useCallback((block: BlockPosition) => {
+    const paletteItem = blockPalette.find(p => p.type === block.type);
+    setEditingLabelValue(block.customLabel || paletteItem?.label || '');
+    setIsEditingLabel(true);
+    setTimeout(() => labelInputRef.current?.focus(), 50);
+  }, []);
+
+  // 라벨 편집 완료
+  const finishEditingLabel = useCallback(() => {
+    if (selectedBlockId) {
+      updateBlockLabel(selectedBlockId, editingLabelValue);
+    }
+    setIsEditingLabel(false);
+  }, [selectedBlockId, editingLabelValue, updateBlockLabel]);
 
   // 텍스트 블록 기본값 변경 핸들러
   const handleTextBlockChange = useCallback((blockId: string, value: TextBlockDefault) => {
@@ -209,6 +239,7 @@ export const DefaultsStep = ({
     if (progressEditorRef.current) {
       await progressEditorRef.current.save();
     }
+    setIsEditingLabel(false);
     setSelectedBlockId(null);
   }, []);
 
@@ -450,12 +481,12 @@ export const DefaultsStep = ({
                 <div className="absolute top-0 left-0 right-0 h-8 flex items-center px-2 bg-gray-50/90 z-10">
                   <div className="flex items-center gap-1.5">
                     <Icon className="w-3.5 h-3.5 text-gray-600" />
-                    <span className="text-xs font-medium text-gray-700">
-                      {paletteItem?.label}
+                    <span className="text-xs font-medium text-gray-700 truncate">
+                      {block.customLabel || paletteItem?.label}
                     </span>
                   </div>
                   {hasDefault && (
-                    <span className="ml-auto text-[10px] text-green-600 font-medium">설정됨</span>
+                    <span className="ml-auto text-[10px] text-green-600 font-medium flex-none">설정됨</span>
                   )}
                 </div>
 
@@ -582,23 +613,53 @@ export const DefaultsStep = ({
             <>
               {/* 패널 헤더 */}
               <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-1 min-w-0">
                   {(() => {
                     const paletteItem = blockPalette.find(p => p.type === selectedBlock.type);
                     const Icon = iconMap[paletteItem?.icon || 'Type'];
+                    const displayLabel = selectedBlock.customLabel || paletteItem?.label || '';
                     return (
                       <>
-                        <Icon className="w-5 h-5 text-gray-700" />
-                        <span className="font-semibold text-gray-900">
-                          {paletteItem?.label} 기본값
-                        </span>
+                        <Icon className="w-5 h-5 text-gray-700 flex-none" />
+                        {isEditingLabel ? (
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <input
+                              ref={labelInputRef}
+                              type="text"
+                              value={editingLabelValue}
+                              onChange={(e) => setEditingLabelValue(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') finishEditingLabel();
+                                if (e.key === 'Escape') setIsEditingLabel(false);
+                              }}
+                              className="flex-1 min-w-0 px-2 py-1 text-sm font-semibold border border-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
+                              placeholder="블록 이름"
+                            />
+                            <button
+                              onClick={finishEditingLabel}
+                              className="p-1.5 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors flex-none"
+                            >
+                              <Check className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => startEditingLabel(selectedBlock)}
+                            className="flex items-center gap-1.5 group"
+                          >
+                            <span className="font-semibold text-gray-900 truncate">
+                              {displayLabel}
+                            </span>
+                            <Pencil className="w-3.5 h-3.5 text-gray-400 group-hover:text-gray-600 transition-colors flex-none" />
+                          </button>
+                        )}
                       </>
                     );
                   })()}
                 </div>
                 <button
                   onClick={closeModal}
-                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors flex-none ml-2"
                 >
                   <X className="w-5 h-5 text-gray-500" />
                 </button>

@@ -450,7 +450,7 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
           <div className="flex-1 flex flex-col items-center justify-center">
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="flex flex-col items-center justify-center gap-3 p-8 rounded-2xl bg-white border-2 border-dashed border-gray-300 hover:border-amber-400 hover:bg-amber-50 transition-all"
+              className="flex flex-col items-center justify-center gap-3 p-8 rounded-2xl bg-white border-2 border-dashed border-gray-300 hover:border-gray-400 hover:bg-gray-50 transition-all"
             >
               <Video className="w-12 h-12 text-gray-400" />
               <span className="text-gray-600 font-medium">영상 추가</span>
@@ -560,7 +560,7 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
                               onClick={handleProgressClick}
                             >
                               <div
-                                className="h-full bg-amber-500 rounded-full relative"
+                                className="h-full bg-white rounded-full relative"
                                 style={{ width: `${progressPercent}%` }}
                               >
                                 <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow" />
@@ -610,7 +610,7 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
                                       value={isMuted ? 0 : volume}
                                       onChange={handleVolumeChange}
                                       onClick={(e) => e.stopPropagation()}
-                                      className="w-full h-1 accent-amber-500 cursor-pointer"
+                                      className="w-full h-1 accent-gray-300 cursor-pointer"
                                     />
                                   </div>
                                 </div>
@@ -647,7 +647,7 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
                     onClick={() => scrollToIndex(index)}
                     className={`flex-none w-14 h-14 rounded-lg overflow-hidden border-2 transition-all bg-black flex items-center justify-center ${
                       index === currentIndex
-                        ? 'border-amber-500 shadow-md'
+                        ? 'border-gray-900 shadow-md'
                         : 'border-transparent opacity-70 hover:opacity-100'
                     }`}
                   >
@@ -666,7 +666,7 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
 
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full py-3 flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-medium transition-colors"
+                className="w-full py-3 flex items-center justify-center gap-2 bg-gray-900 hover:bg-gray-800 text-white rounded-xl font-medium transition-colors"
               >
                 <Plus className="w-5 h-5" />
                 영상 추가
@@ -771,7 +771,7 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
                 onClick={handleFullscreenProgressClick}
               >
                 <div
-                  className="h-full bg-amber-500 rounded-full relative"
+                  className="h-full bg-white rounded-full relative"
                   style={{ width: `${progressPercent}%` }}
                 >
                   <div className="absolute right-0 top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow" />
@@ -820,7 +820,7 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
                         value={isMuted ? 0 : volume}
                         onChange={handleFullscreenVolumeChange}
                         onClick={(e) => e.stopPropagation()}
-                        className="w-full h-1.5 accent-amber-500 cursor-pointer"
+                        className="w-full h-1.5 accent-gray-300 cursor-pointer"
                       />
                     </div>
                   </div>

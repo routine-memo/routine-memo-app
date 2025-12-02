@@ -189,7 +189,7 @@ const FileBlockEditorInner = forwardRef<FileBlockEditorHandle, FileBlockEditorPr
           <div className="flex-1 flex flex-col items-center justify-center">
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="flex flex-col items-center justify-center gap-3 p-8 rounded-2xl bg-white border-2 border-dashed border-gray-300 hover:border-amber-400 hover:bg-amber-50 transition-all"
+              className="flex flex-col items-center justify-center gap-3 p-8 rounded-2xl bg-white border-2 border-dashed border-gray-300 hover:border-gray-400 hover:bg-gray-50 transition-all"
             >
               <FilePlus className="w-12 h-12 text-gray-400" />
               <span className="text-gray-600 font-medium">파일 추가</span>
@@ -259,7 +259,7 @@ const FileBlockEditorInner = forwardRef<FileBlockEditorHandle, FileBlockEditorPr
                         <>
                           {/* 오디오 미리보기 */}
                           {category === 'audio' && (
-                            <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-amber-500 to-orange-600 p-4">
+                            <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-700 to-gray-900 p-4">
                               <FileAudio className="w-16 h-16 text-white mb-4" />
                               <p className="text-white font-medium text-sm line-clamp-2 max-w-full px-4 text-center break-all">
                                 {file.name}
@@ -334,8 +334,8 @@ const FileBlockEditorInner = forwardRef<FileBlockEditorHandle, FileBlockEditorPr
                       ) : (
                         /* 미리보기 불가능한 파일 - 카드 스타일 */
                         <div className="flex items-center h-full p-4 gap-4">
-                          <div className="flex-none w-16 h-16 rounded-xl bg-gradient-to-br from-amber-100 to-amber-200 flex items-center justify-center">
-                            <FileIcon className="w-8 h-8 text-amber-600" />
+                          <div className="flex-none w-16 h-16 rounded-xl bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+                            <FileIcon className="w-8 h-8 text-gray-600" />
                           </div>
 
                           <div className="flex-1 min-w-0">
@@ -397,14 +397,14 @@ const FileBlockEditorInner = forwardRef<FileBlockEditorHandle, FileBlockEditorPr
                       onClick={() => scrollToIndex(index)}
                       className={`flex-none w-14 h-14 rounded-lg overflow-hidden border-2 transition-all flex items-center justify-center ${
                         index === currentIndex
-                          ? 'border-amber-500 shadow-md'
+                          ? 'border-gray-900 shadow-md'
                           : 'border-transparent opacity-70 hover:opacity-100'
-                      } ${index === currentIndex ? 'bg-amber-50' : 'bg-gray-100'}`}
+                      } ${index === currentIndex ? 'bg-gray-100' : 'bg-gray-100'}`}
                     >
                       {isLoading ? (
                         <Loader2 className="w-4 h-4 text-gray-400 animate-spin" />
                       ) : (
-                        <FileIcon className={`w-6 h-6 ${index === currentIndex ? 'text-amber-600' : 'text-gray-400'}`} />
+                        <FileIcon className={`w-6 h-6 ${index === currentIndex ? 'text-gray-900' : 'text-gray-400'}`} />
                       )}
                     </button>
                   );
@@ -413,7 +413,7 @@ const FileBlockEditorInner = forwardRef<FileBlockEditorHandle, FileBlockEditorPr
 
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full py-3 flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-medium transition-colors"
+                className="w-full py-3 flex items-center justify-center gap-2 bg-gray-900 hover:bg-gray-800 text-white rounded-xl font-medium transition-colors"
               >
                 <Plus className="w-5 h-5" />
                 파일 추가

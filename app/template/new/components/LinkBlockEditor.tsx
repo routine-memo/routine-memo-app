@@ -325,7 +325,7 @@ const LinkBlockEditorInner = forwardRef<LinkBlockEditorHandle, LinkBlockEditorPr
 
           {isActive && (
             <div className="flex-none mt-2 text-center">
-              <span className="text-xs text-amber-600 font-medium">탭하여 링크 열기</span>
+              <span className="text-xs text-gray-900 font-medium">탭하여 링크 열기</span>
             </div>
           )}
         </div>
@@ -351,13 +351,13 @@ const LinkBlockEditorInner = forwardRef<LinkBlockEditorHandle, LinkBlockEditorPr
                   }
                 }}
                 placeholder="링크를 붙여넣거나 입력하세요"
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
               />
             </div>
             <button
               onClick={handleAddLink}
               disabled={!url || isLoading}
-              className="px-4 py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-gray-300 text-white rounded-xl transition-colors"
+              className="px-4 py-3 bg-gray-900 hover:bg-gray-800 disabled:bg-gray-300 text-white rounded-xl transition-colors"
             >
               {isLoading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
@@ -462,7 +462,7 @@ const LinkBlockEditorInner = forwardRef<LinkBlockEditorHandle, LinkBlockEditorPr
                         value={currentLink.metadata?.title || ''}
                         onChange={handleTitleChange}
                         placeholder="링크 제목"
-                        className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                        className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
                       />
                     </div>
                   </div>
@@ -473,7 +473,7 @@ const LinkBlockEditorInner = forwardRef<LinkBlockEditorHandle, LinkBlockEditorPr
                         onClick={() => handleDisplayModeChange('preview')}
                         className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl border-2 transition-all text-sm ${
                           currentLink.displayMode === 'preview'
-                            ? 'border-amber-500 bg-amber-50 text-amber-700'
+                            ? 'border-gray-900 bg-gray-900 text-white'
                             : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
                         }`}
                       >
@@ -485,7 +485,7 @@ const LinkBlockEditorInner = forwardRef<LinkBlockEditorHandle, LinkBlockEditorPr
                         disabled={!canEmbed}
                         className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl border-2 transition-all text-sm ${
                           currentLink.displayMode === 'embed'
-                            ? 'border-amber-500 bg-amber-50 text-amber-700'
+                            ? 'border-gray-900 bg-gray-900 text-white'
                             : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
                         } ${!canEmbed ? 'opacity-50 cursor-not-allowed' : ''}`}
                       >
@@ -508,7 +508,7 @@ const LinkBlockEditorInner = forwardRef<LinkBlockEditorHandle, LinkBlockEditorPr
                       onClick={() => scrollToIndex(index)}
                       className={`flex-none w-14 h-14 rounded-lg overflow-hidden border-2 transition-all flex items-center justify-center ${
                         index === currentIndex
-                          ? 'border-amber-500 shadow-md'
+                          ? 'border-gray-900 shadow-md'
                           : 'border-transparent opacity-70 hover:opacity-100'
                       } ${isYoutube && youtubeThumbnail ? 'bg-black' : 'bg-gray-100'}`}
                     >

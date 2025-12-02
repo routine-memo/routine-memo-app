@@ -75,7 +75,7 @@ const ProgressBlockEditorInner = forwardRef<ProgressBlockEditorHandle, ProgressB
               onClick={() => setMode('dday')}
               className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 transition-all ${
                 mode === 'dday'
-                  ? 'border-amber-500 bg-amber-50 text-amber-700'
+                  ? 'border-gray-900 bg-gray-900 text-white'
                   : 'border-gray-200 text-gray-500 hover:border-gray-300'
               }`}
             >
@@ -86,7 +86,7 @@ const ProgressBlockEditorInner = forwardRef<ProgressBlockEditorHandle, ProgressB
               onClick={() => setMode('percent')}
               className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 transition-all ${
                 mode === 'percent'
-                  ? 'border-amber-500 bg-amber-50 text-amber-700'
+                  ? 'border-gray-900 bg-gray-900 text-white'
                   : 'border-gray-200 text-gray-500 hover:border-gray-300'
               }`}
             >
@@ -106,7 +106,7 @@ const ProgressBlockEditorInner = forwardRef<ProgressBlockEditorHandle, ProgressB
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="예: 턱걸이 100개, 책 10권 읽기"
-            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
           />
         </div>
 
@@ -120,7 +120,7 @@ const ProgressBlockEditorInner = forwardRef<ProgressBlockEditorHandle, ProgressB
               type="date"
               value={targetDate}
               onChange={(e) => setTargetDate(e.target.value)}
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
             />
             {dday !== null && (
               <p className="mt-2 text-sm text-gray-500">
@@ -147,7 +147,7 @@ const ProgressBlockEditorInner = forwardRef<ProgressBlockEditorHandle, ProgressB
                   value={currentValue}
                   onChange={(e) => setCurrentValue(Number(e.target.value))}
                   min={0}
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
                 />
               </div>
               <div>
@@ -159,7 +159,7 @@ const ProgressBlockEditorInner = forwardRef<ProgressBlockEditorHandle, ProgressB
                   value={targetValue}
                   onChange={(e) => setTargetValue(Number(e.target.value))}
                   min={1}
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
                 />
               </div>
             </div>
@@ -168,11 +168,11 @@ const ProgressBlockEditorInner = forwardRef<ProgressBlockEditorHandle, ProgressB
             <div className="flex-none mb-4">
               <div className="flex justify-between items-center mb-2">
                 <span className="text-sm text-gray-600">진행률</span>
-                <span className="text-sm font-medium text-amber-600">{percent}%</span>
+                <span className="text-sm font-medium text-gray-900">{percent}%</span>
               </div>
               <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-gradient-to-r from-amber-400 to-amber-500 rounded-full transition-all duration-300"
+                  className="h-full bg-gray-900 rounded-full transition-all duration-300"
                   style={{ width: `${percent}%` }}
                 />
               </div>
@@ -188,16 +188,16 @@ const ProgressBlockEditorInner = forwardRef<ProgressBlockEditorHandle, ProgressB
           <label className="block text-sm font-medium text-gray-700 mb-2">
             미리보기
           </label>
-          <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-4 border border-amber-100">
+          <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
             <div className="flex items-center gap-2 mb-2">
-              <Target className="w-5 h-5 text-amber-600" />
+              <Target className="w-5 h-5 text-gray-700" />
               <span className="font-medium text-gray-800">
                 {title || '목표를 입력하세요'}
               </span>
             </div>
             {mode === 'dday' ? (
               <div className="text-center py-4">
-                <span className="text-4xl font-bold text-amber-600">
+                <span className="text-4xl font-bold text-gray-900">
                   {dday !== null
                     ? dday === 0
                       ? 'D-Day'
@@ -219,14 +219,14 @@ const ProgressBlockEditorInner = forwardRef<ProgressBlockEditorHandle, ProgressB
             ) : (
               <div className="py-2">
                 <div className="flex justify-between items-end mb-2">
-                  <span className="text-3xl font-bold text-amber-600">{percent}%</span>
+                  <span className="text-3xl font-bold text-gray-900">{percent}%</span>
                   <span className="text-sm text-gray-500">
                     {currentValue}/{targetValue}
                   </span>
                 </div>
-                <div className="w-full h-4 bg-white/50 rounded-full overflow-hidden">
+                <div className="w-full h-4 bg-gray-200 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-gradient-to-r from-amber-400 to-amber-500 rounded-full transition-all duration-300"
+                    className="h-full bg-gray-900 rounded-full transition-all duration-300"
                     style={{ width: `${percent}%` }}
                   />
                 </div>

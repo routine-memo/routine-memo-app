@@ -198,6 +198,7 @@ export interface BlockPosition {
   colSpan: number;   // 차지하는 열 개수 (기본 2, 범위: 1-6)
   height: number;    // 블록의 높이 (픽셀, 기본 120)
   defaultValue?: BlockDefaultValue; // 블록의 기본값
+  customLabel?: string; // 사용자 정의 블록 이름
 }
 
 export interface BlockPaletteItem {

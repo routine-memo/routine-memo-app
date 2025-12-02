@@ -230,7 +230,7 @@ const DateBlockEditorInner = forwardRef<DateBlockEditorHandle, DateBlockEditorPr
                     onClick={() => handleDateSelect(day)}
                     className={`aspect-square flex items-center justify-center rounded-full text-sm font-medium transition-all ${
                       isSelected
-                        ? 'bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-lg scale-110'
+                        ? 'bg-gray-900 text-white shadow-lg scale-110'
                         : isToday
                         ? 'bg-gray-100 text-gray-900'
                         : dayOfWeek === 0
@@ -258,7 +258,7 @@ const DateBlockEditorInner = forwardRef<DateBlockEditorHandle, DateBlockEditorPr
                 onChange({ date: dateStr });
                 onSelectComplete?.();
               }}
-              className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-medium transition-colors"
+              className="w-full py-3 bg-gray-900 hover:bg-gray-800 text-white rounded-xl font-medium transition-colors"
             >
               오늘 날짜 선택
             </button>

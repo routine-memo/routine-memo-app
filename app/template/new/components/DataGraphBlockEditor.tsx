@@ -87,7 +87,7 @@ const DataGraphBlockEditorInner = forwardRef<DataGraphBlockEditorHandle, DataGra
             </h3>
             <button
               onClick={() => handleSaveField(editingField)}
-              className="text-amber-600 font-semibold text-sm"
+              className="text-gray-900 font-semibold text-sm"
               disabled={!editingField.name.trim()}
             >
               완료
@@ -106,7 +106,7 @@ const DataGraphBlockEditorInner = forwardRef<DataGraphBlockEditorHandle, DataGra
                 value={editingField.name}
                 onChange={(e) => setEditingField({ ...editingField, name: e.target.value })}
                 placeholder="예: 턱걸이 갯수, 체중, 공부시간"
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
                 autoFocus
               />
             </div>
@@ -121,7 +121,7 @@ const DataGraphBlockEditorInner = forwardRef<DataGraphBlockEditorHandle, DataGra
                   onClick={() => setEditingField({ ...editingField, format: 'number' })}
                   className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 transition-all ${
                     editingField.format === 'number'
-                      ? 'border-amber-500 bg-amber-50 text-amber-700'
+                      ? 'border-gray-900 bg-gray-900 text-white'
                       : 'border-gray-200 text-gray-500 hover:border-gray-300'
                   }`}
                 >
@@ -132,7 +132,7 @@ const DataGraphBlockEditorInner = forwardRef<DataGraphBlockEditorHandle, DataGra
                   onClick={() => setEditingField({ ...editingField, format: 'percent' })}
                   className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 transition-all ${
                     editingField.format === 'percent'
-                      ? 'border-amber-500 bg-amber-50 text-amber-700'
+                      ? 'border-gray-900 bg-gray-900 text-white'
                       : 'border-gray-200 text-gray-500 hover:border-gray-300'
                   }`}
                 >
@@ -168,8 +168,8 @@ const DataGraphBlockEditorInner = forwardRef<DataGraphBlockEditorHandle, DataGra
     return (
       <div className="flex flex-col h-full bg-white relative">
         {/* 안내 문구 */}
-        <div className="flex-none px-4 py-2 bg-blue-50 border-b border-blue-100">
-          <p className="text-xs text-blue-600 text-center">
+        <div className="flex-none px-4 py-2 bg-gray-50 border-b border-gray-200">
+          <p className="text-xs text-gray-600 text-center">
             추적할 데이터 항목을 정의하세요. 기록 시 이 항목들의 값을 입력합니다.
           </p>
         </div>
@@ -228,7 +228,7 @@ const DataGraphBlockEditorInner = forwardRef<DataGraphBlockEditorHandle, DataGra
               setEditingField(createNewField());
               setIsAddMode(true);
             }}
-            className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
+            className="w-full py-3 bg-gray-900 hover:bg-gray-800 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
           >
             <Plus className="w-5 h-5" />
             항목 추가

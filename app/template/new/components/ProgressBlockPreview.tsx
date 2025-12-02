@@ -47,14 +47,14 @@ export const ProgressBlockPreview = ({ value }: ProgressBlockPreviewProps) => {
   // D-Day 모드
   if (mode === 'dday') {
     return (
-      <div className="h-full w-full flex flex-col items-center justify-center bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-2">
+      <div className="h-full w-full flex flex-col items-center justify-center bg-gray-50 rounded-xl p-2">
         <div className="flex items-center gap-1 mb-1">
-          <Calendar className="w-3 h-3 text-amber-500" />
+          <Calendar className="w-3 h-3 text-gray-500" />
           <span className="text-[8px] text-gray-600 truncate max-w-[70px]">
             {title || '목표'}
           </span>
         </div>
-        <span className="text-xl font-bold text-amber-600">
+        <span className="text-xl font-bold text-gray-900">
           {dday !== null
             ? dday === 0
               ? 'D-Day'
@@ -77,22 +77,22 @@ export const ProgressBlockPreview = ({ value }: ProgressBlockPreviewProps) => {
 
   // 퍼센트 모드
   return (
-    <div className="h-full w-full flex flex-col justify-center bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-2">
+    <div className="h-full w-full flex flex-col justify-center bg-gray-50 rounded-xl p-2">
       <div className="flex items-center gap-1 mb-1">
-        <Percent className="w-3 h-3 text-amber-500" />
+        <Percent className="w-3 h-3 text-gray-500" />
         <span className="text-[8px] text-gray-600 truncate max-w-[70px]">
           {title || '목표'}
         </span>
       </div>
       <div className="flex items-end justify-between mb-1">
-        <span className="text-xl font-bold text-amber-600">{percent}%</span>
+        <span className="text-xl font-bold text-gray-900">{percent}%</span>
         <span className="text-[7px] text-gray-400">
           {currentValue}/{targetValue}
         </span>
       </div>
-      <div className="w-full h-1.5 bg-white/50 rounded-full overflow-hidden">
+      <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
         <div
-          className="h-full bg-gradient-to-r from-amber-400 to-amber-500 rounded-full transition-all duration-300"
+          className="h-full bg-gray-900 rounded-full transition-all duration-300"
           style={{ width: `${percent}%` }}
         />
       </div>

@@ -45,7 +45,7 @@ const SingleFilePreview = ({ fileItem }: { fileItem: FileItem }) => {
   // 오디오 파일
   if (category === 'audio') {
     return (
-      <div className="h-full w-full flex flex-col items-center justify-center bg-gradient-to-br from-amber-400 to-orange-500 p-2">
+      <div className="h-full w-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-600 to-gray-800 p-2">
         <FileAudio className="w-8 h-8 text-white mb-1" />
         <p className="text-[8px] text-white/90 line-clamp-2 w-full text-center px-1 break-all">
           {fileItem.name}
@@ -70,8 +70,8 @@ const SingleFilePreview = ({ fileItem }: { fileItem: FileItem }) => {
   return (
     <div className="h-full w-full p-2 flex flex-col">
       {/* 아이콘 영역 */}
-      <div className="flex-1 min-h-0 flex items-center justify-center bg-gradient-to-br from-amber-50 to-amber-100 rounded mb-1.5">
-        <FileIcon className="w-10 h-10 text-amber-500" />
+      <div className="flex-1 min-h-0 flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 rounded mb-1.5">
+        <FileIcon className="w-10 h-10 text-gray-500" />
       </div>
 
       {/* 파일 정보 */}
