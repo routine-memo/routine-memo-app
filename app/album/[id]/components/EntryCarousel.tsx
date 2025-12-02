@@ -325,39 +325,34 @@ export function EntryCarousel({
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* 캐러셀 헤더 (기록 번호 뱃지) */}
+      {/* 캐러셀 헤더 (기록 번호 뱃지) + 인디케이터 */}
       <div
-        className="flex-none px-4 pt-3 pb-2 flex items-center justify-center"
+        className="flex-none overflow-hidden"
         style={{
+          height: viewProgress > 0.5 ? 0 : 'auto',
           opacity: carouselUIOpacity,
           transform: `translateY(${-16 * viewProgress}px)`,
           pointerEvents: viewProgress > 0.5 ? 'none' : 'auto',
         }}
       >
-        <span className="px-3 py-1 bg-gray-900 text-white text-sm font-medium rounded-full">
-          {recordNumber}번째 기록
-        </span>
-      </div>
-
-      {/* 좌우 스크롤 인디케이터 */}
-      <div
-        className="flex-none flex items-center justify-center gap-1.5 pb-2"
-        style={{
-          opacity: carouselUIOpacity,
-          transform: `translateY(${-16 * viewProgress}px)`,
-          pointerEvents: viewProgress > 0.5 ? 'none' : 'auto',
-        }}
-      >
-        {filteredEntries.map((_, index) => (
-          <button
-            key={index}
-            onClick={() => scrollToIndex(index)}
-            className={`
-              h-1.5 rounded-full transition-all duration-300
-              ${index === currentIndex ? 'bg-gray-900 w-4' : 'bg-gray-300 w-1.5'}
-            `}
-          />
-        ))}
+        <div className="px-4 pt-3 pb-2 flex items-center justify-center">
+          <span className="px-3 py-1 bg-gray-900 text-white text-sm font-medium rounded-full">
+            {recordNumber}번째 기록
+          </span>
+        </div>
+        {/* 좌우 스크롤 인디케이터 */}
+        <div className="flex items-center justify-center gap-1.5 pb-2">
+          {filteredEntries.map((_, index) => (
+            <button
+              key={index}
+              onClick={() => scrollToIndex(index)}
+              className={`
+                h-1.5 rounded-full transition-all duration-300
+                ${index === currentIndex ? 'bg-gray-900 w-4' : 'bg-gray-300 w-1.5'}
+              `}
+            />
+          ))}
+        </div>
       </div>
 
       {/* 전체화면 헤더 (오버레이) */}
@@ -423,7 +418,6 @@ export function EntryCarousel({
           overflowX: viewProgress > 0.5 ? 'hidden' : 'auto',
           scrollbarWidth: 'none',
           msOverflowStyle: 'none',
-          marginTop: viewProgress > 0.5 ? 56 : 0,
           gap: '16px',
         }}
       >
@@ -467,6 +461,7 @@ export function EntryCarousel({
                 className="h-full"
                 style={{
                   overflowY: viewProgress > 0.8 ? 'auto' : 'hidden',
+                  paddingTop: isActive && viewProgress > 0.5 ? 56 : 0,
                 }}
               >
                 <EntryGridView
