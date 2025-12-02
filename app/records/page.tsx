@@ -1,7 +1,23 @@
-import { Search, Filter, Plus } from 'lucide-react';
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { Search, Filter, Plus, FileText } from 'lucide-react';
 import Link from 'next/link';
+import { getAlbums, Album } from '@/lib/storage/album';
+import { AlbumCard } from '@/components/AlbumCard';
 
 export default function RecordsPage() {
+  const router = useRouter();
+  const [albums, setAlbums] = useState<Album[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const loadedAlbums = getAlbums();
+    setAlbums(loadedAlbums);
+    setIsLoading(false);
+  }, []);
+
   return (
     <main className="min-h-screen p-6 bg-white relative">
       {/* 검색 바 */}
@@ -34,27 +50,40 @@ export default function RecordsPage() {
         </button>
       </div>
 
-      {/* 카테고리 카드들 */}
+      {/* 앨범 목록 */}
       <div className="space-y-3 mb-20">
-        <div className="rounded-xl border-2 border-black p-4 bg-white hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] transition-all cursor-pointer">
-          <h3 className="text-lg font-bold text-black mb-1">Personality Quiz</h3>
-          <p className="text-sm text-gray-500">3장</p>
-        </div>
-
-        <div className="rounded-xl border-2 border-black p-4 bg-white hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] transition-all cursor-pointer">
-          <h3 className="text-lg font-bold text-black mb-1">Good Morning</h3>
-          <p className="text-sm text-gray-500">12장</p>
-        </div>
-
-        <div className="rounded-xl border-2 border-black p-4 bg-white hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] transition-all cursor-pointer">
-          <h3 className="text-lg font-bold text-black mb-1">Brainstorming Presents</h3>
-          <p className="text-sm text-gray-500">5장</p>
-        </div>
-
-        <div className="rounded-xl border-2 border-black p-4 bg-white hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] transition-all cursor-pointer">
-          <h3 className="text-lg font-bold text-black mb-1">Brunch Recipe Ideas</h3>
-          <p className="text-sm text-gray-500">8장</p>
-        </div>
+        {isLoading ? (
+          <div className="text-center py-8">
+            <p className="text-gray-500">로딩 중...</p>
+          </div>
+        ) : albums.length === 0 ? (
+          <div className="text-center py-16">
+            <div className="w-24 h-24 mx-auto mb-6 rounded-full border-2 border-gray-300 bg-gray-50 flex items-center justify-center">
+              <FileText size={48} strokeWidth={1.5} className="text-gray-400" />
+            </div>
+            <p className="text-gray-700 mb-2 font-medium">
+              아직 앨범이 없어요
+            </p>
+            <p className="text-sm text-gray-500">
+              아래 버튼을 눌러 첫 앨범을 만들어보세요
+            </p>
+          </div>
+        ) : (
+          albums.map((album) => (
+            <AlbumCard
+              key={album.id}
+              album={album}
+              onViewEntries={() => router.push(`/album/${album.id}`)}
+              onAddEntry={() => router.push(`/album/${album.id}/entry`)}
+              onEditAlbum={() => router.push(`/album/${album.id}/edit`)}
+              onNameChange={(newName) => {
+                setAlbums(prev => prev.map(a =>
+                  a.id === album.id ? { ...a, name: newName } : a
+                ));
+              }}
+            />
+          ))
+        )}
       </div>
 
       {/* 하단 새 앨범 버튼 */}

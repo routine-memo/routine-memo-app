@@ -134,9 +134,16 @@ export interface DataGraphField {
   color: string;          // 그래프 선 색상
 }
 
-// 데이터 그래프 블록 기본값 타입 (템플릿 기본값 단계에서는 항목 정의만)
+// 데이터 그래프 값 (fieldId -> 값)
+export interface DataGraphValue {
+  fieldId: string;
+  value: number;
+}
+
+// 데이터 그래프 블록 기본값 타입
 export interface DataGraphBlockDefault {
-  fields: DataGraphField[];  // 추적할 항목들 정의
+  fields: DataGraphField[];        // 추적할 항목들 정의
+  values?: DataGraphValue[];       // 각 항목의 입력값 (기록 입력 시 사용)
 }
 
 // 지도 마커 아이템
