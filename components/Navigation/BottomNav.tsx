@@ -10,7 +10,7 @@ export default function BottomNav() {
 
   const navItems = [
     { href: '/', label: '홈', Icon: Home },
-    { href: '/records', label: '기록', Icon: FileText },
+    { href: '/records', label: '앨범', Icon: FileText },
     { href: '/profile', label: '프로필', Icon: User },
   ];
 

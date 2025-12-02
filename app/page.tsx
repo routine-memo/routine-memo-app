@@ -5,19 +5,19 @@ export default function Home() {
     <main className="min-h-screen p-6 bg-white">
       {/* 통계 카드 */}
       <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-4 text-black">이번 주 기록</h2>
+        <h2 className="text-xl font-semibold mb-4 text-black">이번 주 앨범</h2>
         <div className="grid grid-cols-2 gap-4">
           <div className="border-2 border-black p-6 bg-white rounded-lg">
             <div className="flex items-center gap-2 mb-3">
               <FileText size={20} strokeWidth={2} className="text-black" />
-              <p className="text-sm text-gray-600">총 기록</p>
+              <p className="text-sm text-gray-600">총 앨범</p>
             </div>
             <p className="text-4xl font-bold text-black">0</p>
           </div>
           <div className="border-2 border-black p-6 bg-white rounded-lg">
             <div className="flex items-center gap-2 mb-3">
               <Calendar size={20} strokeWidth={2} className="text-black" />
-              <p className="text-sm text-gray-600">연속 기록</p>
+              <p className="text-sm text-gray-600">연속 앨범</p>
             </div>
             <p className="text-4xl font-bold text-black">0<span className="text-lg ml-1">일</span></p>
           </div>
@@ -27,7 +27,7 @@ export default function Home() {
       {/* 카테고리 섹션 */}
       <section>
         <div className="flex items-center justify-between mb-4 pb-2 border-b-1 border-gray-300">
-          <h2 className="text-xl font-semibold text-black">나의 기록</h2>
+          <h2 className="text-xl font-semibold text-black">나의 앨범</h2>
           <button className="text-sm text-black font-medium flex items-center gap-1 hover:underline">
             <span>전체 보기</span>
             <ChevronRight size={16} strokeWidth={2} />
@@ -40,10 +40,10 @@ export default function Home() {
             <FileText size={48} strokeWidth={1.5} className="text-gray-400" />
           </div>
           <p className="text-gray-700 mb-2 font-medium">
-            아직 기록이 없어요
+            아직 앨범이 없어요
           </p>
           <p className="text-sm text-gray-500">
-            기록 탭의 + 버튼을 눌러 첫 기록을 시작해보세요
+            앨범 탭에서 새 앨범을 만들어보세요
           </p>
         </div>
       </section>

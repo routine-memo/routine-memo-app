@@ -90,16 +90,16 @@ export default function NewTemplatePage() {
             <ArrowLeft className="w-6 h-6" />
           </button>
 
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">템플릿 이름</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">앨범 이름</h1>
           <p className="text-sm text-gray-600 mb-6">
-            어떤 기록을 만들까요?
+            어떤 앨범을 만들까요?
           </p>
 
           <input
             type="text"
             value={templateName}
             onChange={(e) => setTemplateName(e.target.value)}
-            placeholder="예: 턱걸이 기록, 여행 일지, 공부 노트"
+            placeholder="예: 턱걸이 앨범, 여행 일지, 공부 노트"
             className="w-full px-4 py-3 rounded-lg border-2 border-gray-200 focus:border-gray-900 focus:outline-none"
           />
 
@@ -185,7 +185,7 @@ export default function NewTemplatePage() {
 
         <h1 className="text-2xl font-bold text-gray-900 mb-2">알림 설정</h1>
         <p className="text-sm text-gray-600 mb-6">
-          기록 알림을 받고 싶으신가요?
+          앨범 알림을 받고 싶으신가요?
         </p>
 
         <div className="bg-gray-50 rounded-2xl p-6 mb-6 border border-gray-200">
@@ -209,7 +209,7 @@ export default function NewTemplatePage() {
 
         <button
           onClick={() => {
-            // TODO: 템플릿 저장 로직
+            // TODO: 앨범 저장 로직
             router.push('/');
           }}
           className="w-full py-3 bg-gray-900 text-white rounded-lg font-semibold hover:bg-gray-800 transition-colors"

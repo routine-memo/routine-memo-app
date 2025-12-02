@@ -13,7 +13,7 @@ export default function RecordsPage() {
         />
         <input
           type="text"
-          placeholder="기록 검색..."
+          placeholder="앨범 검색..."
           className="w-full pl-12 pr-4 py-3 rounded-lg border-2 border-gray-300 bg-white text-black placeholder-gray-400 focus:outline-none focus:border-black"
         />
         <button className="absolute right-4 top-1/2 transform -translate-y-1/2">
@@ -38,32 +38,35 @@ export default function RecordsPage() {
       <div className="space-y-3 mb-20">
         <div className="rounded-xl border-2 border-black p-4 bg-white hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] transition-all cursor-pointer">
           <h3 className="text-lg font-bold text-black mb-1">Personality Quiz</h3>
-          <p className="text-sm text-gray-500">3개 기록</p>
+          <p className="text-sm text-gray-500">3장</p>
         </div>
 
         <div className="rounded-xl border-2 border-black p-4 bg-white hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] transition-all cursor-pointer">
           <h3 className="text-lg font-bold text-black mb-1">Good Morning</h3>
-          <p className="text-sm text-gray-500">12개 기록</p>
+          <p className="text-sm text-gray-500">12장</p>
         </div>
 
         <div className="rounded-xl border-2 border-black p-4 bg-white hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] transition-all cursor-pointer">
           <h3 className="text-lg font-bold text-black mb-1">Brainstorming Presents</h3>
-          <p className="text-sm text-gray-500">5개 기록</p>
+          <p className="text-sm text-gray-500">5장</p>
         </div>
 
         <div className="rounded-xl border-2 border-black p-4 bg-white hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] transition-all cursor-pointer">
           <h3 className="text-lg font-bold text-black mb-1">Brunch Recipe Ideas</h3>
-          <p className="text-sm text-gray-500">8개 기록</p>
+          <p className="text-sm text-gray-500">8장</p>
         </div>
       </div>
 
-      {/* FAB 버튼 - 붉은 낙엽색 */}
-      <Link
-        href="/create"
-        className="fixed bottom-24 right-6 w-14 h-14 rounded-full bg-black hover:bg-gray-800 text-white border-2 border-black flex items-center justify-center shadow-[3px_3px_0px_0px_rgba(0,0,0,0.3)] transition-all hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,0.3)] active:shadow-none"
-      >
-        <Plus size={24} strokeWidth={2} />
-      </Link>
+      {/* 하단 새 앨범 버튼 */}
+      <div className="fixed bottom-20 left-0 right-0 px-4 pb-4">
+        <Link
+          href="/create"
+          className="flex items-center justify-center gap-2 w-full py-4 rounded-xl bg-gray-900 hover:bg-gray-800 text-white font-semibold transition-colors"
+        >
+          <Plus size={20} strokeWidth={2.5} />
+          <span>새 앨범</span>
+        </Link>
+      </div>
     </main>
   );
 }
