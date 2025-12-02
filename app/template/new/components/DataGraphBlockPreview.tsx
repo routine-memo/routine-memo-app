@@ -41,7 +41,7 @@ export const DataGraphBlockPreview = ({ value }: DataGraphBlockPreviewProps) => 
               {field.name}
             </span>
             <span className="text-[8px] text-gray-400 flex-none">
-              {field.unit}
+              {field.format === 'percent' ? '%' : '#'}
             </span>
           </div>
         ))}

@@ -13,6 +13,7 @@ import {
   Map,
   Video,
   File,
+  Target,
 } from 'lucide-react';
 import { IconMap } from './types';
 
@@ -31,4 +32,5 @@ export const iconMap: IconMap = {
   Map,
   Video,
   File,
+  Target,
 };

@@ -13,4 +13,5 @@ export const blockPalette: BlockPaletteItem[] = [
   { type: 'link', label: '링크', icon: 'Link' },
   { type: 'file', label: '파일', icon: 'File' },
   { type: 'map', label: '지도', icon: 'Map' },
+  { type: 'progress', label: '달성도', icon: 'Target' },
 ];

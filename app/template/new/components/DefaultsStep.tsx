@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { ArrowLeft, X, Volume2, VolumeX } from 'lucide-react';
-import { BlockPosition, BlockDefaultValue, TextBlockDefault, ChecklistBlockDefault, WeatherBlockDefault, EmotionBlockDefault, ImageBlockDefault, VideoBlockDefault, LinkBlockDefault, FileBlockDefault, DateBlockDefault, TimelineBlockDefault, DataGraphBlockDefault, MapBlockDefault, IconMap } from '../types';
+import { BlockPosition, BlockDefaultValue, TextBlockDefault, ChecklistBlockDefault, WeatherBlockDefault, EmotionBlockDefault, ImageBlockDefault, VideoBlockDefault, LinkBlockDefault, FileBlockDefault, DateBlockDefault, TimelineBlockDefault, DataGraphBlockDefault, MapBlockDefault, ProgressBlockDefault, IconMap } from '../types';
 import { blockPalette } from '../blockPalette';
 import { TextBlockEditor, TextBlockEditorHandle } from './TextBlockEditor';
 import { ChecklistBlockEditor, ChecklistBlockEditorHandle } from './ChecklistBlockEditor';
@@ -16,12 +16,14 @@ import { DateBlockEditor, DateBlockEditorHandle } from './DateBlockEditor';
 import { TimelineBlockEditor, TimelineBlockEditorHandle } from './TimelineBlockEditor';
 import { DataGraphBlockEditor, DataGraphBlockEditorHandle } from './DataGraphBlockEditor';
 import { MapBlockEditor, MapBlockEditorHandle } from './MapBlockEditor';
+import { ProgressBlockEditor, ProgressBlockEditorHandle } from './ProgressBlockEditor';
 import { LinkBlockPreview } from './LinkBlockPreview';
 import { FileBlockPreview } from './FileBlockPreview';
 import { DateBlockPreview } from './DateBlockPreview';
 import { TimelineBlockPreview } from './TimelineBlockPreview';
 import { DataGraphBlockPreview } from './DataGraphBlockPreview';
 import { MapBlockPreview } from './MapBlockPreview';
+import { ProgressBlockPreview } from './ProgressBlockPreview';
 import { SwipeablePreview } from './SwipeablePreview';
 import { calculateRows } from '../blockUtils';
 
@@ -65,6 +67,7 @@ export const DefaultsStep = ({
   const timelineEditorRef = useRef<TimelineBlockEditorHandle>(null);
   const dataGraphEditorRef = useRef<DataGraphBlockEditorHandle>(null);
   const mapEditorRef = useRef<MapBlockEditorHandle>(null);
+  const progressEditorRef = useRef<ProgressBlockEditorHandle>(null);
 
   // 컨테이너 너비 감지
   useEffect(() => {
@@ -157,6 +160,11 @@ export const DefaultsStep = ({
     updateBlockDefault(blockId, { type: 'map', value });
   }, [updateBlockDefault]);
 
+  // 달성도 블록 기본값 변경 핸들러
+  const handleProgressBlockChange = useCallback((blockId: string, value: ProgressBlockDefault) => {
+    updateBlockDefault(blockId, { type: 'progress', value });
+  }, [updateBlockDefault]);
+
   // 선택된 블록
   const selectedBlock = blocks.find(b => b.id === selectedBlockId);
 
@@ -197,6 +205,9 @@ export const DefaultsStep = ({
     }
     if (mapEditorRef.current) {
       await mapEditorRef.current.save();
+    }
+    if (progressEditorRef.current) {
+      await progressEditorRef.current.save();
     }
     setSelectedBlockId(null);
   }, []);
@@ -337,6 +348,17 @@ export const DefaultsStep = ({
             ref={mapEditorRef}
             initialValue={mapDefault}
             onChange={(value) => handleMapBlockChange(block.id, value)}
+          />
+        );
+      case 'progress':
+        const progressDefault = block.defaultValue?.type === 'progress'
+          ? block.defaultValue.value
+          : { mode: 'dday' as const, title: '', targetDate: '', currentValue: 0, targetValue: 100, unit: '회' };
+        return (
+          <ProgressBlockEditor
+            ref={progressEditorRef}
+            initialValue={progressDefault}
+            onChange={(value) => handleProgressBlockChange(block.id, value)}
           />
         );
       default:
@@ -509,6 +531,8 @@ export const DefaultsStep = ({
                     <DataGraphBlockPreview value={block.defaultValue.value} />
                   ) : block.type === 'map' && block.defaultValue?.type === 'map' && block.defaultValue.value.markers?.length > 0 ? (
                     <MapBlockPreview value={block.defaultValue.value} />
+                  ) : block.type === 'progress' && block.defaultValue?.type === 'progress' && (block.defaultValue.value.title || block.defaultValue.value.targetDate || block.defaultValue.value.currentValue > 0) ? (
+                    <ProgressBlockPreview value={block.defaultValue.value} />
                   ) : (
                     <div className="h-full flex items-center justify-center">
                       <span className="text-xs text-gray-400">탭하여 설정</span>

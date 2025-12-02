@@ -12,7 +12,8 @@ export type BlockType =
   | 'video'
   | 'link'
   | 'file'
-  | 'map';
+  | 'map'
+  | 'progress';
 
 export type Step = 'name' | 'blocks' | 'defaults' | 'notification';
 
@@ -122,11 +123,14 @@ export interface TimelineBlockDefault {
   items: TimelineItem[];
 }
 
+// 데이터 그래프 표시 서식
+export type DataGraphFormat = 'number' | 'percent';
+
 // 데이터 그래프 항목 정의
 export interface DataGraphField {
   id: string;
   name: string;           // 항목 이름 (예: "턱걸이 갯수", "체중")
-  unit: string;           // 단위 (예: "개", "kg", "%")
+  format: DataGraphFormat; // 표시 서식 (숫자 또는 퍼센트)
   color: string;          // 그래프 선 색상
 }
 
@@ -156,6 +160,20 @@ export interface MapBlockDefault {
   level: number;             // 지도 줌 레벨 (1-14, 작을수록 확대)
 }
 
+// 달성도 측정 모드
+export type ProgressMode = 'dday' | 'percent';
+
+// 달성도 블록 기본값 타입
+export interface ProgressBlockDefault {
+  mode: ProgressMode;        // 측정 모드 (D-Day 또는 %)
+  title: string;             // 목표 제목
+  // D-Day 모드
+  targetDate?: string;       // 목표 날짜 (ISO 8601, YYYY-MM-DD)
+  // % 모드
+  currentValue?: number;     // 현재 값
+  targetValue?: number;      // 목표 값
+}
+
 // 블록 타입별 기본값 타입
 export type BlockDefaultValue =
   | { type: 'text'; value: TextBlockDefault }
@@ -169,7 +187,8 @@ export type BlockDefaultValue =
   | { type: 'video'; value: VideoBlockDefault }
   | { type: 'link'; value: LinkBlockDefault }
   | { type: 'file'; value: FileBlockDefault }
-  | { type: 'map'; value: MapBlockDefault };
+  | { type: 'map'; value: MapBlockDefault }
+  | { type: 'progress'; value: ProgressBlockDefault };
 
 export interface BlockPosition {
   id: string;
