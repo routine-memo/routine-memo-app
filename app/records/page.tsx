@@ -81,6 +81,9 @@ export default function RecordsPage() {
                   a.id === album.id ? { ...a, name: newName } : a
                 ));
               }}
+              onDelete={() => {
+                setAlbums(prev => prev.filter(a => a.id !== album.id));
+              }}
             />
           ))
         )}

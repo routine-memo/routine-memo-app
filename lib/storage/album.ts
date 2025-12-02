@@ -1,5 +1,12 @@
 import { BlockPosition } from '@/app/template/new/types';
 
+// 알림 설정 타입
+export interface AlbumNotification {
+  enabled: boolean;
+  time?: string;        // HH:mm 형식 (예: "09:00")
+  days?: number[];      // 0=일, 1=월, ..., 6=토
+}
+
 // 앨범 타입 정의
 export interface Album {
   id: string;
@@ -8,6 +15,7 @@ export interface Album {
   createdAt: string;
   updatedAt: string;
   pageCount: number; // 앨범 내 페이지(기록) 수
+  notification?: AlbumNotification;
 }
 
 const ALBUMS_STORAGE_KEY = 'routine-memo-albums';

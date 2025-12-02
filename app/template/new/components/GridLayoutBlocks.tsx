@@ -85,6 +85,13 @@ export const GridLayoutBlocks = ({
 
   // 레이아웃 변경 핸들러
   const handleLayoutChange = useCallback((newLayout: Layout[]) => {
+    // 삭제 영역 위에 있을 때는 레이아웃 변경 무시 (삭제 우선)
+    const windowHeight = window.innerHeight;
+    const trashZoneTop = windowHeight - 96;
+    if (isDragging && lastMouseY.current >= trashZoneTop) {
+      return;
+    }
+
     const updatedBlocks = newLayout.map((layoutItem) => {
       const originalBlock = blockPositions.find(b => b.id === layoutItem.i);
       if (!originalBlock) return null;
@@ -106,7 +113,7 @@ export const GridLayoutBlocks = ({
     if (hasChanges) {
       onLayoutChange(updatedBlocks);
     }
-  }, [blockPositions, onLayoutChange, rowHeight]);
+  }, [blockPositions, onLayoutChange, rowHeight, isDragging]);
 
   // 전역 터치/마우스 이벤트로 위치 추적
   useEffect(() => {
@@ -290,10 +297,10 @@ export const GridLayoutBlocks = ({
               className="bg-white border-2 border-gray-900 rounded-lg shadow-sm overflow-hidden cursor-move"
             >
               {/* 헤더 영역 */}
-              <div className="absolute top-0 left-0 right-0 h-10 flex items-center px-3 bg-gray-50/50 pointer-events-none">
+              <div className="absolute top-0 left-0 right-0 h-10 flex items-center px-3 bg-gray-900 rounded-t-[4px] pointer-events-none">
                 <div className="flex items-center gap-2">
-                  <Icon className="w-4 h-4 text-gray-700" />
-                  <span className="text-sm font-medium text-gray-900">
+                  <Icon className="w-4 h-4 text-white" />
+                  <span className="text-sm font-medium text-white">
                     {label}
                   </span>
                 </div>

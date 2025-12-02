@@ -495,7 +495,7 @@ export default function EntryPage() {
 
       {/* 블록 레이아웃 */}
       <div className="flex-1 overflow-y-auto">
-        <div ref={setContainerRef} className="mx-4 my-4 relative" style={{ height: gridHeight, minHeight: 200 }}>
+        <div ref={setContainerRef} className="mx-4 my-4 relative" style={{ height: gridHeight, minHeight: 200, paddingBottom: '50vh' }}>
           {gridWidth > 0 && album.blocks.map((block) => {
             const paletteItem = blockPalette.find(p => p.type === block.type);
             const Icon = iconMap[paletteItem?.icon || 'Type'];
@@ -510,8 +510,8 @@ export default function EntryPage() {
                 className={`
                   absolute bg-white border-2 rounded-lg shadow-sm overflow-hidden
                   cursor-pointer transition-all duration-200
-                  ${isUserEntered ? 'border-green-500' : 'border-gray-300'}
-                  hover:border-gray-900 hover:shadow-md
+                  ${isUserEntered ? 'border-green-500' : 'border-gray-900'}
+                  hover:shadow-md
                 `}
                 style={{
                   left: style.left,
@@ -521,15 +521,15 @@ export default function EntryPage() {
                 }}
               >
                 {/* 헤더 영역 */}
-                <div className="absolute top-0 left-0 right-0 h-8 flex items-center px-2 bg-gray-50/90 z-10">
+                <div className="absolute top-0 left-0 right-0 h-8 flex items-center px-2 bg-gray-900 rounded-t-[4px] z-10">
                   <div className="flex items-center gap-1.5">
-                    <Icon className="w-3.5 h-3.5 text-gray-600" />
-                    <span className="text-xs font-medium text-gray-700 truncate">
+                    <Icon className="w-3.5 h-3.5 text-white" />
+                    <span className="text-xs font-medium text-white truncate">
                       {block.customLabel || paletteItem?.label}
                     </span>
                   </div>
                   {isUserEntered && (
-                    <span className="ml-auto text-[10px] text-green-600 font-medium flex-none">입력됨</span>
+                    <span className="ml-auto text-[10px] text-green-400 font-medium flex-none">입력됨</span>
                   )}
                 </div>
 

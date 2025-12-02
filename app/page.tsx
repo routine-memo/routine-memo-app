@@ -84,6 +84,9 @@ export default function Home() {
                     a.id === album.id ? { ...a, name: newName } : a
                   ));
                 }}
+                onDelete={() => {
+                  setAlbums(prev => prev.filter(a => a.id !== album.id));
+                }}
               />
             ))}
           </div>

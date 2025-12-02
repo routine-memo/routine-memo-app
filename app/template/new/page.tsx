@@ -4,6 +4,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Bell } from 'lucide-react';
 import { NotificationSettings } from '@/types/template';
+import { saveAlbum } from '@/lib/storage/album';
 
 // Import types and utilities
 import { BlockPosition, BlockType, Step } from './types';
@@ -134,10 +135,10 @@ export default function NewTemplatePage() {
 
         {/* 블록 영역 - react-grid-layout 사용 */}
         <div
-          className="flex-1 overflow-y-auto py-6 pb-24"
+          className="flex-1 overflow-y-auto py-6"
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
-          <div ref={setContainerRef} className="mx-4">
+          <div ref={setContainerRef} className="mx-4 pb-[50vh]">
             <GridLayoutBlocks
               blockPositions={blockPositions}
               iconMap={iconMap}
@@ -209,8 +210,12 @@ export default function NewTemplatePage() {
 
         <button
           onClick={() => {
-            // TODO: 앨범 저장 로직
-            router.push('/');
+            // 앨범 저장
+            saveAlbum({
+              name: templateName,
+              blocks: blockPositions,
+            });
+            router.push('/records');
           }}
           className="w-full py-3 bg-gray-900 text-white rounded-lg font-semibold hover:bg-gray-800 transition-colors"
         >

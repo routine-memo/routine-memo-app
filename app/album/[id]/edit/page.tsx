@@ -2,9 +2,9 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowLeft, Bell, Trash2, Pencil, Check, X } from 'lucide-react';
+import { ArrowLeft, Bell, Pencil, Check, X } from 'lucide-react';
 import { NotificationSettings } from '@/types/template';
-import { getAlbum, updateAlbum, deleteAlbum } from '@/lib/storage/album';
+import { getAlbum, updateAlbum } from '@/lib/storage/album';
 
 // Import types and utilities
 import { BlockPosition, BlockType, Step } from '@/app/template/new/types';
@@ -119,14 +119,6 @@ export default function EditAlbumPage() {
     setBlockPositions(updatedBlocks);
   }, []);
 
-  // 앨범 삭제
-  const handleDeleteAlbum = () => {
-    if (confirm('이 앨범을 삭제하시겠습니까? 모든 기록도 함께 삭제됩니다.')) {
-      deleteAlbum(albumId);
-      router.push('/records');
-    }
-  };
-
   if (isLoading) {
     return (
       <main className="fixed inset-0 flex items-center justify-center bg-white">
@@ -191,25 +183,14 @@ export default function EditAlbumPage() {
               다음
             </button>
           </div>
-
-          {/* 삭제 버튼 */}
-          <div className="flex justify-end mt-2">
-            <button
-              onClick={handleDeleteAlbum}
-              className="flex items-center gap-1 text-red-500 text-xs hover:text-red-600"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              앨범 삭제
-            </button>
-          </div>
         </div>
 
         {/* 블록 영역 */}
         <div
-          className="flex-1 overflow-y-auto py-6 pb-24"
+          className="flex-1 overflow-y-auto py-6"
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
-          <div ref={setContainerRef} className="mx-4">
+          <div ref={setContainerRef} className="mx-4 pb-[50vh]">
             <GridLayoutBlocks
               blockPositions={blockPositions}
               iconMap={iconMap}
