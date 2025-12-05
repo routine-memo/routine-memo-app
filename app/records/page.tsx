@@ -6,38 +6,46 @@ import { Search, Plus, FileText, Calendar, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { getAlbums, Album } from '@/lib/storage/album';
 import { AlbumCard } from '@/components/AlbumCard';
-import { getDailyEntries, DailyEntry } from '@/lib/storage/dailyEntry';
-import { getEntries, Entry } from '@/lib/storage/entry';
+import { getDailyEntries, DailyEntry, loadDailyEntryWithMedia } from '@/lib/storage/dailyEntry';
+import { getEntries, Entry, loadEntryWithMedia } from '@/lib/storage/entry';
 import { BlockPosition } from '@/app/template/new/types';
 import { blockPalette } from '@/app/template/new/blockPalette';
 import { iconMap } from '@/app/template/new/iconMap';
 
 type FilterType = 'all' | 'week' | 'month';
 
+// 즉석 앨범용 미리보기 엔트리 타입
+interface DailyPreviewEntry {
+  blocks: BlockPosition[];
+  blockValues: { blockId: string; value: import('@/app/template/new/types').BlockDefaultValue }[];
+}
+
 // 겹쳐진 카드 형태의 미리보기 (밝은 버전 - 카드는 어두운 색)
-function StackedCardsPreview({ entries }: { entries: DailyEntry[] }) {
+function DailyStackedCardsPreview({ previewEntries }: { previewEntries: DailyPreviewEntry[] }) {
   const cards = [0, 1, 2];
-  const blocksPerCard = cards.map(i => entries[i]?.blocks || []);
 
   return (
-    <div className="relative h-16 w-full flex justify-center items-end">
+    <div className="relative h-20 w-full flex justify-center items-end">
       {cards.map((cardIndex) => {
-        const rotation = (cardIndex - 1) * 8;
-        const translateX = (cardIndex - 1) * 30;
-        const translateY = Math.abs(cardIndex - 1) * 5;
+        const rotation = (cardIndex - 1) * 6;
+        const translateX = (cardIndex - 1) * 28;
+        const translateY = Math.abs(cardIndex - 1) * 4;
         const zIndex = cardIndex === 1 ? 3 : cardIndex === 0 ? 2 : 1;
-        const blocks = blocksPerCard[cardIndex];
+        const entry = previewEntries[cardIndex];
 
         return (
           <div
             key={cardIndex}
-            className="absolute w-12 h-14 bg-gray-900 rounded-lg shadow-lg border border-gray-700 overflow-hidden"
+            className="absolute w-16 h-20 bg-gray-800 rounded-lg shadow-lg border border-gray-700 overflow-hidden"
             style={{
               transform: `translateX(${translateX}px) translateY(${translateY}px) rotate(${rotation}deg)`,
               zIndex,
             }}
           >
-            <MiniatureAlbumLayout blocks={blocks} />
+            <DailyPreviewCardContent
+              blocks={entry?.blocks || []}
+              blockValues={entry?.blockValues}
+            />
           </div>
         );
       })}
@@ -45,51 +53,257 @@ function StackedCardsPreview({ entries }: { entries: DailyEntry[] }) {
   );
 }
 
-// 앨범 전체 레이아웃을 미니어처로 표시
-function MiniatureAlbumLayout({ blocks }: { blocks: BlockPosition[] }) {
-  const COLS = 6;
-  const GAP = 1;
+// 즉석 앨범 프리뷰 카드 콘텐츠: 이미지/영상 우선, 없으면 가장 왼쪽 위 블록 내용
+function DailyPreviewCardContent({
+  blocks,
+  blockValues,
+}: {
+  blocks: BlockPosition[];
+  blockValues?: { blockId: string; value: import('@/app/template/new/types').BlockDefaultValue }[];
+}) {
+  // 블록 ID로 값 찾기
+  const getBlockValue = (blockId: string) => {
+    return blockValues?.find(bv => bv.blockId === blockId)?.value;
+  };
 
   if (blocks.length === 0) {
     return (
-      <div className="w-full h-full flex items-center justify-center">
-        <Calendar className="w-4 h-4 text-gray-600" />
+      <div className="w-full h-full flex items-center justify-center bg-gray-700">
+        <Calendar className="w-5 h-5 text-gray-500" />
       </div>
     );
   }
 
-  const maxRows = blocks.reduce((max, block) => {
-    const blockBottom = block.row + block.height;
-    return Math.max(max, blockBottom);
-  }, 1);
+  // 1. 이미지나 영상이 있는지 먼저 확인
+  for (const block of blocks) {
+    const value = getBlockValue(block.id);
 
-  return (
-    <div
-      className="relative w-full h-full p-1"
-      style={{
-        display: 'grid',
-        gridTemplateColumns: `repeat(${COLS}, 1fr)`,
-        gridTemplateRows: `repeat(${Math.max(maxRows, 4)}, 1fr)`,
-        gap: `${GAP}px`,
-      }}
-    >
-      {blocks.map((block) => {
-        const paletteItem = blockPalette.find(p => p.type === block.type);
-        const Icon = iconMap[paletteItem?.icon || 'Type'];
-
+    // 이미지 블록
+    if (block.type === 'image' && value?.type === 'image' && value.value.images?.length > 0) {
+      const firstImage = value.value.images.find(img => img);
+      if (firstImage) {
         return (
-          <div
-            key={block.id}
-            className="bg-gray-700 rounded-sm flex items-center justify-center"
-            style={{
-              gridColumn: `${block.colStart + 1} / span ${block.colSpan}`,
-              gridRow: `${block.row + 1} / span ${block.height}`,
-            }}
-          >
-            <Icon className="w-2 h-2 text-gray-400" />
-          </div>
+          <img
+            src={firstImage}
+            alt=""
+            className="w-full h-full object-cover"
+          />
         );
-      })}
+      }
+    }
+
+    // 비디오 블록
+    if (block.type === 'video' && value?.type === 'video' && value.value.videos?.length > 0) {
+      const firstVideo = value.value.videos.find(v => v);
+      if (firstVideo) {
+        return (
+          <video
+            src={firstVideo}
+            className="w-full h-full object-cover"
+            muted
+          />
+        );
+      }
+    }
+  }
+
+  // 2. 이미지/영상이 없으면, 가장 왼쪽 위 블록 찾기 (이미지/영상 제외)
+  const nonMediaBlocks = blocks.filter(b => b.type !== 'image' && b.type !== 'video');
+  if (nonMediaBlocks.length === 0) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-gray-700">
+        <span className="text-gray-500 text-xs">빈 기록</span>
+      </div>
+    );
+  }
+
+  // 가장 왼쪽 위 블록 찾기 (row 우선, 같으면 colStart)
+  const topLeftBlock = nonMediaBlocks.sort((a, b) => {
+    if (a.row !== b.row) return a.row - b.row;
+    return a.colStart - b.colStart;
+  })[0];
+
+  const value = getBlockValue(topLeftBlock.id);
+  const paletteItem = blockPalette.find(p => p.type === topLeftBlock.type);
+  const Icon = iconMap[paletteItem?.icon || 'Type'];
+
+  // 블록 타입별 렌더링 (다크 테마)
+  return renderDailyBlockPreview(topLeftBlock.type, value, Icon);
+}
+
+// 즉석 앨범 블록 타입별 프리뷰 렌더링 (다크 테마)
+function renderDailyBlockPreview(
+  type: string,
+  value: import('@/app/template/new/types').BlockDefaultValue | undefined,
+  Icon: React.ComponentType<{ className?: string }>
+) {
+  // 텍스트 블록
+  if (type === 'text' && value?.type === 'text' && value.value.richText) {
+    const textContent = value.value.richText.replace(/<[^>]*>/g, '').trim();
+    if (textContent) {
+      return (
+        <div className="w-full h-full p-2 flex items-center justify-center bg-gray-700 overflow-hidden">
+          <span className="text-[8px] leading-tight text-gray-300 text-center line-clamp-4">
+            {textContent.slice(0, 50)}
+          </span>
+        </div>
+      );
+    }
+  }
+
+  // 날씨 블록
+  if (type === 'weather' && value?.type === 'weather' && value.value.weather) {
+    const weatherEmoji: Record<string, string> = {
+      sunny: '☀️', cloudy: '☁️', rainy: '🌧️', snowy: '❄️', foggy: '🌫️',
+      typhoon: '🌀', dusty: '😷', cold: '🥶', hot: '🥵'
+    };
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-gray-700">
+        <span className="text-2xl">{weatherEmoji[value.value.weather] || '☀️'}</span>
+      </div>
+    );
+  }
+
+  // 감정 블록
+  if (type === 'emotion' && value?.type === 'emotion' && value.value.emotion) {
+    const emotionEmoji: Record<string, string> = {
+      happy: '😊', joyful: '😄', glad: '🙂', interested: '🤔', passionate: '🔥',
+      fun: '😆', hopeful: '🌟', comfortable: '😌', excited: '🤩', pleasant: '😇',
+      sad: '😢', angry: '😠', surprised: '😮', fearful: '😨', depressed: '😞',
+      anxious: '😰', unpleasant: '😣', embarrassed: '😳', regretful: '😔'
+    };
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-gray-700">
+        <span className="text-2xl">{emotionEmoji[value.value.emotion] || '😐'}</span>
+      </div>
+    );
+  }
+
+  // 날짜 블록
+  if (type === 'date' && value?.type === 'date' && value.value.date) {
+    const date = new Date(value.value.date);
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center bg-gray-700">
+        <span className="text-[8px] text-gray-400">{month}월</span>
+        <span className="text-lg font-bold text-gray-200">{day}</span>
+      </div>
+    );
+  }
+
+  // 체크리스트 블록
+  if (type === 'checklist' && value?.type === 'checklist' && value.value.html) {
+    const checkedCount = (value.value.html.match(/checked="true"/g) || []).length;
+    const totalCount = (value.value.html.match(/<li/g) || []).length;
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center bg-gray-700">
+        <span className="text-lg font-bold text-green-400">{checkedCount}/{totalCount}</span>
+        <span className="text-[7px] text-green-300">완료</span>
+      </div>
+    );
+  }
+
+  // 달성도 블록
+  if (type === 'progress' && value?.type === 'progress') {
+    const { mode, title, targetDate, currentValue, targetValue } = value.value;
+    if (mode === 'dday' && targetDate) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const target = new Date(targetDate);
+      target.setHours(0, 0, 0, 0);
+      const diffDays = Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      const displayText = diffDays === 0 ? 'D-Day' : diffDays > 0 ? `D-${diffDays}` : `D+${Math.abs(diffDays)}`;
+      return (
+        <div className="w-full h-full flex flex-col items-center justify-center bg-gray-700">
+          <span className="text-lg font-bold text-purple-400">{displayText}</span>
+          <span className="text-[6px] text-purple-300 text-center px-1 truncate w-full">{title}</span>
+        </div>
+      );
+    } else if (mode === 'percent' && targetValue) {
+      const percent = Math.round(((currentValue || 0) / targetValue) * 100);
+      return (
+        <div className="w-full h-full flex flex-col items-center justify-center bg-gray-700">
+          <span className="text-lg font-bold text-purple-400">{percent}%</span>
+          <span className="text-[6px] text-purple-300 text-center px-1 truncate w-full">{title}</span>
+        </div>
+      );
+    }
+  }
+
+  // 타임라인 블록
+  if (type === 'timeline' && value?.type === 'timeline' && value.value.items?.length > 0) {
+    const itemCount = value.value.items.length;
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center bg-gray-700">
+        <span className="text-lg font-bold text-indigo-400">{itemCount}</span>
+        <span className="text-[7px] text-indigo-300">일정</span>
+      </div>
+    );
+  }
+
+  // 데이터 그래프 블록
+  if (type === 'dataGraph' && value?.type === 'dataGraph' && value.value.values?.length > 0) {
+    const firstValue = value.value.values[0];
+    const field = value.value.fields?.find(f => f.id === firstValue.fieldId);
+    const displayValue = field?.format === 'percent' ? `${firstValue.value}%` : firstValue.value;
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center bg-gray-700">
+        <span className="text-lg font-bold text-cyan-400">{displayValue}</span>
+        <span className="text-[6px] text-cyan-300 text-center px-1 truncate w-full">{field?.name || '데이터'}</span>
+      </div>
+    );
+  }
+
+  // 지도 블록
+  if (type === 'map' && value?.type === 'map' && value.value.markers?.length > 0) {
+    const markerCount = value.value.markers.length;
+    const firstName = value.value.markers[0].name;
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center bg-gray-700">
+        <span className="text-lg">📍</span>
+        <span className="text-[7px] text-emerald-300 text-center px-1 truncate w-full">
+          {markerCount > 1 ? `${firstName} 외 ${markerCount - 1}` : firstName}
+        </span>
+      </div>
+    );
+  }
+
+  // 링크 블록
+  if (type === 'link' && value?.type === 'link' && value.value.links?.length > 0) {
+    const firstLink = value.value.links[0];
+    let title = '';
+    try {
+      title = firstLink.metadata?.title || new URL(firstLink.url).hostname;
+    } catch {
+      title = firstLink.url;
+    }
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center bg-gray-700">
+        <span className="text-lg">🔗</span>
+        <span className="text-[6px] text-blue-300 text-center px-1 truncate w-full">{title}</span>
+      </div>
+    );
+  }
+
+  // 파일 블록
+  if (type === 'file' && value?.type === 'file' && value.value.files?.length > 0) {
+    const fileCount = value.value.files.length;
+    const firstName = value.value.files[0].name;
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center bg-gray-700">
+        <span className="text-lg">📎</span>
+        <span className="text-[6px] text-orange-300 text-center px-1 truncate w-full">
+          {fileCount > 1 ? `${fileCount}개 파일` : firstName}
+        </span>
+      </div>
+    );
+  }
+
+  // 기본: 아이콘 표시
+  return (
+    <div className="w-full h-full flex items-center justify-center bg-gray-700">
+      <Icon className="w-6 h-6 text-gray-500" />
     </div>
   );
 }
@@ -99,25 +313,90 @@ export default function RecordsPage() {
   const [albums, setAlbums] = useState<Album[]>([]);
   const [allEntries, setAllEntries] = useState<Entry[]>([]);
   const [dailyEntries, setDailyEntries] = useState<DailyEntry[]>([]);
+  const [dailyPreviewEntries, setDailyPreviewEntries] = useState<DailyPreviewEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState<FilterType>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    const loadedAlbums = getAlbums();
-    setAlbums(loadedAlbums);
+    const loadData = async () => {
+      const loadedAlbums = getAlbums();
+      setAlbums(loadedAlbums);
 
-    const entries = getEntries();
-    setAllEntries(entries);
+      const entries = getEntries();
+      setAllEntries(entries);
 
-    const daily = getDailyEntries();
-    setDailyEntries(daily);
+      const daily = getDailyEntries();
+      setDailyEntries(daily);
 
-    setIsLoading(false);
+      // 즉석 앨범 미리보기용 엔트리 로드 (최신 3개 기록만)
+      const sortedDaily = [...daily].sort((a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+      const previewEntriesRaw = sortedDaily.slice(0, 3);
+      const loadedPreviewEntries = await Promise.all(
+        previewEntriesRaw.map(entry => loadDailyEntryWithMedia(entry))
+      );
+
+      // 즉석 앨범은 각 기록이 자체 blocks를 가짐
+      const dailyPreviews: DailyPreviewEntry[] = loadedPreviewEntries.map(entry => ({
+        blocks: entry.blocks,
+        blockValues: entry.blockValues,
+      }));
+      setDailyPreviewEntries(dailyPreviews);
+
+      setIsLoading(false);
+    };
+
+    loadData();
   }, []);
 
   // 띄어쓰기 제거 후 검색 (순서는 유지)
   const normalizeForSearch = (text: string) => text.replace(/\s+/g, '').toLowerCase();
+
+  // 미리보기용 기록 데이터 타입
+  interface PreviewEntry {
+    blocks: BlockPosition[];
+    blockValues: { blockId: string; value: import('@/app/template/new/types').BlockDefaultValue }[];
+  }
+
+  // 앨범 미리보기 엔트리 (비동기 로드)
+  const [albumPreviewEntries, setAlbumPreviewEntries] = useState<Map<string, PreviewEntry[]>>(new Map());
+
+  useEffect(() => {
+    const loadAlbumPreviewEntries = async () => {
+      const entryMap = new Map<string, PreviewEntry[]>();
+
+      for (const album of albums) {
+        // 해당 앨범의 기록들 (최신순)
+        const albumEntries = allEntries
+          .filter(e => e.albumId === album.id)
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+        // 최대 3개 기록만 로드
+        const previewEntriesRaw = albumEntries.slice(0, 3);
+        const loadedEntries = await Promise.all(
+          previewEntriesRaw.map(entry => loadEntryWithMedia(entry))
+        );
+
+        // 일반 앨범은 블록 구조가 앨범에 있음
+        const previewEntries: PreviewEntry[] = loadedEntries.map(entry => ({
+          blocks: album.blocks,
+          blockValues: entry.blockValues,
+        }));
+
+        if (previewEntries.length > 0) {
+          entryMap.set(album.id, previewEntries);
+        }
+      }
+
+      setAlbumPreviewEntries(entryMap);
+    };
+
+    if (albums.length > 0 && allEntries.length > 0) {
+      loadAlbumPreviewEntries();
+    }
+  }, [albums, allEntries]);
 
   // 필터에 따른 앨범 필터링 및 정렬
   const sortedAlbums = useMemo(() => {
@@ -280,7 +559,7 @@ export default function RecordsPage() {
                 </div>
 
                 <div className="flex-1 flex justify-center">
-                  <StackedCardsPreview entries={filter === 'all' ? dailyEntries : filteredDailyEntries} />
+                  <DailyStackedCardsPreview previewEntries={dailyPreviewEntries} />
                 </div>
               </div>
             </div>
@@ -322,6 +601,7 @@ export default function RecordsPage() {
             <AlbumCard
               key={album.id}
               album={album}
+              previewEntries={albumPreviewEntries.get(album.id)}
               onViewEntries={() => router.push(`/album/${album.id}`)}
               onAddEntry={() => router.push(`/album/${album.id}/entry`)}
               onEditAlbum={() => router.push(`/album/${album.id}/edit`)}
