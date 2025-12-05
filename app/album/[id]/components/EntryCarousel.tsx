@@ -3,8 +3,8 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Trash2, X, Download, Target, Calendar, Percent, Globe, ExternalLink, Play, MapPin, Type, PenTool } from 'lucide-react';
-import { Entry } from '@/lib/storage/entry';
-import { BlockPosition, BlockDefaultValue, LinkItem } from '@/app/template/new/types';
+import { Entry, getEntriesByAlbum } from '@/lib/storage/entry';
+import { BlockPosition, BlockDefaultValue, LinkItem, DataGraphField, DataGraphValue } from '@/app/template/new/types';
 import { blockPalette } from '@/app/template/new/blockPalette';
 import { iconMap } from '@/app/template/new/iconMap';
 import { calculateRows } from '@/app/template/new/blockUtils';
@@ -711,7 +711,7 @@ function EntryGridView({ entry, blocks, selectedBlockIds, albumId, hideHeader = 
 
               {/* 콘텐츠 영역 */}
               <div className="absolute inset-0 pt-8 overflow-y-auto">
-                <BlockContentPreview block={block} value={currentValue} albumId={albumId} />
+                <BlockContentPreview block={block} value={currentValue} albumId={albumId} entryDate={entry.createdAt} />
               </div>
             </div>
           );
@@ -723,6 +723,7 @@ function EntryGridView({ entry, blocks, selectedBlockIds, albumId, hideHeader = 
         block={selectedBlock}
         value={selectedBlock ? getBlockValue(selectedBlock) : undefined}
         albumId={albumId}
+        entryDate={entry.createdAt}
         onClose={() => handleBlockSelect(null)}
       />
     </div>
@@ -734,9 +735,10 @@ interface BlockContentPreviewProps {
   block: BlockPosition;
   value?: BlockDefaultValue;
   albumId: string;
+  entryDate: string;
 }
 
-function BlockContentPreview({ block, value, albumId }: BlockContentPreviewProps) {
+function BlockContentPreview({ block, value, albumId, entryDate }: BlockContentPreviewProps) {
   // 텍스트
   if (block.type === 'text' && value?.type === 'text' && value.value.richText && value.value.richText !== '<p></p>') {
     return (
@@ -857,6 +859,7 @@ function BlockContentPreview({ block, value, albumId }: BlockContentPreviewProps
         }}
         albumId={albumId}
         blockId={block.id}
+        entryDate={entryDate}
       />
     );
   }
@@ -884,10 +887,11 @@ interface BlockDetailPanelProps {
   block: BlockPosition | null;
   value?: BlockDefaultValue;
   albumId: string;
+  entryDate: string;
   onClose: () => void;
 }
 
-function BlockDetailPanel({ block, value, albumId, onClose }: BlockDetailPanelProps) {
+function BlockDetailPanel({ block, value, albumId, entryDate, onClose }: BlockDetailPanelProps) {
   const paletteItem = block ? blockPalette.find(p => p.type === block.type) : null;
   const Icon = iconMap[paletteItem?.icon || 'Type'];
   const [mounted, setMounted] = useState(false);
@@ -956,7 +960,7 @@ function BlockDetailPanel({ block, value, albumId, onClose }: BlockDetailPanelPr
 
             {/* 콘텐츠 영역 - flex-1로 나머지 공간 차지 */}
             <div className="flex-1 overflow-hidden">
-              <BlockDetailContent block={block} value={value} albumId={albumId} />
+              <BlockDetailContent block={block} value={value} albumId={albumId} entryDate={entryDate} />
             </div>
           </div>
         )}
@@ -967,7 +971,7 @@ function BlockDetailPanel({ block, value, albumId, onClose }: BlockDetailPanelPr
 }
 
 // 블록 상세 콘텐츠 (모달용 - 에디터와 동일한 UI)
-function BlockDetailContent({ block, value, albumId }: { block: BlockPosition; value?: BlockDefaultValue; albumId: string }) {
+function BlockDetailContent({ block, value, albumId, entryDate }: { block: BlockPosition; value?: BlockDefaultValue; albumId: string; entryDate: string }) {
   // 텍스트 - TextBlockEditor 스타일 (텍스트 또는 필기 데이터가 있을 때)
   if (block.type === 'text' && value?.type === 'text' &&
       ((value.value.richText && value.value.richText !== '<p></p>') || value.value.sketchData)) {
@@ -1030,6 +1034,7 @@ function BlockDetailContent({ block, value, albumId }: { block: BlockPosition; v
         values={value?.type === 'dataGraph' ? value.value.values : undefined}
         albumId={albumId}
         blockId={block.id}
+        entryDate={entryDate}
       />
     );
   }
@@ -1479,70 +1484,359 @@ function TimelineBlockViewer({ items }: { items: Array<{ id: string; title: stri
   );
 }
 
-// 데이터 그래프 블록 뷰어 - DataGraphBlockEditor 스타일
+// 데이터 그래프 블록 뷰어 - 그래프 중심 UI
 function DataGraphBlockViewer({
   fields,
   values,
   albumId,
-  blockId
+  blockId,
+  entryDate
 }: {
-  fields: Array<{ id: string; name: string; format: string; color: string }>;
-  values?: Record<string, number>;
+  fields: DataGraphField[];
+  values?: DataGraphValue[];
   albumId: string;
   blockId: string;
+  entryDate: string;
 }) {
+  // 활성화된 필드 ID 목록 (초기값: 모든 필드 활성화)
+  const [activeFieldIds, setActiveFieldIds] = useState<Set<string>>(() =>
+    new Set(fields.map(f => f.id))
+  );
+
+  // 필드 토글 핸들러
+  const toggleField = useCallback((fieldId: string) => {
+    setActiveFieldIds(prev => {
+      const next = new Set(prev);
+      if (next.has(fieldId)) {
+        // 최소 1개는 활성화 유지
+        if (next.size > 1) {
+          next.delete(fieldId);
+        }
+      } else {
+        next.add(fieldId);
+      }
+      return next;
+    });
+  }, []);
+
+  // values 배열을 Record<string, number>로 변환 (UI 표시용)
+  const valuesMap = useMemo(() => {
+    if (!values) return {};
+    const map: Record<string, number> = {};
+    values.forEach(v => {
+      map[v.fieldId] = v.value;
+    });
+    return map;
+  }, [values]);
+
+  // 활성화된 필드만 필터링
+  const activeFields = useMemo(() =>
+    fields.filter(f => activeFieldIds.has(f.id)),
+    [fields, activeFieldIds]
+  );
+
   return (
     <div className="flex flex-col h-full bg-white">
-      {/* 안내 문구 */}
-      <div className="flex-none px-4 py-2 bg-gray-50 border-b border-gray-200">
-        <p className="text-xs text-gray-600 text-center">
-          기록된 데이터 값
-        </p>
-      </div>
+      {/* 현재 기록 값 - 상단에 간략히 표시 */}
+      <div className="flex-none px-4 py-3 bg-gray-50 border-b border-gray-200">
+        <div className="flex flex-wrap gap-4 justify-center">
+          {fields.map((field) => {
+            const fieldValue = valuesMap[field.id];
+            const displayValue = fieldValue !== undefined
+              ? (field.format === 'percent' ? `${fieldValue}%` : fieldValue.toString())
+              : '-';
+            const isActive = activeFieldIds.has(field.id);
 
-      {/* 항목 목록 */}
-      <div className="flex-1 overflow-auto p-4 space-y-3">
-        {fields.map((field) => {
-          const fieldValue = values?.[field.id];
-          const displayValue = fieldValue !== undefined
-            ? (field.format === 'percent' ? `${fieldValue}%` : fieldValue.toString())
-            : '-';
-
-          return (
-            <div
-              key={field.id}
-              className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl"
-            >
-              {/* 색상 인디케이터 */}
+            return (
               <div
-                className="w-5 h-5 rounded-full flex-none"
-                style={{ backgroundColor: field.color }}
-              />
-
-              {/* 항목 정보 */}
-              <div className="flex-1">
-                <p className="font-medium text-gray-900">{field.name}</p>
-                <p className="text-xs text-gray-500">
-                  {field.format === 'percent' ? '퍼센트' : '숫자'}
-                </p>
+                key={field.id}
+                className={`flex items-center gap-2 transition-opacity ${isActive ? 'opacity-100' : 'opacity-40'}`}
+              >
+                <div
+                  className="w-3 h-3 rounded-full"
+                  style={{ backgroundColor: field.color }}
+                />
+                <span className="text-sm text-gray-600">{field.name}:</span>
+                <span className="text-lg font-bold text-gray-900">{displayValue}</span>
               </div>
-
-              {/* 값 */}
-              <div className="text-right">
-                <p className="text-2xl font-bold text-gray-900">{displayValue}</p>
-              </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
 
-      {/* 그래프 미리보기 */}
-      <div className="flex-none p-4 border-t">
-        <DataGraphBlockPreview
-          value={{ fields, values }}
+      {/* 그래프 영역 - 메인 */}
+      <div className="flex-1 p-4 overflow-hidden">
+        <DataGraphDetailChart
+          fields={activeFields}
+          values={values}
           albumId={albumId}
           blockId={blockId}
+          entryDate={entryDate}
         />
+      </div>
+
+      {/* 범례 - 클릭 가능 */}
+      <div className="flex-none px-4 py-3 border-t border-gray-200">
+        <div className="flex flex-wrap gap-3 justify-center">
+          {fields.map((field) => {
+            const isActive = activeFieldIds.has(field.id);
+            return (
+              <button
+                key={field.id}
+                onClick={() => toggleField(field.id)}
+                className={`flex items-center gap-1.5 px-2 py-1 rounded-full border transition-all ${
+                  isActive
+                    ? 'border-gray-300 bg-white'
+                    : 'border-gray-200 bg-gray-100 opacity-50'
+                }`}
+              >
+                <div
+                  className={`w-3 h-3 rounded-full transition-opacity ${isActive ? '' : 'opacity-40'}`}
+                  style={{ backgroundColor: field.color }}
+                />
+                <span className={`text-xs ${isActive ? 'text-gray-700' : 'text-gray-400'}`}>
+                  {field.name}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-[10px] text-gray-400 text-center mt-2">
+          탭하여 그래프 표시/숨김
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// 데이터 그래프 상세 차트 (숫자값 표시 포함)
+function DataGraphDetailChart({
+  fields,
+  values,
+  albumId,
+  blockId,
+  entryDate
+}: {
+  fields: DataGraphField[];
+  values?: DataGraphValue[];
+  albumId: string;
+  blockId: string;
+  entryDate: string;
+}) {
+  // 앨범의 기록에서 데이터 수집
+  const dataPoints = useMemo(() => {
+    if (!albumId || !blockId) return [];
+
+    const entries = getEntriesByAlbum(albumId);
+    // 시간순 정렬 (오래된 것 → 최신)
+    let sortedEntries = [...entries].sort(
+      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    );
+
+    // entryDate까지의 기록만 필터링
+    if (entryDate) {
+      const entryDateTime = new Date(entryDate).getTime();
+      sortedEntries = sortedEntries.filter(
+        entry => new Date(entry.createdAt).getTime() <= entryDateTime
+      );
+    }
+
+    const points: Array<{ date: string; values: Map<string, number> }> = [];
+
+    for (const entry of sortedEntries) {
+      const blockValue = entry.blockValues.find(bv => bv.blockId === blockId);
+      if (blockValue?.value?.type === 'dataGraph' && blockValue.value.value.values) {
+        const valuesMap = new Map<string, number>();
+        blockValue.value.value.values.forEach(v => {
+          valuesMap.set(v.fieldId, v.value);
+        });
+        if (valuesMap.size > 0) {
+          points.push({
+            date: entry.createdAt,
+            values: valuesMap,
+          });
+        }
+      }
+    }
+
+    return points;
+  }, [albumId, blockId, entryDate]);
+
+  // 각 필드별 min/max 계산
+  const fieldStats = useMemo(() => {
+    const stats = new Map<string, { min: number; max: number }>();
+
+    fields.forEach(field => {
+      let min = Infinity;
+      let max = -Infinity;
+
+      dataPoints.forEach(dp => {
+        const val = dp.values.get(field.id);
+        if (val !== undefined) {
+          min = Math.min(min, val);
+          max = Math.max(max, val);
+        }
+      });
+
+      if (min === Infinity) {
+        min = 0;
+        max = 100;
+      } else if (min === max) {
+        min = min - 10;
+        max = max + 10;
+      }
+
+      // 여유 공간 추가 (위아래 10%)
+      const range = max - min;
+      min = min - range * 0.1;
+      max = max + range * 0.1;
+
+      stats.set(field.id, { min, max });
+    });
+
+    return stats;
+  }, [fields, dataPoints]);
+
+  // 각 필드별 포인트 계산
+  const fieldPaths = useMemo(() => {
+    const activeFieldCount = fields.length;
+
+    return fields.map((field, fieldIndex) => {
+      const stats = fieldStats.get(field.id);
+      if (!stats) return null;
+
+      const points: Array<{ xPercent: number; yPercent: number; value: number }> = [];
+
+      dataPoints.forEach((dp, i) => {
+        const val = dp.values.get(field.id);
+        if (val !== undefined) {
+          let xPercent: number;
+
+          if (dataPoints.length > 1) {
+            // 여러 데이터 포인트가 있으면 기존 로직
+            xPercent = (i / (dataPoints.length - 1)) * 100;
+          } else {
+            // 단일 데이터 포인트일 때 필드별로 수평 분산 배치
+            // 필드 수에 따라 간격 조정 (중앙 정렬)
+            if (activeFieldCount === 1) {
+              xPercent = 50;
+            } else {
+              // 필드들을 30% ~ 70% 범위에 균등 배치
+              const spacing = 40 / (activeFieldCount - 1);
+              xPercent = 30 + (fieldIndex * spacing);
+            }
+          }
+
+          const yPercent = 100 - ((val - stats.min) / (stats.max - stats.min)) * 100;
+          points.push({ xPercent, yPercent, value: val });
+        }
+      });
+
+      if (points.length === 0) return null;
+
+      return { field, points };
+    }).filter(Boolean) as Array<{ field: DataGraphField; points: Array<{ xPercent: number; yPercent: number; value: number }> }>;
+  }, [fields, dataPoints, fieldStats]);
+
+  if (dataPoints.length === 0) {
+    return (
+      <div className="h-full flex items-center justify-center text-gray-400">
+        <p>데이터가 없습니다</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full h-full relative" style={{ padding: '30px 20px 20px 20px' }}>
+      {/* SVG 선 그래프 */}
+      <svg
+        viewBox="0 0 100 100"
+        className="absolute w-full h-full"
+        style={{ top: 30, left: 20, right: 20, bottom: 20, width: 'calc(100% - 40px)', height: 'calc(100% - 50px)' }}
+        preserveAspectRatio="none"
+      >
+        {/* 그리드 라인 */}
+        {[0, 25, 50, 75, 100].map(y => (
+          <line
+            key={y}
+            x1="0" y1={y} x2="100" y2={y}
+            stroke="#e5e7eb"
+            strokeWidth={0.5}
+            vectorEffect="non-scaling-stroke"
+          />
+        ))}
+
+        {/* 데이터 라인 */}
+        {fieldPaths.map((fp) => {
+          if (fp.points.length < 2) return null;
+
+          const d = fp.points.map((p, i) =>
+            `${i === 0 ? 'M' : 'L'} ${p.xPercent} ${p.yPercent}`
+          ).join(' ');
+
+          return (
+            <path
+              key={fp.field.id}
+              d={d}
+              fill="none"
+              stroke={fp.field.color}
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              vectorEffect="non-scaling-stroke"
+            />
+          );
+        })}
+      </svg>
+
+      {/* 데이터 포인트 및 값 라벨 */}
+      <div
+        className="absolute"
+        style={{ top: 30, left: 20, right: 20, bottom: 20, width: 'calc(100% - 40px)', height: 'calc(100% - 50px)' }}
+      >
+        {fieldPaths.map((fp) => (
+          fp.points.map((point, idx) => (
+            <div
+              key={`${fp.field.id}-${idx}`}
+              className="absolute flex flex-col items-center"
+              style={{
+                left: `${point.xPercent}%`,
+                top: `${point.yPercent}%`,
+                transform: 'translate(-50%, -50%)',
+              }}
+            >
+              {/* 값 라벨 */}
+              <span
+                className="text-xs font-bold whitespace-nowrap"
+                style={{
+                  color: fp.field.color,
+                  transform: 'translateY(-14px)',
+                  textShadow: '0 0 3px white, 0 0 3px white, 0 0 3px white',
+                }}
+              >
+                {fp.field.format === 'percent' ? `${point.value}%` : point.value}
+              </span>
+              {/* 점 */}
+              <div
+                className="w-3 h-3 rounded-full border-2 border-white"
+                style={{
+                  backgroundColor: fp.field.color,
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                }}
+              />
+            </div>
+          ))
+        ))}
+      </div>
+
+      {/* X축 라벨 (기록 번호) */}
+      <div
+        className="absolute flex justify-between text-xs text-gray-400"
+        style={{ bottom: 0, left: 20, right: 20 }}
+      >
+        {dataPoints.map((_, idx) => (
+          <span key={idx}>{idx + 1}</span>
+        ))}
       </div>
     </div>
   );

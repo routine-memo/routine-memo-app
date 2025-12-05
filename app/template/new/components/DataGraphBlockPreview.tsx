@@ -9,6 +9,7 @@ interface DataGraphBlockPreviewProps {
   value?: DataGraphBlockDefault;
   albumId?: string;   // 앨범 ID (누적 데이터 조회용)
   blockId?: string;   // 블록 ID (해당 블록의 데이터만 조회)
+  entryDate?: string; // 현재 기록의 날짜 (이 날짜까지의 데이터만 표시)
 }
 
 // 데이터 포인트 타입
@@ -17,19 +18,28 @@ interface DataPoint {
   values: Map<string, number>;
 }
 
-export const DataGraphBlockPreview = ({ value, albumId, blockId }: DataGraphBlockPreviewProps) => {
+export const DataGraphBlockPreview = ({ value, albumId, blockId, entryDate }: DataGraphBlockPreviewProps) => {
   const fields = value?.fields || [];
   const currentValues = value?.values || [];
 
   // 앨범의 모든 기록에서 이 블록의 데이터 수집 (시간순)
+  // entryDate가 있으면 해당 날짜까지의 데이터만 표시
   const historicalData = useMemo((): DataPoint[] => {
     if (!albumId || !blockId) return [];
 
     const entries = getEntriesByAlbum(albumId);
     // 시간순 정렬 (오래된 것 → 최신)
-    const sortedEntries = [...entries].sort(
+    let sortedEntries = [...entries].sort(
       (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
     );
+
+    // entryDate가 있으면 해당 날짜 이전의 기록만 필터링
+    if (entryDate) {
+      const entryDateTime = new Date(entryDate).getTime();
+      sortedEntries = sortedEntries.filter(
+        entry => new Date(entry.createdAt).getTime() <= entryDateTime
+      );
+    }
 
     const dataPoints: DataPoint[] = [];
 
@@ -50,10 +60,14 @@ export const DataGraphBlockPreview = ({ value, albumId, blockId }: DataGraphBloc
     }
 
     return dataPoints;
-  }, [albumId, blockId]);
+  }, [albumId, blockId, entryDate]);
 
   // 현재 입력중인 값도 포함한 전체 데이터
+  // entryDate가 있으면 이미 저장된 기록을 보는 것이므로 currentValues 무시
   const allDataPoints = useMemo(() => {
+    // entryDate가 있으면 historicalData만 사용 (이미 해당 기록까지 포함됨)
+    if (entryDate) return historicalData;
+
     if (currentValues.length === 0) return historicalData;
 
     const currentMap = new Map<string, number>();
@@ -63,7 +77,7 @@ export const DataGraphBlockPreview = ({ value, albumId, blockId }: DataGraphBloc
       ...historicalData,
       { date: 'current', values: currentMap }
     ];
-  }, [historicalData, currentValues]);
+  }, [historicalData, currentValues, entryDate]);
 
   // 항목이 없는 경우
   if (fields.length === 0) {
@@ -193,7 +207,9 @@ function MiniLineChart({ fields, dataPoints }: MiniLineChartProps) {
 
   // 각 필드별 포인트 위치 계산 (퍼센트 기반)
   const fieldPaths = useMemo(() => {
-    return fields.map(field => {
+    const activeFieldCount = fields.length;
+
+    return fields.map((field, fieldIndex) => {
       const stats = fieldStats.get(field.id);
       if (!stats) return null;
 
@@ -203,9 +219,22 @@ function MiniLineChart({ fields, dataPoints }: MiniLineChartProps) {
       dataPoints.forEach((dp, i) => {
         const val = dp.values.get(field.id);
         if (val !== undefined) {
-          const xPercent = dataPoints.length > 1
-            ? (i / (dataPoints.length - 1)) * 100
-            : 50;
+          let xPercent: number;
+
+          if (dataPoints.length > 1) {
+            // 여러 데이터 포인트가 있으면 기존 로직
+            xPercent = (i / (dataPoints.length - 1)) * 100;
+          } else {
+            // 단일 데이터 포인트일 때 필드별로 수평 분산 배치
+            if (activeFieldCount === 1) {
+              xPercent = 50;
+            } else {
+              // 필드들을 30% ~ 70% 범위에 균등 배치
+              const spacing = 40 / (activeFieldCount - 1);
+              xPercent = 30 + (fieldIndex * spacing);
+            }
+          }
+
           const yPercent = 100 - ((val - stats.min) / (stats.max - stats.min)) * 100;
           points.push({ xPercent, yPercent });
         }
