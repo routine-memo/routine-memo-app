@@ -33,6 +33,8 @@ interface EntryCarouselProps {
   selectedBlockIds: string[];
   albumId: string;
   onEntryDelete?: (entryId: string) => void;
+  isFullscreenMode?: boolean;
+  onToggleFullscreen?: () => void;
 }
 
 // 선택된 블록에 값이 있는 엔트리만 필터링
@@ -96,13 +98,14 @@ export function EntryCarousel({
   selectedBlockIds,
   albumId,
   onEntryDelete,
+  isFullscreenMode = false,
+  onToggleFullscreen,
 }: EntryCarouselProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   // 0 = 캐러셀, 1 = 전체화면, 중간값 = 전환 중
-  const [viewProgress, setViewProgress] = useState(0);
+  const [viewProgress, setViewProgress] = useState(isFullscreenMode ? 1 : 0);
   const [isAnimating, setIsAnimating] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const animationFrameRef = useRef<number | null>(null);
 
   // 필터링된 엔트리 (역순: 오래된 기록이 먼저, 최신이 마지막)
@@ -159,18 +162,13 @@ export function EntryCarousel({
     animationFrameRef.current = requestAnimationFrame(animate);
   }, [viewProgress]);
 
-  // 스크롤 이벤트 핸들러 - 1.5초 후 전체화면 전환 (가로 스크롤)
+  // 스크롤 이벤트 핸들러 (가로 스크롤)
   const handleScroll = useCallback(() => {
     if (!scrollContainerRef.current) return;
 
     // 전체화면 모드일 때 스크롤하면 캐러셀로 돌아가기
     if (viewProgress > 0) {
       animateToProgress(0, 300);
-    }
-
-    // 기존 타이머 클리어
-    if (scrollTimeoutRef.current) {
-      clearTimeout(scrollTimeoutRef.current);
     }
 
     // 현재 인덱스 계산 (가로 스크롤)
@@ -180,19 +178,11 @@ export function EntryCarousel({
     const scrollPos = container.scrollLeft;
     const newIndex = Math.round(scrollPos / (cardWidth + gap));
     setCurrentIndex(Math.max(0, Math.min(newIndex, itemCount - 1)));
-
-    // 1.5초 후 전체화면 전환
-    scrollTimeoutRef.current = setTimeout(() => {
-      animateToProgress(1, 500);
-    }, 1500);
   }, [viewProgress, itemCount, animateToProgress]);
 
   // 클린업
   useEffect(() => {
     return () => {
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
-      }
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
@@ -302,8 +292,8 @@ export function EntryCarousel({
   // 배경색: gray-100 (캐러셀) -> white (전체화면)
   const bgColor = `rgb(${Math.round(243 + (255 - 243) * viewProgress)}, ${Math.round(244 + (255 - 244) * viewProgress)}, ${Math.round(246 + (255 - 246) * viewProgress)})`;
 
-  // 카드 높이: 70% (캐러셀) -> 100% (전체화면)
-  const cardHeightPercent = 70 + 30 * viewProgress;
+  // 카드 높이: 85% (캐러셀) -> 100% (전체화면)
+  const cardHeightPercent = 85 + 15 * viewProgress;
 
   // 카드 둥글기: 16px (캐러셀) -> 0px (전체화면)
   const borderRadius = 16 * (1 - viewProgress);
@@ -392,35 +382,55 @@ export function EntryCarousel({
           </div>
         </div>
         {/* 전체화면 인디케이터 - 스크롤해도 고정 */}
-        <div className="flex items-center justify-center gap-1.5 py-1 bg-white border-b border-gray-200">
-          {filteredEntries.map((_, index) => (
-            <button
-              key={index}
-              onClick={() => {
-                exitFullscreen();
-                setTimeout(() => scrollToIndex(index), 300);
-              }}
-              className={`
-                h-1.5 rounded-full transition-all duration-300
-                ${index === currentIndex ? 'bg-gray-900 w-4' : 'bg-gray-300 w-1.5'}
-              `}
-            />
-          ))}
+        <div className="flex flex-col items-center bg-white border-b border-gray-200">
+          <div className="flex items-center justify-center gap-1.5 py-1">
+            {filteredEntries.map((_, index) => (
+              <button
+                key={index}
+                onClick={() => {
+                  exitFullscreen();
+                  setTimeout(() => scrollToIndex(index), 300);
+                }}
+                className={`
+                  h-1.5 rounded-full transition-all duration-300
+                  ${index === currentIndex ? 'bg-gray-900 w-4' : 'bg-gray-300 w-1.5'}
+                `}
+              />
+            ))}
+          </div>
+          {itemCount > 1 && (
+            <p className="text-xs text-gray-400 pb-1">좌우로 스크롤해 다른 기록 보기</p>
+          )}
         </div>
       </div>
 
       {/* 메인 콘텐츠 영역 - 가로 스크롤 */}
-      <div
-        ref={scrollContainerRef}
-        onScroll={viewProgress < 0.1 && !isAnimating ? handleScroll : undefined}
-        className="flex-1 flex items-center snap-x snap-mandatory scroll-smooth"
-        style={{
-          overflowX: viewProgress > 0.5 ? 'hidden' : 'auto',
-          scrollbarWidth: 'none',
-          msOverflowStyle: 'none',
-          gap: '16px',
-        }}
-      >
+      <div className="flex-1 relative">
+        {/* 클릭하여 확인 안내 - 카드 상단 테두리에 걸침 */}
+        {itemCount > 1 && viewProgress < 0.5 && (
+          <div
+            className="absolute left-1/2 -translate-x-1/2 z-30 pointer-events-none"
+            style={{
+              top: 'calc((100% - 85%) / 2 - 12px)',
+              opacity: carouselUIOpacity,
+            }}
+          >
+            <span className="px-3 py-1 bg-gray-900/80 text-white text-xs font-medium rounded-lg shadow-lg">
+              클릭하여 확인
+            </span>
+          </div>
+        )}
+        <div
+          ref={scrollContainerRef}
+          onScroll={viewProgress < 0.1 && !isAnimating ? handleScroll : undefined}
+          className="h-full flex items-center snap-x snap-mandatory scroll-smooth"
+          style={{
+            overflowX: viewProgress > 0.5 ? 'hidden' : 'auto',
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
+            gap: '16px',
+          }}
+        >
         {/* 왼쪽 스페이서 - 첫 카드를 가운데로 */}
         <div
           className="flex-none"
@@ -437,23 +447,28 @@ export function EntryCarousel({
             <div
               key={entry.id}
               onClick={() => {
-                if (!isActive && viewProgress < 0.5) {
-                  scrollToIndex(index);
+                if (viewProgress < 0.5) {
+                  if (isActive) {
+                    // 활성 카드 클릭 시 전체화면 전환
+                    animateToProgress(1, 500);
+                  } else {
+                    scrollToIndex(index);
+                  }
                 }
               }}
               className="flex-none snap-center bg-white overflow-hidden"
               style={{
                 width: isActive ? `${75 + 25 * viewProgress}%` : '75%',
                 maxWidth: isActive ? `${360 + 640 * viewProgress}px` : '360px',
-                height: isActive ? `${cardHeightPercent}%` : '70%',
-                maxHeight: isActive ? `${500 + 500 * viewProgress}px` : '500px',
+                height: isActive ? `${cardHeightPercent}%` : '85%',
+                maxHeight: isActive ? `${600 + 400 * viewProgress}px` : '600px',
                 borderRadius: isActive ? borderRadius : 16,
                 boxShadow: isActive
                   ? `0 ${10 * shadowOpacity}px ${15 * shadowOpacity}px -3px rgba(0, 0, 0, ${0.1 * shadowOpacity}), 0 ${4 * shadowOpacity}px ${6 * shadowOpacity}px -4px rgba(0, 0, 0, ${0.1 * shadowOpacity})`
                   : `0 10px 15px -3px rgba(0, 0, 0, ${0.1 * inactiveOpacity}), 0 4px 6px -4px rgba(0, 0, 0, ${0.1 * inactiveOpacity})`,
                 opacity: isActive ? 1 : inactiveOpacity,
                 transform: `scale(${isActive ? 1 : inactiveScale})`,
-                cursor: !isActive && viewProgress < 0.5 ? 'pointer' : 'default',
+                cursor: viewProgress < 0.5 ? 'pointer' : 'default',
                 transition: isAnimating ? 'none' : 'opacity 0.3s ease, transform 0.3s ease',
               }}
             >
@@ -461,7 +476,7 @@ export function EntryCarousel({
                 className="h-full"
                 style={{
                   overflowY: viewProgress > 0.8 ? 'auto' : 'hidden',
-                  paddingTop: isActive && viewProgress > 0.5 ? 56 : 0,
+                  paddingTop: isActive && viewProgress > 0.5 ? 90 : 0,
                 }}
               >
                 <EntryGridView
@@ -480,6 +495,7 @@ export function EntryCarousel({
           className="flex-none"
           style={{ width: 'calc((100% - 75%) / 2 - 8px)' }}
         />
+        </div>
       </div>
     </div>
   );

@@ -17,6 +17,7 @@ export default function AlbumEntriesPage() {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedBlockIds, setSelectedBlockIds] = useState<string[]>([]);
+  const [isFullscreenMode, setIsFullscreenMode] = useState(false);
 
   useEffect(() => {
     const loadedAlbum = getAlbum(albumId);
@@ -118,6 +119,8 @@ export default function AlbumEntriesPage() {
           selectedBlockIds={selectedBlockIds}
           albumId={albumId}
           onEntryDelete={handleDeleteEntry}
+          isFullscreenMode={isFullscreenMode}
+          onToggleFullscreen={() => setIsFullscreenMode(!isFullscreenMode)}
         />
       )}
     </main>
