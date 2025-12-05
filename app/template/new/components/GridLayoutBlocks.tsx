@@ -86,10 +86,8 @@ export const GridLayoutBlocks = ({
 
   // 레이아웃 변경 핸들러
   const handleLayoutChange = useCallback((newLayout: Layout[]) => {
-    // 삭제 영역 위에 있을 때는 레이아웃 변경 무시 (삭제 우선)
-    const windowHeight = window.innerHeight;
-    const trashZoneTop = windowHeight - 96;
-    if (isDragging && lastMouseY.current >= trashZoneTop) {
+    // 삭제 영역 위에 있을 때는 레이아웃 변경 완전 무시
+    if (isOverTrash) {
       return;
     }
 
@@ -114,7 +112,7 @@ export const GridLayoutBlocks = ({
     if (hasChanges) {
       onLayoutChange(updatedBlocks);
     }
-  }, [blockPositions, onLayoutChange, rowHeight, isDragging]);
+  }, [blockPositions, onLayoutChange, rowHeight, isOverTrash]);
 
   // 전역 터치/마우스 이벤트로 위치 추적
   useEffect(() => {
@@ -154,15 +152,14 @@ export const GridLayoutBlocks = ({
     const windowHeight = window.innerHeight;
     const trashZoneTop = windowHeight - 96;
     const shouldDelete = lastMouseY.current >= trashZoneTop && draggingBlockId.current;
+    const deletingBlockId = draggingBlockId.current;
 
-    if (shouldDelete) {
-      // 삭제 영역에 드롭된 경우: 레이아웃 변경 취소 후 삭제 진행
-      if (layoutBeforeDrag.current) {
-        // 먼저 원래 레이아웃으로 복원 (드래그로 인한 배치 변경 취소)
-        onLayoutChange(layoutBeforeDrag.current);
-      }
-      // 그 다음 블록 삭제
-      onRemove(draggingBlockId.current!);
+    if (shouldDelete && deletingBlockId && layoutBeforeDrag.current) {
+      // 삭제 영역에 드롭된 경우:
+      // 1. 먼저 원래 레이아웃으로 복원 (드래그로 인해 다른 블록들이 밀린 것 되돌리기)
+      onLayoutChange(layoutBeforeDrag.current);
+      // 2. 삭제 진행 (확인 다이얼로그 포함)
+      onRemove(deletingBlockId);
     }
 
     setIsDragging(false);
@@ -170,7 +167,7 @@ export const GridLayoutBlocks = ({
     draggingBlockId.current = null;
     lastMouseY.current = 0;
     layoutBeforeDrag.current = null;
-  }, [onRemove, onLayoutChange]);
+  }, [onLayoutChange, onRemove]);
 
   // 블록이 없을 때는 빈 상태 표시 (gridWidth와 무관)
   if (blockPositions.length === 0) {
