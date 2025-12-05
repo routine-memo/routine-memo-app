@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { BottomNavWrapper } from "@/components/Navigation";
+import { ClientProviders } from "@/components/ClientProviders";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -23,7 +24,9 @@ export default function RootLayout({
         />
       </head>
       <body className="font-sans antialiased pb-20">
-        {children}
+        <ClientProviders>
+          {children}
+        </ClientProviders>
         <BottomNavWrapper />
       </body>
     </html>

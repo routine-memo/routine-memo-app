@@ -257,8 +257,8 @@ export default function EntryPage() {
         entryBlockValues.push({ blockId, value });
       });
 
-      // 기록 저장
-      saveEntry({
+      // 기록 저장 (IndexedDB에 미디어 저장 포함)
+      await saveEntry({
         albumId,
         blockValues: entryBlockValues,
       });

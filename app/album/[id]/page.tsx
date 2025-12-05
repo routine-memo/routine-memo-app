@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft, Plus, Calendar } from 'lucide-react';
 import { getAlbum, Album } from '@/lib/storage/album';
-import { getEntriesByAlbum, Entry, deleteEntry } from '@/lib/storage/entry';
+import { getEntriesByAlbum, Entry, deleteEntry, loadEntryWithMedia } from '@/lib/storage/entry';
 import { EntryCarousel } from './components/EntryCarousel';
 import { BlockFilter } from './components/BlockFilter';
 
@@ -20,19 +20,26 @@ export default function AlbumEntriesPage() {
   const [isFullscreenMode, setIsFullscreenMode] = useState(false);
 
   useEffect(() => {
-    const loadedAlbum = getAlbum(albumId);
-    if (loadedAlbum) {
-      setAlbum(loadedAlbum);
-      const loadedEntries = getEntriesByAlbum(albumId);
-      setEntries(loadedEntries);
-    }
-    setIsLoading(false);
+    const loadData = async () => {
+      const loadedAlbum = getAlbum(albumId);
+      if (loadedAlbum) {
+        setAlbum(loadedAlbum);
+        const loadedEntries = getEntriesByAlbum(albumId);
+        // 미디어 참조를 실제 데이터로 로드
+        const entriesWithMedia = await Promise.all(
+          loadedEntries.map(entry => loadEntryWithMedia(entry))
+        );
+        setEntries(entriesWithMedia);
+      }
+      setIsLoading(false);
+    };
+    loadData();
   }, [albumId]);
 
   // 기록 삭제
-  const handleDeleteEntry = (entryId: string) => {
+  const handleDeleteEntry = async (entryId: string) => {
     if (confirm('이 기록을 삭제하시겠습니까?')) {
-      deleteEntry(entryId);
+      await deleteEntry(entryId);
       setEntries(prev => prev.filter(e => e.id !== entryId));
     }
   };

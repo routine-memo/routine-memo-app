@@ -485,7 +485,7 @@ export function EntryCarousel({
                   blocks={blocks}
                   selectedBlockIds={selectedBlockIds}
                   albumId={albumId}
-                  hideHeader={viewProgress > 0.5}
+                  hideHeader={true}
                 />
               </div>
             </div>
