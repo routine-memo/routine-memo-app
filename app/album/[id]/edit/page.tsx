@@ -110,8 +110,14 @@ export default function EditAlbumPage() {
 
   // 블록 삭제
   const removeBlock = useCallback((id: string) => {
-    const updatedBlocks = deleteBlock(id, blockPositions);
-    setBlockPositions(updatedBlocks);
+    const confirmed = confirm(
+      '이 블록을 삭제하면 기존 기록에 있는 해당 블록의 내용도 모두 삭제됩니다.\n정말 삭제하시겠습니까?'
+    );
+
+    if (confirmed) {
+      const updatedBlocks = deleteBlock(id, blockPositions);
+      setBlockPositions(updatedBlocks);
+    }
   }, [blockPositions]);
 
   // 레이아웃 변경 핸들러
