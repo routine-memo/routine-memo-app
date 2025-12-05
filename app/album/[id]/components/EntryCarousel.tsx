@@ -292,8 +292,8 @@ export function EntryCarousel({
   // 배경색: gray-100 (캐러셀) -> white (전체화면)
   const bgColor = `rgb(${Math.round(243 + (255 - 243) * viewProgress)}, ${Math.round(244 + (255 - 244) * viewProgress)}, ${Math.round(246 + (255 - 246) * viewProgress)})`;
 
-  // 카드 높이: 85% (캐러셀) -> 100% (전체화면)
-  const cardHeightPercent = 85 + 15 * viewProgress;
+  // 카드 높이: 88% (캐러셀) -> 100% (전체화면)
+  const cardHeightPercent = 88 + 12 * viewProgress;
 
   // 카드 둥글기: 16px (캐러셀) -> 0px (전체화면)
   const borderRadius = 16 * (1 - viewProgress);
@@ -411,7 +411,7 @@ export function EntryCarousel({
           <div
             className="absolute left-1/2 -translate-x-1/2 z-30 pointer-events-none"
             style={{
-              top: 'calc((100% - 85%) / 2 - 12px)',
+              top: 'calc(3% - 22px)',
               opacity: carouselUIOpacity,
             }}
           >
@@ -423,12 +423,13 @@ export function EntryCarousel({
         <div
           ref={scrollContainerRef}
           onScroll={viewProgress < 0.1 && !isAnimating ? handleScroll : undefined}
-          className="h-full flex items-center snap-x snap-mandatory scroll-smooth"
+          className="h-full flex items-start snap-x snap-mandatory scroll-smooth"
           style={{
             overflowX: viewProgress > 0.5 ? 'hidden' : 'auto',
             scrollbarWidth: 'none',
             msOverflowStyle: 'none',
             gap: '16px',
+            paddingTop: '3%',
           }}
         >
         {/* 왼쪽 스페이서 - 첫 카드를 가운데로 */}
@@ -460,8 +461,8 @@ export function EntryCarousel({
               style={{
                 width: isActive ? `${75 + 25 * viewProgress}%` : '75%',
                 maxWidth: isActive ? `${360 + 640 * viewProgress}px` : '360px',
-                height: isActive ? `${cardHeightPercent}%` : '85%',
-                maxHeight: isActive ? `${600 + 400 * viewProgress}px` : '600px',
+                height: isActive ? `${cardHeightPercent}%` : '88%',
+                maxHeight: isActive ? `${700 + 300 * viewProgress}px` : '700px',
                 borderRadius: isActive ? borderRadius : 16,
                 boxShadow: isActive
                   ? `0 ${10 * shadowOpacity}px ${15 * shadowOpacity}px -3px rgba(0, 0, 0, ${0.1 * shadowOpacity}), 0 ${4 * shadowOpacity}px ${6 * shadowOpacity}px -4px rgba(0, 0, 0, ${0.1 * shadowOpacity})`
