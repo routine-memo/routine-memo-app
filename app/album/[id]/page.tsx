@@ -44,6 +44,11 @@ export default function AlbumEntriesPage() {
     }
   };
 
+  // 기록 수정
+  const handleEditEntry = (entryId: string) => {
+    router.push(`/album/${albumId}/entry?edit=${entryId}`);
+  };
+
   if (isLoading) {
     return (
       <main className="min-h-screen flex items-center justify-center bg-white">
@@ -126,6 +131,7 @@ export default function AlbumEntriesPage() {
           selectedBlockIds={selectedBlockIds}
           albumId={albumId}
           onEntryDelete={handleDeleteEntry}
+          onEntryEdit={handleEditEntry}
           isFullscreenMode={isFullscreenMode}
           onToggleFullscreen={() => setIsFullscreenMode(!isFullscreenMode)}
         />

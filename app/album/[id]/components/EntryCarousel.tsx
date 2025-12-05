@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Trash2, X, Download, Target, Calendar, Percent, Globe, ExternalLink, Play, MapPin, Type, PenTool } from 'lucide-react';
+import { Trash2, X, Download, Target, Calendar, Percent, Globe, ExternalLink, Play, MapPin, Type, PenTool, Pencil } from 'lucide-react';
 import { Entry, getEntriesByAlbum } from '@/lib/storage/entry';
 import { BlockPosition, BlockDefaultValue, LinkItem, DataGraphField, DataGraphValue } from '@/app/template/new/types';
 import { blockPalette } from '@/app/template/new/blockPalette';
@@ -37,6 +37,7 @@ interface EntryCarouselProps {
   selectedBlockIds: string[];
   albumId: string;
   onEntryDelete?: (entryId: string) => void;
+  onEntryEdit?: (entryId: string) => void;
   isFullscreenMode?: boolean;
   onToggleFullscreen?: () => void;
 }
@@ -102,6 +103,7 @@ export function EntryCarousel({
   selectedBlockIds,
   albumId,
   onEntryDelete,
+  onEntryEdit,
   isFullscreenMode = false,
   onToggleFullscreen,
 }: EntryCarouselProps) {
@@ -390,17 +392,29 @@ export function EntryCarousel({
                 </p>
               )}
             </div>
-            {onEntryDelete && currentEntry && (
-              <button
-                onClick={() => {
-                  if (confirm('이 기록을 삭제하시겠습니까?')) {
-                    onEntryDelete(currentEntry.id);
-                  }
-                }}
-                className="p-2 text-gray-400 hover:text-red-500 transition-colors"
-              >
-                <Trash2 className="w-5 h-5" />
-              </button>
+            {currentEntry && (
+              <div className="flex items-center gap-1">
+                {onEntryEdit && (
+                  <button
+                    onClick={() => onEntryEdit(currentEntry.id)}
+                    className="p-2 text-gray-400 hover:text-blue-500 transition-colors"
+                  >
+                    <Pencil className="w-5 h-5" />
+                  </button>
+                )}
+                {onEntryDelete && (
+                  <button
+                    onClick={() => {
+                      if (confirm('이 기록을 삭제하시겠습니까?')) {
+                        onEntryDelete(currentEntry.id);
+                      }
+                    }}
+                    className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                )}
+              </div>
             )}
           </div>
         </div>

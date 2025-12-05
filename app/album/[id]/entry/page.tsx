@@ -1,13 +1,13 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { ArrowLeft, X, Pencil, Check } from 'lucide-react';
 import { BlockPosition, BlockDefaultValue, TextBlockDefault, ChecklistBlockDefault, WeatherBlockDefault, EmotionBlockDefault, ImageBlockDefault, VideoBlockDefault, LinkBlockDefault, FileBlockDefault, DateBlockDefault, TimelineBlockDefault, DataGraphBlockDefault, MapBlockDefault, ProgressBlockDefault } from '@/app/template/new/types';
 import { blockPalette } from '@/app/template/new/blockPalette';
 import { iconMap } from '@/app/template/new/iconMap';
 import { getAlbum } from '@/lib/storage/album';
-import { saveEntry, BlockValue } from '@/lib/storage/entry';
+import { saveEntry, getEntry, updateEntry, loadEntryWithMedia, BlockValue } from '@/lib/storage/entry';
 
 // 에디터 컴포넌트들
 import { TextBlockEditor, TextBlockEditorHandle } from '@/app/template/new/components/TextBlockEditor';
@@ -47,7 +47,10 @@ const getRowHeight = (gridWidth: number): number => {
 export default function EntryPage() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const albumId = params.id as string;
+  const editEntryId = searchParams.get('edit');
+  const isEditMode = !!editEntryId;
 
   const [album, setAlbum] = useState<{ name: string; blocks: BlockPosition[] } | null>(null);
   const [blockValues, setBlockValues] = useState<Map<string, BlockDefaultValue>>(new Map());
@@ -56,6 +59,7 @@ export default function EntryPage() {
   const [isEditingLabel, setIsEditingLabel] = useState(false);
   const [editingLabelValue, setEditingLabelValue] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [originalCreatedAt, setOriginalCreatedAt] = useState<string | null>(null);
 
   const labelInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -73,17 +77,38 @@ export default function EntryPage() {
   const mapEditorRef = useRef<MapBlockEditorHandle>(null);
   const progressEditorRef = useRef<ProgressBlockEditorHandle>(null);
 
-  // 앨범 데이터 로드
+  // 앨범 데이터 및 기존 기록 로드
   useEffect(() => {
-    const loadedAlbum = getAlbum(albumId);
-    if (loadedAlbum) {
-      setAlbum({ name: loadedAlbum.name, blocks: loadedAlbum.blocks });
-      // 새 기록은 빈 상태로 시작 (기본값은 에디터에서 초기값으로만 사용)
-      setBlockValues(new Map());
-    } else {
-      router.push('/records');
-    }
-  }, [albumId, router]);
+    const loadData = async () => {
+      const loadedAlbum = getAlbum(albumId);
+      if (loadedAlbum) {
+        setAlbum({ name: loadedAlbum.name, blocks: loadedAlbum.blocks });
+
+        // 수정 모드인 경우 기존 기록 로드
+        if (editEntryId) {
+          const existingEntry = getEntry(editEntryId);
+          if (existingEntry) {
+            // 미디어 데이터 로드
+            const entryWithMedia = await loadEntryWithMedia(existingEntry);
+            setOriginalCreatedAt(entryWithMedia.createdAt);
+
+            // blockValues를 Map으로 변환
+            const valuesMap = new Map<string, BlockDefaultValue>();
+            entryWithMedia.blockValues.forEach(bv => {
+              valuesMap.set(bv.blockId, bv.value);
+            });
+            setBlockValues(valuesMap);
+          }
+        } else {
+          // 새 기록은 빈 상태로 시작 (기본값은 에디터에서 초기값으로만 사용)
+          setBlockValues(new Map());
+        }
+      } else {
+        router.push('/records');
+      }
+    };
+    loadData();
+  }, [albumId, editEntryId, router]);
 
   // 컨테이너 너비 감지 - 콜백 ref 사용
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
@@ -257,18 +282,25 @@ export default function EntryPage() {
         entryBlockValues.push({ blockId, value });
       });
 
-      // 기록 저장 (IndexedDB에 미디어 저장 포함)
-      await saveEntry({
-        albumId,
-        blockValues: entryBlockValues,
-      });
+      if (isEditMode && editEntryId) {
+        // 수정 모드: 기존 기록 업데이트
+        updateEntry(editEntryId, {
+          blockValues: entryBlockValues,
+        });
+      } else {
+        // 새 기록 저장 (IndexedDB에 미디어 저장 포함)
+        await saveEntry({
+          albumId,
+          blockValues: entryBlockValues,
+        });
+      }
 
-      router.push('/records');
+      router.push(`/album/${albumId}`);
     } catch (error) {
       console.error('Failed to save entry:', error);
       setIsSaving(false);
     }
-  }, [album, albumId, blockValues, isSaving, router]);
+  }, [album, albumId, blockValues, isSaving, router, isEditMode, editEntryId]);
 
   // 블록 에디터 렌더링
   const renderBlockEditor = (block: BlockPosition) => {
@@ -489,20 +521,25 @@ export default function EntryPage() {
         <button onClick={() => router.back()} className="text-gray-900">
           <ArrowLeft className="w-6 h-6" />
         </button>
-        <h1 className="text-lg font-semibold text-gray-900">{album.name}</h1>
+        <div className="text-center">
+          <h1 className="text-lg font-semibold text-gray-900">{album.name}</h1>
+          {isEditMode && (
+            <p className="text-xs text-blue-500">수정 중</p>
+          )}
+        </div>
         <button
           onClick={handleSave}
           disabled={isSaving}
           className="px-4 py-2 text-sm font-semibold text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50"
         >
-          {isSaving ? '저장 중...' : '저장'}
+          {isSaving ? '저장 중...' : isEditMode ? '수정' : '저장'}
         </button>
       </div>
 
       {/* 안내 텍스트 */}
       <div className="px-4 py-3 bg-white border-b border-gray-100">
         <p className="text-sm text-gray-500">
-          블록을 탭하여 오늘의 기록을 입력하세요
+          {isEditMode ? '블록을 탭하여 기록을 수정하세요' : '블록을 탭하여 오늘의 기록을 입력하세요'}
         </p>
       </div>
 
