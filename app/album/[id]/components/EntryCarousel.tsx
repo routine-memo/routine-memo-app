@@ -31,15 +31,21 @@ const getRowHeight = (gridWidth: number): number => {
   return Math.min(120, Math.max(80, Math.round(colWidth * 1.5)));
 };
 
+// 즉석 앨범 엔트리 타입 (각 엔트리가 자체 blocks를 가짐)
+interface DailyEntryLike extends Entry {
+  blocks?: BlockPosition[];
+}
+
 interface EntryCarouselProps {
-  entries: Entry[];
-  blocks: BlockPosition[];
+  entries: (Entry | DailyEntryLike)[];
+  blocks?: BlockPosition[];  // 일반 앨범용 (모든 엔트리 공통 블록)
   selectedBlockIds: string[];
-  albumId: string;
+  albumId?: string;  // 즉석 앨범은 albumId 없음
   onEntryDelete?: (entryId: string) => void;
   onEntryEdit?: (entryId: string) => void;
   isFullscreenMode?: boolean;
   onToggleFullscreen?: () => void;
+  isDailyAlbum?: boolean;  // 즉석 앨범 여부
 }
 
 // 선택된 블록에 값이 있는 엔트리만 필터링
@@ -106,7 +112,15 @@ export function EntryCarousel({
   onEntryEdit,
   isFullscreenMode = false,
   onToggleFullscreen,
+  isDailyAlbum = false,
 }: EntryCarouselProps) {
+  // 엔트리의 블록 가져오기 (즉석 앨범은 각 엔트리의 blocks 사용, 일반 앨범은 공통 blocks 사용)
+  const getEntryBlocks = useCallback((entry: Entry | DailyEntryLike): BlockPosition[] => {
+    if (isDailyAlbum && 'blocks' in entry && entry.blocks) {
+      return entry.blocks;
+    }
+    return blocks || [];
+  }, [blocks, isDailyAlbum]);
   const [currentIndex, setCurrentIndex] = useState(0);
   // 0 = 캐러셀, 1 = 전체화면, 중간값 = 전환 중
   const [viewProgress, setViewProgress] = useState(isFullscreenMode ? 1 : 0);
@@ -522,9 +536,9 @@ export function EntryCarousel({
                 >
                   <EntryGridView
                     entry={entry}
-                    blocks={blocks}
+                    blocks={getEntryBlocks(entry)}
                     selectedBlockIds={selectedBlockIds}
-                    albumId={albumId}
+                    albumId={albumId || 'daily'}
                     hideHeader={true}
                     disableBlockClick={false}
                     onBlockSelectChange={setIsBlockDetailOpen}
@@ -534,9 +548,9 @@ export function EntryCarousel({
                 <div className="h-full overflow-hidden">
                   <EntryGridView
                     entry={entry}
-                    blocks={blocks}
+                    blocks={getEntryBlocks(entry)}
                     selectedBlockIds={selectedBlockIds}
-                    albumId={albumId}
+                    albumId={albumId || 'daily'}
                     hideHeader={true}
                     disableBlockClick={viewProgress < 0.5}
                     onBlockSelectChange={setIsBlockDetailOpen}

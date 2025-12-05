@@ -1,12 +1,13 @@
 import { Plus } from 'lucide-react';
-import { BlockType, IconMap } from '../types';
-import { blockPalette } from '../blockPalette';
+import { BlockType, IconMap, BlockPaletteItem } from '../types';
+import { blockPalette as defaultBlockPalette } from '../blockPalette';
 
 interface BlockPaletteProps {
   showPalette: boolean;
   iconMap: IconMap;
   onToggle: () => void;
   onAddBlock: (type: BlockType) => void;
+  customPalette?: BlockPaletteItem[];
 }
 
 export const BlockPalette = ({
@@ -14,7 +15,10 @@ export const BlockPalette = ({
   iconMap,
   onToggle,
   onAddBlock,
+  customPalette,
 }: BlockPaletteProps) => {
+  const paletteItems = customPalette || defaultBlockPalette;
+
   return (
     <>
       {/* 블록 추가 버튼 */}
@@ -29,7 +33,7 @@ export const BlockPalette = ({
       {showPalette && (
         <div className="fixed bottom-24 right-6 bg-white rounded-2xl shadow-2xl p-4 z-20 max-h-96 overflow-y-auto border border-gray-200">
           <div className="grid grid-cols-2 gap-2">
-            {blockPalette.map((item) => {
+            {paletteItems.map((item) => {
               const Icon = iconMap[item.icon];
               return (
                 <button

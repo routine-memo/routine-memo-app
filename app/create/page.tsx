@@ -26,13 +26,13 @@ export default function CreatePage() {
           </p>
         </Link>
 
-        <button className="w-full p-6 rounded-xl border-2 border-black bg-white text-left hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] transition-all">
+        <Link href="/daily/new" className="block w-full p-6 rounded-xl border-2 border-black bg-white text-left hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] transition-all">
           <Calendar size={40} strokeWidth={1.5} className="mb-3 text-black" />
-          <h3 className="text-xl font-bold mb-1 text-black">오늘의 앨범</h3>
+          <h3 className="text-xl font-bold mb-1 text-black">즉석 앨범</h3>
           <p className="text-sm text-gray-600">
             즉석에서 만들고 저장하는 일회성 앨범
           </p>
-        </button>
+        </Link>
 
         <button className="w-full p-6 rounded-xl border-2 border-black bg-white text-left hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] transition-all">
           <Copy size={40} strokeWidth={1.5} className="mb-3 text-black" />
