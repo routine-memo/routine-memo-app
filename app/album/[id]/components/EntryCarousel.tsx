@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Trash2, X, Download } from 'lucide-react';
+import { Trash2, X, Download, Target, Calendar, Percent } from 'lucide-react';
 import { Entry } from '@/lib/storage/entry';
 import { BlockPosition, BlockDefaultValue } from '@/app/template/new/types';
 import { blockPalette } from '@/app/template/new/blockPalette';
@@ -936,48 +936,26 @@ function BlockDetailPanel({ block, value, albumId, onClose }: BlockDetailPanelPr
   );
 }
 
-// 블록 상세 콘텐츠 (모달용 - 더 큰 사이즈)
+// 블록 상세 콘텐츠 (모달용 - 에디터와 동일한 UI)
 function BlockDetailContent({ block, value, albumId }: { block: BlockPosition; value?: BlockDefaultValue; albumId: string }) {
-  // 텍스트
+  // 텍스트 - TextBlockEditor 스타일
   if (block.type === 'text' && value?.type === 'text' && value.value.richText && value.value.richText !== '<p></p>') {
-    return (
-      <div
-        className="prose prose-sm max-w-none text-gray-700 leading-relaxed"
-        dangerouslySetInnerHTML={{ __html: value.value.richText }}
-      />
-    );
+    return <TextBlockViewer value={value.value} />;
   }
 
-  // 체크리스트
+  // 체크리스트 - ChecklistBlockEditor 스타일
   if (block.type === 'checklist' && value?.type === 'checklist' && value.value.html) {
-    return (
-      <div
-        className="checklist-preview text-gray-700 leading-relaxed"
-        dangerouslySetInnerHTML={{ __html: value.value.html }}
-      />
-    );
+    return <ChecklistBlockViewer html={value.value.html} />;
   }
 
-  // 날씨
+  // 날씨 - WeatherBlockEditor 스타일
   if (block.type === 'weather' && value?.type === 'weather' && value.value.weather) {
-    const info = getWeatherInfo(value.value.weather);
-    return (
-      <div className="flex flex-col items-center justify-center py-8">
-        <span className="text-7xl mb-4">{info?.emoji}</span>
-        <span className="text-xl text-gray-700">{info?.label}</span>
-      </div>
-    );
+    return <WeatherBlockViewer weather={value.value.weather} />;
   }
 
-  // 감정
+  // 감정 - EmotionBlockEditor 스타일
   if (block.type === 'emotion' && value?.type === 'emotion' && value.value.emotion) {
-    const info = getEmotionInfo(value.value.emotion);
-    return (
-      <div className="flex flex-col items-center justify-center py-8">
-        <span className="text-7xl mb-4">{info?.emoji}</span>
-        <span className="text-xl text-gray-700">{info?.label}</span>
-      </div>
-    );
+    return <EmotionBlockViewer emotion={value.value.emotion} />;
   }
 
   // 이미지
@@ -1003,62 +981,649 @@ function BlockDetailContent({ block, value, albumId }: { block: BlockPosition; v
     return <FileBlockViewer files={files} />;
   }
 
-  // 날짜
+  // 날짜 - DateBlockEditor 스타일
   if (block.type === 'date' && value?.type === 'date' && value.value.date) {
-    return (
-      <div className="py-4">
-        <DateBlockPreview date={value.value} />
-      </div>
-    );
+    return <DateBlockViewer date={value.value.date} />;
   }
 
-  // 타임라인
+  // 타임라인 - TimelineBlockEditor 스타일
   if (block.type === 'timeline' && value?.type === 'timeline' && value.value.items?.length > 0) {
-    return (
-      <div className="py-2">
-        <TimelineBlockPreview value={value.value} />
-      </div>
-    );
+    return <TimelineBlockViewer items={value.value.items} />;
   }
 
-  // 데이터 그래프
+  // 데이터 그래프 - DataGraphBlockEditor 스타일
   if (block.type === 'dataGraph' && block.defaultValue?.type === 'dataGraph' && block.defaultValue.value.fields?.length > 0) {
     return (
-      <div className="py-2">
-        <DataGraphBlockPreview
-          value={{
-            fields: block.defaultValue.value.fields,
-            values: value?.type === 'dataGraph' ? value.value.values : undefined
-          }}
-          albumId={albumId}
-          blockId={block.id}
-        />
-      </div>
+      <DataGraphBlockViewer
+        fields={block.defaultValue.value.fields}
+        values={value?.type === 'dataGraph' ? value.value.values : undefined}
+        albumId={albumId}
+        blockId={block.id}
+      />
     );
   }
 
-  // 지도
+  // 지도 - MapBlockEditor 스타일
   if (block.type === 'map' && value?.type === 'map' && value.value.markers?.length > 0) {
-    return (
-      <div className="h-64">
-        <MapBlockPreview value={value.value} />
-      </div>
-    );
+    return <MapBlockViewer value={value.value} />;
   }
 
-  // 달성도
+  // 달성도 - ProgressBlockEditor 스타일
   if (block.type === 'progress' && value?.type === 'progress') {
-    return (
-      <div className="py-4">
-        <ProgressBlockPreview value={value.value} />
-      </div>
-    );
+    return <ProgressBlockViewer value={value.value} />;
   }
 
   // 입력 없음
   return (
     <div className="flex items-center justify-center py-12">
       <span className="text-gray-400">입력된 내용이 없습니다</span>
+    </div>
+  );
+}
+
+// 텍스트 블록 뷰어 - TextBlockEditor 스타일
+function TextBlockViewer({ value }: { value: { richText?: string; sketchData?: string } }) {
+  return (
+    <div className="flex flex-col h-full bg-white rounded-lg border border-gray-200 overflow-hidden">
+      {/* 헤더 */}
+      <div className="flex items-center gap-1 p-2 border-b border-gray-100 bg-gray-50">
+        <span className="text-sm text-gray-600 px-2">텍스트</span>
+      </div>
+
+      {/* 콘텐츠 */}
+      <div className="flex-1 overflow-y-auto p-4">
+        <div
+          className="prose prose-sm max-w-none text-gray-700 leading-relaxed"
+          dangerouslySetInnerHTML={{ __html: value.richText || '' }}
+        />
+      </div>
+    </div>
+  );
+}
+
+// 체크리스트 블록 뷰어 - ChecklistBlockEditor 스타일
+function ChecklistBlockViewer({ html }: { html: string }) {
+  return (
+    <div className="flex flex-col h-full bg-white rounded-lg border border-gray-200 overflow-hidden">
+      {/* 헤더 */}
+      <div className="flex items-center gap-1 p-2 border-b border-gray-100 bg-gray-50">
+        <span className="text-sm text-gray-600 px-2">체크리스트</span>
+      </div>
+
+      {/* 콘텐츠 */}
+      <div className="flex-1 overflow-y-auto p-4">
+        <div
+          className="checklist-preview text-gray-700 leading-relaxed"
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+      </div>
+    </div>
+  );
+}
+
+// 날씨 블록 뷰어 - WeatherBlockEditor 스타일
+function WeatherBlockViewer({ weather }: { weather: string }) {
+  const info = getWeatherInfo(weather as Parameters<typeof getWeatherInfo>[0]);
+
+  return (
+    <div className="flex flex-col h-full bg-white rounded-lg border border-gray-200 overflow-hidden">
+      {/* 헤더 */}
+      <div className="flex items-center gap-2 p-3 border-b border-gray-100 bg-gray-50">
+        <span className="text-sm text-gray-600">선택된 날씨</span>
+        {info && (
+          <span className="text-xs text-gray-400">
+            ({info.label})
+          </span>
+        )}
+      </div>
+
+      {/* 선택된 날씨 표시 */}
+      <div className="flex-1 flex items-center justify-center p-8">
+        <div className="flex flex-col items-center">
+          <span className="text-8xl mb-4">{info?.emoji}</span>
+          <span className="text-2xl font-medium text-gray-700">{info?.label}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 감정 블록 뷰어 - EmotionBlockEditor 스타일
+function EmotionBlockViewer({ emotion }: { emotion: string }) {
+  const info = getEmotionInfo(emotion as Parameters<typeof getEmotionInfo>[0]);
+  const isPositive = ['happy', 'joyful', 'glad', 'interested', 'passionate', 'fun', 'hopeful', 'comfortable', 'excited', 'pleasant'].includes(emotion);
+
+  return (
+    <div className="flex flex-col h-full bg-white rounded-lg border border-gray-200 overflow-hidden">
+      {/* 헤더 */}
+      <div className="flex items-center gap-2 p-3 border-b border-gray-100 bg-gray-50">
+        <span className="text-sm text-gray-600">선택된 감정</span>
+        {info && (
+          <span className="text-xs text-gray-400">
+            ({info.label})
+          </span>
+        )}
+      </div>
+
+      {/* 선택된 감정 표시 */}
+      <div className="flex-1 flex items-center justify-center p-8">
+        <div className="flex flex-col items-center">
+          <div
+            className={`p-6 rounded-3xl mb-4 ${isPositive ? 'bg-green-50' : 'bg-red-50'}`}
+          >
+            <span className="text-8xl">{info?.emoji}</span>
+          </div>
+          <span className={`text-2xl font-medium ${isPositive ? 'text-green-700' : 'text-red-700'}`}>
+            {info?.label}
+          </span>
+          <span className={`text-sm mt-1 ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
+            {isPositive ? '긍정적 감정' : '부정적 감정'}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 날짜 블록 뷰어 - DateBlockEditor 스타일 (iOS 스타일 캘린더 카드)
+function DateBlockViewer({ date }: { date: string }) {
+  const parsedDate = new Date(date);
+  const WEEKDAYS_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  return (
+    <div className="flex flex-col h-full bg-gray-100">
+      {/* iOS 스타일 날짜 카드 */}
+      <div className="flex-1 flex items-center justify-center p-6">
+        <div
+          className="w-56 rounded-3xl overflow-hidden shadow-2xl"
+          style={{
+            background: 'linear-gradient(135deg, #FF9500 0%, #FF3B30 100%)',
+          }}
+        >
+          {/* 상단 고리 */}
+          <div className="relative h-10 flex items-center justify-center gap-16">
+            <div className="w-4 h-7 bg-white/90 rounded-full shadow-inner" />
+            <div className="w-4 h-7 bg-white/90 rounded-full shadow-inner" />
+          </div>
+
+          {/* 날짜 표시 영역 */}
+          <div
+            className="bg-white/95 mx-3 mb-3 rounded-2xl py-6 px-4 text-center"
+            style={{
+              background: 'linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(255,240,240,0.95) 100%)',
+            }}
+          >
+            {/* 연도 */}
+            <p className="text-xs text-gray-400 font-medium tracking-wider mb-1">
+              {parsedDate.getFullYear()}
+            </p>
+            {/* 월 */}
+            <p className="text-base text-gray-500 font-semibold mb-2">
+              {parsedDate.getMonth() + 1}월
+            </p>
+            {/* 요일 */}
+            <p
+              className="text-xl font-bold mb-2"
+              style={{
+                color: parsedDate.getDay() === 0 ? '#FF3B30' :
+                       parsedDate.getDay() === 6 ? '#007AFF' : '#FF6B35'
+              }}
+            >
+              {WEEKDAYS_EN[parsedDate.getDay()]}
+            </p>
+            {/* 일 */}
+            <p className="text-8xl font-bold text-gray-900 leading-none">
+              {parsedDate.getDate()}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 타임라인 블록 뷰어 - TimelineBlockEditor 스타일 (그리드 뷰)
+function TimelineBlockViewer({ items }: { items: Array<{ id: string; title: string; rows: Array<{ hour: number; startCol: number; endCol: number }>; color: string }> }) {
+  const START_HOUR = 6;
+  const END_HOUR = 24;
+  const TOTAL_HOURS = END_HOUR - START_HOUR;
+  const ROW_HEIGHT = 44;
+  const COL_WIDTH = 45;
+  const TOTAL_COLS = 5;
+
+  // 아이템이 있는 시간 범위만 표시
+  const usedHours = new Set<number>();
+  items.forEach(item => {
+    item.rows.forEach(row => {
+      usedHours.add(row.hour);
+    });
+  });
+  const sortedHours = Array.from(usedHours).sort((a, b) => a - b);
+  const minHour = sortedHours.length > 0 ? Math.max(START_HOUR, sortedHours[0] - 1) : START_HOUR;
+  const maxHour = sortedHours.length > 0 ? Math.min(END_HOUR, sortedHours[sortedHours.length - 1] + 2) : END_HOUR;
+  const displayHours = maxHour - minHour;
+
+  return (
+    <div className="flex flex-col h-full bg-gray-100">
+      {/* 타임라인 그리드 */}
+      <div className="flex-1 overflow-auto">
+        <div className="inline-flex min-w-full">
+          {/* 시간 레이블 열 */}
+          <div className="flex-none w-14 bg-white border-r border-gray-300 sticky left-0 z-20">
+            <div className="h-8 border-b border-gray-300" />
+            {Array.from({ length: displayHours }).map((_, i) => {
+              const hour = minHour + i;
+              return (
+                <div
+                  key={hour}
+                  className="flex items-center justify-end pr-2 text-xs text-gray-700 font-semibold border-b border-gray-200"
+                  style={{ height: ROW_HEIGHT }}
+                >
+                  {hour.toString().padStart(2, '0')}:00
+                </div>
+              );
+            })}
+          </div>
+
+          {/* 그리드 영역 */}
+          <div className="flex-1 bg-white relative">
+            {/* 분 헤더 */}
+            <div className="flex h-8 border-b border-gray-300 sticky top-0 bg-white z-10">
+              {[0, 15, 30, 45, 60].map((minute) => (
+                <div
+                  key={minute}
+                  className="flex items-center justify-center text-xs text-gray-600 font-semibold border-r border-gray-200"
+                  style={{ width: COL_WIDTH }}
+                >
+                  :{minute.toString().padStart(2, '0')}
+                </div>
+              ))}
+            </div>
+
+            {/* 시간 행들 */}
+            <div className="relative">
+              {Array.from({ length: displayHours }).map((_, hourIdx) => {
+                const hour = minHour + hourIdx;
+                return (
+                  <div
+                    key={hour}
+                    className="flex border-b border-gray-200 relative"
+                    style={{ height: ROW_HEIGHT }}
+                  >
+                    {Array.from({ length: TOTAL_COLS }).map((_, col) => (
+                      <div
+                        key={col}
+                        className="border-r border-gray-200"
+                        style={{ width: COL_WIDTH, height: ROW_HEIGHT }}
+                      />
+                    ))}
+                  </div>
+                );
+              })}
+
+              {/* 아이템 렌더링 */}
+              {items.map((item) => {
+                if (item.rows.length === 0) return null;
+                const sortedRows = [...item.rows].sort((a, b) => a.hour - b.hour);
+
+                return sortedRows.map((rowData, idx) => {
+                  if (rowData.hour < minHour || rowData.hour >= maxHour) return null;
+                  const colSpan = rowData.endCol - rowData.startCol;
+                  const hasPrevRow = idx > 0;
+                  const hasNextRow = idx < sortedRows.length - 1;
+
+                  return (
+                    <div
+                      key={`${item.id}-${rowData.hour}`}
+                      className="absolute flex items-center overflow-hidden"
+                      style={{
+                        backgroundColor: item.color,
+                        left: rowData.startCol * COL_WIDTH + 2,
+                        width: colSpan * COL_WIDTH - 4,
+                        top: (rowData.hour - minHour) * ROW_HEIGHT + (hasPrevRow ? 0 : 2),
+                        height: ROW_HEIGHT - (hasPrevRow ? 0 : 2) - (hasNextRow ? 0 : 2),
+                        borderTopLeftRadius: !hasPrevRow ? '0.375rem' : 0,
+                        borderTopRightRadius: !hasPrevRow ? '0.375rem' : 0,
+                        borderBottomLeftRadius: !hasNextRow ? '0.375rem' : 0,
+                        borderBottomRightRadius: !hasNextRow ? '0.375rem' : 0,
+                      }}
+                    >
+                      {idx === 0 && (
+                        <span className="text-white text-[10px] font-medium px-1.5 truncate">
+                          {item.title || '(제목 없음)'}
+                        </span>
+                      )}
+                    </div>
+                  );
+                });
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 일정 목록 */}
+      <div className="flex-none max-h-32 overflow-auto border-t bg-white">
+        <div className="p-2 space-y-1">
+          {items.map((item) => {
+            const sortedRows = [...item.rows].sort((a, b) => a.hour - b.hour);
+            const first = sortedRows[0];
+            const last = sortedRows[sortedRows.length - 1];
+            const startTime = `${first.hour.toString().padStart(2, '0')}:${(first.startCol * 15).toString().padStart(2, '0')}`;
+            const endHour = last.endCol === 5 ? last.hour + 1 : last.hour;
+            const endMinute = last.endCol === 5 ? 0 : last.endCol * 15;
+            const endTime = `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
+
+            return (
+              <div
+                key={item.id}
+                className="flex items-center gap-2 p-2 rounded-lg bg-gray-50"
+              >
+                <div
+                  className="w-3 h-3 rounded-full flex-none"
+                  style={{ backgroundColor: item.color }}
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">
+                    {item.title || '(제목 없음)'}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {startTime} - {endTime}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 데이터 그래프 블록 뷰어 - DataGraphBlockEditor 스타일
+function DataGraphBlockViewer({
+  fields,
+  values,
+  albumId,
+  blockId
+}: {
+  fields: Array<{ id: string; name: string; format: string; color: string }>;
+  values?: Record<string, number>;
+  albumId: string;
+  blockId: string;
+}) {
+  return (
+    <div className="flex flex-col h-full bg-white">
+      {/* 안내 문구 */}
+      <div className="flex-none px-4 py-2 bg-gray-50 border-b border-gray-200">
+        <p className="text-xs text-gray-600 text-center">
+          기록된 데이터 값
+        </p>
+      </div>
+
+      {/* 항목 목록 */}
+      <div className="flex-1 overflow-auto p-4 space-y-3">
+        {fields.map((field) => {
+          const fieldValue = values?.[field.id];
+          const displayValue = fieldValue !== undefined
+            ? (field.format === 'percent' ? `${fieldValue}%` : fieldValue.toString())
+            : '-';
+
+          return (
+            <div
+              key={field.id}
+              className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl"
+            >
+              {/* 색상 인디케이터 */}
+              <div
+                className="w-5 h-5 rounded-full flex-none"
+                style={{ backgroundColor: field.color }}
+              />
+
+              {/* 항목 정보 */}
+              <div className="flex-1">
+                <p className="font-medium text-gray-900">{field.name}</p>
+                <p className="text-xs text-gray-500">
+                  {field.format === 'percent' ? '퍼센트' : '숫자'}
+                </p>
+              </div>
+
+              {/* 값 */}
+              <div className="text-right">
+                <p className="text-2xl font-bold text-gray-900">{displayValue}</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* 그래프 미리보기 */}
+      <div className="flex-none p-4 border-t">
+        <DataGraphBlockPreview
+          value={{ fields, values }}
+          albumId={albumId}
+          blockId={blockId}
+        />
+      </div>
+    </div>
+  );
+}
+
+// 지도 블록 뷰어 - MapBlockEditor 스타일
+function MapBlockViewer({ value }: { value: { markers: Array<{ id: string; name: string; lat: number; lng: number; color: string; address?: string; memo?: string }>; center?: { lat: number; lng: number }; level?: number } }) {
+  return (
+    <div className="flex flex-col h-full bg-white">
+      {/* 지도 미리보기 */}
+      <div className="flex-1">
+        <MapBlockPreview value={value} />
+      </div>
+
+      {/* 마커 목록 */}
+      {value.markers.length > 0 && (
+        <div className="flex-none max-h-40 overflow-auto border-t">
+          <div className="p-2 space-y-1">
+            {value.markers.map((marker) => (
+              <div
+                key={marker.id}
+                className="flex items-center gap-2 p-2 rounded-lg bg-gray-50"
+              >
+                <div
+                  className="w-4 h-4 rounded-full flex-none"
+                  style={{ backgroundColor: marker.color }}
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">{marker.name}</p>
+                  {marker.address && (
+                    <p className="text-xs text-gray-500 truncate">{marker.address}</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// 달성도 블록 뷰어 - ProgressBlockEditor 스타일
+function ProgressBlockViewer({ value }: { value: { mode?: string; title?: string; targetDate?: string; currentValue?: number; targetValue?: number } }) {
+  const mode = value.mode || 'dday';
+
+  // D-Day 계산
+  const calculateDDay = () => {
+    if (!value.targetDate) return null;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const target = new Date(value.targetDate);
+    target.setHours(0, 0, 0, 0);
+    const diff = Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    return diff;
+  };
+
+  // 퍼센트 계산
+  const calculatePercent = () => {
+    const targetVal = value.targetValue || 100;
+    const currentVal = value.currentValue || 0;
+    if (targetVal === 0) return 0;
+    return Math.min(100, Math.round((currentVal / targetVal) * 100));
+  };
+
+  const dday = calculateDDay();
+  const percent = calculatePercent();
+
+  return (
+    <div className="h-full flex flex-col bg-white p-4 overflow-auto">
+      {/* 모드 표시 */}
+      <div className="flex-none mb-4">
+        <div className="flex gap-2">
+          <div
+            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 ${
+              mode === 'dday'
+                ? 'border-gray-900 bg-gray-900 text-white'
+                : 'border-gray-200 text-gray-400'
+            }`}
+          >
+            <Calendar className="w-5 h-5" />
+            <span className="font-medium">D-Day</span>
+          </div>
+          <div
+            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 ${
+              mode === 'percent'
+                ? 'border-gray-900 bg-gray-900 text-white'
+                : 'border-gray-200 text-gray-400'
+            }`}
+          >
+            <Percent className="w-5 h-5" />
+            <span className="font-medium">달성률</span>
+          </div>
+        </div>
+      </div>
+
+      {/* 목표 제목 */}
+      <div className="flex-none mb-4">
+        <label className="block text-sm font-medium text-gray-700 mb-1.5">
+          목표 제목
+        </label>
+        <div className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-900">
+          {value.title || '-'}
+        </div>
+      </div>
+
+      {/* D-Day 모드 정보 */}
+      {mode === 'dday' && (
+        <div className="flex-none mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            목표 날짜
+          </label>
+          <div className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-900">
+            {value.targetDate ? new Date(value.targetDate).toLocaleDateString('ko-KR', {
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+            }) : '-'}
+          </div>
+          {dday !== null && (
+            <p className="mt-2 text-sm text-gray-500">
+              {dday === 0
+                ? '오늘이 D-Day입니다!'
+                : dday > 0
+                ? `D-${dday} (${dday}일 남음)`
+                : `D+${Math.abs(dday)} (${Math.abs(dday)}일 지남)`}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* 퍼센트 모드 정보 */}
+      {mode === 'percent' && (
+        <>
+          <div className="flex-none mb-4 grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                현재 값
+              </label>
+              <div className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-900 text-center">
+                {value.currentValue ?? 0}
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                목표 값
+              </label>
+              <div className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-900 text-center">
+                {value.targetValue ?? 100}
+              </div>
+            </div>
+          </div>
+
+          {/* 진행률 표시 */}
+          <div className="flex-none mb-4">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm text-gray-600">진행률</span>
+              <span className="text-sm font-medium text-gray-900">{percent}%</span>
+            </div>
+            <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gray-900 rounded-full transition-all duration-300"
+                style={{ width: `${percent}%` }}
+              />
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* 미리보기 카드 */}
+      <div className="flex-1 mt-4">
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          미리보기
+        </label>
+        <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+          <div className="flex items-center gap-2 mb-2">
+            <Target className="w-5 h-5 text-gray-700" />
+            <span className="font-medium text-gray-800">
+              {value.title || '-'}
+            </span>
+          </div>
+          {mode === 'dday' ? (
+            <div className="text-center py-4">
+              <span className="text-4xl font-bold text-gray-900">
+                {dday !== null
+                  ? dday === 0
+                    ? 'D-Day'
+                    : dday > 0
+                    ? `D-${dday}`
+                    : `D+${Math.abs(dday)}`
+                  : 'D-?'}
+              </span>
+              {value.targetDate && (
+                <p className="text-sm text-gray-500 mt-1">
+                  {new Date(value.targetDate).toLocaleDateString('ko-KR', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                  })}
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="py-2">
+              <div className="flex justify-between items-end mb-2">
+                <span className="text-3xl font-bold text-gray-900">{percent}%</span>
+                <span className="text-sm text-gray-500">
+                  {value.currentValue ?? 0}/{value.targetValue ?? 100}
+                </span>
+              </div>
+              <div className="w-full h-4 bg-gray-200 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gray-900 rounded-full transition-all duration-300"
+                  style={{ width: `${percent}%` }}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
