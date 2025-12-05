@@ -302,6 +302,24 @@ export default function EntryPage() {
     }
   }, [album, albumId, blockValues, isSaving, router, isEditMode, editEntryId]);
 
+  // 취소 (뒤로가기) 핸들러
+  const handleCancel = useCallback(() => {
+    // 입력된 값이 있는지 확인
+    const hasAnyValue = blockValues.size > 0;
+
+    if (hasAnyValue) {
+      const message = isEditMode
+        ? '수정 내용이 저장되지 않습니다. 정말 취소하시겠습니까?'
+        : '입력한 내용이 저장되지 않습니다. 정말 취소하시겠습니까?';
+
+      if (confirm(message)) {
+        router.back();
+      }
+    } else {
+      router.back();
+    }
+  }, [blockValues, isEditMode, router]);
+
   // 블록 에디터 렌더링
   const renderBlockEditor = (block: BlockPosition) => {
     // 에디터는 사용자 입력값 또는 기본값을 초기값으로 사용
@@ -518,7 +536,7 @@ export default function EntryPage() {
     <main className="fixed inset-0 flex flex-col bg-gray-50">
       {/* 헤더 */}
       <div className="flex-none bg-white/95 backdrop-blur-sm border-b border-gray-200 px-4 py-3 flex items-center justify-between z-10">
-        <button onClick={() => router.back()} className="text-gray-900">
+        <button onClick={handleCancel} className="text-gray-900">
           <ArrowLeft className="w-6 h-6" />
         </button>
         <div className="text-center">
