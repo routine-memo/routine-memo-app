@@ -74,6 +74,7 @@ export const GridLayoutBlocks = ({
   const [isOverTrash, setIsOverTrash] = useState(false);
   const draggingBlockId = useRef<string | null>(null);
   const lastMouseY = useRef<number>(0);
+  const layoutBeforeDrag = useRef<BlockPosition[] | null>(null);  // 드래그 시작 전 레이아웃 저장
 
   // 동적 행 높이 계산
   const rowHeight = useMemo(() => getRowHeight(gridWidth), [gridWidth]);
@@ -144,7 +145,9 @@ export const GridLayoutBlocks = ({
   const handleDragStart = useCallback((_layout: Layout[], _oldItem: Layout, newItem: Layout) => {
     setIsDragging(true);
     draggingBlockId.current = newItem.i;
-  }, []);
+    // 드래그 시작 전 레이아웃 저장 (삭제 시 복원용)
+    layoutBeforeDrag.current = [...blockPositions];
+  }, [blockPositions]);
 
   // 드래그 종료
   const handleDragStop = useCallback(() => {
@@ -153,6 +156,12 @@ export const GridLayoutBlocks = ({
     const shouldDelete = lastMouseY.current >= trashZoneTop && draggingBlockId.current;
 
     if (shouldDelete) {
+      // 삭제 영역에 드롭된 경우: 레이아웃 변경 취소 후 삭제 진행
+      if (layoutBeforeDrag.current) {
+        // 먼저 원래 레이아웃으로 복원 (드래그로 인한 배치 변경 취소)
+        onLayoutChange(layoutBeforeDrag.current);
+      }
+      // 그 다음 블록 삭제
       onRemove(draggingBlockId.current!);
     }
 
@@ -160,7 +169,8 @@ export const GridLayoutBlocks = ({
     setIsOverTrash(false);
     draggingBlockId.current = null;
     lastMouseY.current = 0;
-  }, [onRemove]);
+    layoutBeforeDrag.current = null;
+  }, [onRemove, onLayoutChange]);
 
   // 블록이 없을 때는 빈 상태 표시 (gridWidth와 무관)
   if (blockPositions.length === 0) {
