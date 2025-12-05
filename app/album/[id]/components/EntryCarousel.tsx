@@ -459,12 +459,13 @@ export function EntryCarousel({
                   }
                 }
               }}
-              className="flex-none snap-center bg-white overflow-hidden"
+              className="flex-none snap-center bg-white overflow-hidden relative"
               style={{
                 width: isActive ? `${75 + 25 * viewProgress}%` : '75%',
-                maxWidth: isActive ? `${360 + 640 * viewProgress}px` : '360px',
-                height: isActive ? `${cardHeightPercent}%` : '88%',
-                maxHeight: isActive ? `${700 + 300 * viewProgress}px` : '700px',
+                maxWidth: isActive && viewProgress > 0.5 ? 'none' : (isActive ? `${360 + 640 * viewProgress}px` : '360px'),
+                // 전체화면일 때 높이를 calc로 명시 (헤더 90px 제외)
+                height: isActive && viewProgress > 0.5 ? 'calc(100vh - 90px)' : (isActive ? `${cardHeightPercent}%` : '88%'),
+                maxHeight: isActive && viewProgress > 0.5 ? 'none' : (isActive ? `${700 + 300 * viewProgress}px` : '700px'),
                 borderRadius: isActive ? borderRadius : 16,
                 boxShadow: isActive
                   ? `0 ${10 * shadowOpacity}px ${15 * shadowOpacity}px -3px rgba(0, 0, 0, ${0.1 * shadowOpacity}), 0 ${4 * shadowOpacity}px ${6 * shadowOpacity}px -4px rgba(0, 0, 0, ${0.1 * shadowOpacity})`
@@ -475,22 +476,36 @@ export function EntryCarousel({
                 transition: isAnimating ? 'none' : 'opacity 0.3s ease, transform 0.3s ease',
               }}
             >
-              <div
-                className="h-full"
-                style={{
-                  overflowY: viewProgress > 0.8 ? 'auto' : 'hidden',
-                  paddingTop: isActive && viewProgress > 0.5 ? 90 : 0,
-                }}
-              >
-                <EntryGridView
-                  entry={entry}
-                  blocks={blocks}
-                  selectedBlockIds={selectedBlockIds}
-                  albumId={albumId}
-                  hideHeader={true}
-                  disableBlockClick={viewProgress < 0.5}
-                />
-              </div>
+              {/* 전체화면 모드일 때만 스크롤 가능 */}
+              {isActive && viewProgress > 0.5 ? (
+                <div
+                  className="absolute inset-0 overflow-y-auto"
+                  style={{
+                    paddingTop: 90,
+                    paddingBottom: 40,
+                  }}
+                >
+                  <EntryGridView
+                    entry={entry}
+                    blocks={blocks}
+                    selectedBlockIds={selectedBlockIds}
+                    albumId={albumId}
+                    hideHeader={true}
+                    disableBlockClick={false}
+                  />
+                </div>
+              ) : (
+                <div className="h-full overflow-hidden">
+                  <EntryGridView
+                    entry={entry}
+                    blocks={blocks}
+                    selectedBlockIds={selectedBlockIds}
+                    albumId={albumId}
+                    hideHeader={true}
+                    disableBlockClick={viewProgress < 0.5}
+                  />
+                </div>
+              )}
             </div>
           );
         })}
@@ -613,7 +628,7 @@ function EntryGridView({ entry, blocks, selectedBlockIds, albumId, hideHeader = 
   }, [valueMap]);
 
   return (
-    <div className="h-full">
+    <div>
       {/* 날짜/시간 헤더 - hideHeader가 true면 숨김 */}
       {!hideHeader && (
         <div className="px-4 py-3 bg-white border-b border-gray-100">
@@ -626,7 +641,7 @@ function EntryGridView({ entry, blocks, selectedBlockIds, albumId, hideHeader = 
       <div
         ref={setContainerRefCallback}
         className="mx-4 my-4 relative"
-        style={{ height: gridHeight, minHeight: 200 }}
+        style={{ height: gridHeight + 100, minHeight: 200 }}
       >
         {gridWidth > 0 && displayBlocks.map((block) => {
           const paletteItem = blockPalette.find(p => p.type === block.type);
