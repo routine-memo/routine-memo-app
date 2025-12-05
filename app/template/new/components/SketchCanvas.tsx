@@ -74,8 +74,8 @@ const SketchCanvasInner = forwardRef<SketchCanvasHandle, SketchCanvasProps>(
           ref={canvasRef}
           strokeWidth={strokeWidth}
           strokeColor={strokeColor}
-          canvasColor="transparent"
-          style={{ border: 'none', background: 'transparent' }}
+          canvasColor="#f9fafb"
+          style={{ border: 'none' }}
         />
       </div>
     );

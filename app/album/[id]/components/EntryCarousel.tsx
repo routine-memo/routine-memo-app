@@ -2,9 +2,9 @@
 
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Trash2, X, Download, Target, Calendar, Percent } from 'lucide-react';
+import { Trash2, X, Download, Target, Calendar, Percent, Globe, ExternalLink, Play, MapPin, Type, PenTool } from 'lucide-react';
 import { Entry } from '@/lib/storage/entry';
-import { BlockPosition, BlockDefaultValue } from '@/app/template/new/types';
+import { BlockPosition, BlockDefaultValue, LinkItem } from '@/app/template/new/types';
 import { blockPalette } from '@/app/template/new/blockPalette';
 import { iconMap } from '@/app/template/new/iconMap';
 import { calculateRows } from '@/app/template/new/blockUtils';
@@ -16,6 +16,8 @@ import { DateBlockPreview } from '@/app/template/new/components/DateBlockPreview
 import { TimelineBlockPreview } from '@/app/template/new/components/TimelineBlockPreview';
 import { DataGraphBlockPreview } from '@/app/template/new/components/DataGraphBlockPreview';
 import { MapBlockPreview } from '@/app/template/new/components/MapBlockPreview';
+import { Map as KakaoMap, CustomOverlayMap } from 'react-kakao-maps-sdk';
+import useKakaoLoader from '@/lib/hooks/useKakaoLoader';
 import { ProgressBlockPreview } from '@/app/template/new/components/ProgressBlockPreview';
 import { SwipeablePreview } from '@/app/template/new/components/SwipeablePreview';
 import { useCarousel } from '@/app/template/new/hooks/useCarousel';
@@ -107,6 +109,7 @@ export function EntryCarousel({
   // 0 = 캐러셀, 1 = 전체화면, 중간값 = 전환 중
   const [viewProgress, setViewProgress] = useState(isFullscreenMode ? 1 : 0);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [isBlockDetailOpen, setIsBlockDetailOpen] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const animationFrameRef = useRef<number | null>(null);
 
@@ -168,6 +171,9 @@ export function EntryCarousel({
   const handleScroll = useCallback(() => {
     if (!scrollContainerRef.current) return;
 
+    // 블록 상세 뷰가 열려있을 때는 스크롤 무시
+    if (isBlockDetailOpen) return;
+
     // 전체화면 모드일 때 스크롤하면 캐러셀로 돌아가기
     if (viewProgress > 0) {
       animateToProgress(0, 300);
@@ -180,7 +186,7 @@ export function EntryCarousel({
     const scrollPos = container.scrollLeft;
     const newIndex = Math.round(scrollPos / (cardWidth + gap));
     setCurrentIndex(Math.max(0, Math.min(newIndex, itemCount - 1)));
-  }, [viewProgress, itemCount, animateToProgress]);
+  }, [viewProgress, itemCount, animateToProgress, isBlockDetailOpen]);
 
   // 클린업
   useEffect(() => {
@@ -207,6 +213,21 @@ export function EntryCarousel({
   const exitFullscreen = useCallback(() => {
     animateToProgress(0, 300);
   }, [animateToProgress]);
+
+  // 블록 상세뷰가 닫힐 때 스크롤 위치 복원
+  const prevBlockDetailOpen = useRef(isBlockDetailOpen);
+  useEffect(() => {
+    if (prevBlockDetailOpen.current && !isBlockDetailOpen) {
+      // 상세뷰가 닫혔을 때 현재 인덱스로 스크롤 위치 복원
+      if (scrollContainerRef.current) {
+        const container = scrollContainerRef.current;
+        const cardWidth = container.clientWidth * 0.75;
+        const gap = 16;
+        container.scrollLeft = currentIndex * (cardWidth + gap);
+      }
+    }
+    prevBlockDetailOpen.current = isBlockDetailOpen;
+  }, [isBlockDetailOpen, currentIndex]);
 
   // 키보드 네비게이션
   useEffect(() => {
@@ -424,10 +445,10 @@ export function EntryCarousel({
         )}
         <div
           ref={scrollContainerRef}
-          onScroll={viewProgress < 0.1 && !isAnimating ? handleScroll : undefined}
+          onScroll={viewProgress < 0.1 && !isAnimating && !isBlockDetailOpen ? handleScroll : undefined}
           className="h-full flex items-start snap-x snap-mandatory scroll-smooth"
           style={{
-            overflowX: viewProgress > 0.5 ? 'hidden' : 'auto',
+            overflowX: viewProgress > 0.5 || isBlockDetailOpen ? 'hidden' : 'auto',
             scrollbarWidth: 'none',
             msOverflowStyle: 'none',
             gap: '16px',
@@ -492,6 +513,7 @@ export function EntryCarousel({
                     albumId={albumId}
                     hideHeader={true}
                     disableBlockClick={false}
+                    onBlockSelectChange={setIsBlockDetailOpen}
                   />
                 </div>
               ) : (
@@ -503,6 +525,7 @@ export function EntryCarousel({
                     albumId={albumId}
                     hideHeader={true}
                     disableBlockClick={viewProgress < 0.5}
+                    onBlockSelectChange={setIsBlockDetailOpen}
                   />
                 </div>
               )}
@@ -528,13 +551,20 @@ interface EntryGridViewProps {
   albumId: string;
   hideHeader?: boolean;
   disableBlockClick?: boolean;
+  onBlockSelectChange?: (isSelected: boolean) => void;
 }
 
-function EntryGridView({ entry, blocks, selectedBlockIds, albumId, hideHeader = false, disableBlockClick = false }: EntryGridViewProps) {
+function EntryGridView({ entry, blocks, selectedBlockIds, albumId, hideHeader = false, disableBlockClick = false, onBlockSelectChange }: EntryGridViewProps) {
   const [gridWidth, setGridWidth] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
   const [selectedBlock, setSelectedBlock] = useState<BlockPosition | null>(null);
+
+  // 블록 선택 상태가 변경되면 부모에게 알림
+  const handleBlockSelect = useCallback((block: BlockPosition | null) => {
+    setSelectedBlock(block);
+    onBlockSelectChange?.(block !== null);
+  }, [onBlockSelectChange]);
 
   // 블록 값 맵
   const valueMap = useMemo(() => {
@@ -655,7 +685,7 @@ function EntryGridView({ entry, blocks, selectedBlockIds, albumId, hideHeader = 
               onClick={(e) => {
                 if (!disableBlockClick) {
                   e.stopPropagation();
-                  setSelectedBlock(block);
+                  handleBlockSelect(block);
                 }
                 // disableBlockClick일 때는 이벤트가 카드로 전파되어 전체화면 전환됨
               }}
@@ -693,7 +723,7 @@ function EntryGridView({ entry, blocks, selectedBlockIds, albumId, hideHeader = 
         block={selectedBlock}
         value={selectedBlock ? getBlockValue(selectedBlock) : undefined}
         albumId={albumId}
-        onClose={() => setSelectedBlock(null)}
+        onClose={() => handleBlockSelect(null)}
       />
     </div>
   );
@@ -938,8 +968,9 @@ function BlockDetailPanel({ block, value, albumId, onClose }: BlockDetailPanelPr
 
 // 블록 상세 콘텐츠 (모달용 - 에디터와 동일한 UI)
 function BlockDetailContent({ block, value, albumId }: { block: BlockPosition; value?: BlockDefaultValue; albumId: string }) {
-  // 텍스트 - TextBlockEditor 스타일
-  if (block.type === 'text' && value?.type === 'text' && value.value.richText && value.value.richText !== '<p></p>') {
+  // 텍스트 - TextBlockEditor 스타일 (텍스트 또는 필기 데이터가 있을 때)
+  if (block.type === 'text' && value?.type === 'text' &&
+      ((value.value.richText && value.value.richText !== '<p></p>') || value.value.sketchData)) {
     return <TextBlockViewer value={value.value} />;
   }
 
@@ -1023,20 +1054,128 @@ function BlockDetailContent({ block, value, albumId }: { block: BlockPosition; v
 
 // 텍스트 블록 뷰어 - TextBlockEditor 스타일
 function TextBlockViewer({ value }: { value: { richText?: string; sketchData?: string } }) {
+  const hasRichText = value.richText && value.richText !== '<p></p>';
+  const hasSketch = !!value.sketchData;
+
+  // 둘 다 있으면 탭 전환 가능, 아니면 있는 것만 표시
+  const [activeTab, setActiveTab] = useState<'text' | 'sketch'>(hasRichText ? 'text' : 'sketch');
+
   return (
-    <div className="flex flex-col h-full bg-white rounded-lg border border-gray-200 overflow-hidden">
-      {/* 헤더 */}
-      <div className="flex items-center gap-1 p-2 border-b border-gray-100 bg-gray-50">
-        <span className="text-sm text-gray-600 px-2">텍스트</span>
-      </div>
+    <div className="flex flex-col h-full bg-white overflow-hidden">
+      {/* 탭 헤더 - 둘 다 있을 때만 탭 표시 */}
+      {hasRichText && hasSketch && (
+        <div className="flex-none flex border-b border-gray-200">
+          <button
+            onClick={() => setActiveTab('text')}
+            className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium transition-colors border-b-2 ${
+              activeTab === 'text'
+                ? 'border-gray-900 text-gray-900'
+                : 'border-transparent text-gray-400 hover:text-gray-600'
+            }`}
+          >
+            <Type className="w-4 h-4" />
+            텍스트
+          </button>
+          <button
+            onClick={() => setActiveTab('sketch')}
+            className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium transition-colors border-b-2 ${
+              activeTab === 'sketch'
+                ? 'border-gray-900 text-gray-900'
+                : 'border-transparent text-gray-400 hover:text-gray-600'
+            }`}
+          >
+            <PenTool className="w-4 h-4" />
+            필기
+          </button>
+        </div>
+      )}
 
       {/* 콘텐츠 */}
-      <div className="flex-1 overflow-y-auto p-4">
-        <div
-          className="prose prose-sm max-w-none text-gray-700 leading-relaxed"
-          dangerouslySetInnerHTML={{ __html: value.richText || '' }}
-        />
+      <div className="flex-1 overflow-hidden">
+        {activeTab === 'text' && hasRichText ? (
+          <div className="h-full overflow-y-auto p-4">
+            <div
+              className="prose prose-sm max-w-none text-gray-700 leading-relaxed"
+              dangerouslySetInnerHTML={{ __html: value.richText || '' }}
+            />
+          </div>
+        ) : activeTab === 'sketch' && hasSketch ? (
+          <SketchViewer sketchData={value.sketchData!} />
+        ) : (
+          <div className="flex items-center justify-center h-full text-gray-400">
+            내용이 없습니다
+          </div>
+        )}
       </div>
+    </div>
+  );
+}
+
+// 필기 데이터 뷰어 (react-sketch-canvas 경로 데이터를 SVG로 렌더링)
+function SketchViewer({ sketchData }: { sketchData: string }) {
+  const [svgContent, setSvgContent] = useState<string>('');
+
+  useEffect(() => {
+    try {
+      const paths = JSON.parse(sketchData);
+      if (Array.isArray(paths) && paths.length > 0) {
+        // 경로 데이터를 SVG로 변환
+        const svgPaths = paths.map((path: { strokeColor: string; strokeWidth: number; paths: Array<{ x: number; y: number }> }, index: number) => {
+          if (!path.paths || path.paths.length === 0) return '';
+
+          const d = path.paths.reduce((acc: string, point: { x: number; y: number }, i: number) => {
+            if (i === 0) return `M ${point.x} ${point.y}`;
+            return `${acc} L ${point.x} ${point.y}`;
+          }, '');
+
+          return `<path key="${index}" d="${d}" stroke="${path.strokeColor || '#000'}" stroke-width="${path.strokeWidth || 3}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
+        }).join('');
+
+        // 전체 경로의 범위 계산
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        paths.forEach((path: { paths: Array<{ x: number; y: number }> }) => {
+          if (!path.paths) return;
+          path.paths.forEach((point: { x: number; y: number }) => {
+            minX = Math.min(minX, point.x);
+            minY = Math.min(minY, point.y);
+            maxX = Math.max(maxX, point.x);
+            maxY = Math.max(maxY, point.y);
+          });
+        });
+
+        // 여백 추가
+        const padding = 20;
+        minX = Math.max(0, minX - padding);
+        minY = Math.max(0, minY - padding);
+        maxX = maxX + padding;
+        maxY = maxY + padding;
+
+        const width = maxX - minX;
+        const height = maxY - minY;
+
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${minX} ${minY} ${width} ${height}" preserveAspectRatio="xMidYMid meet">${svgPaths}</svg>`;
+        setSvgContent(svg);
+      }
+    } catch (error) {
+      console.error('Failed to parse sketch data:', error);
+    }
+  }, [sketchData]);
+
+  if (!svgContent) {
+    return (
+      <div className="flex items-center justify-center h-full text-gray-400">
+        필기 데이터를 불러올 수 없습니다
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-full w-full flex items-center justify-center p-4 bg-gray-50">
+      <div
+        className="w-full h-full"
+        dangerouslySetInnerHTML={{ __html: svgContent }}
+        style={{ maxWidth: '100%', maxHeight: '100%' }}
+      />
     </div>
   );
 }
@@ -1411,11 +1550,105 @@ function DataGraphBlockViewer({
 
 // 지도 블록 뷰어 - MapBlockEditor 스타일
 function MapBlockViewer({ value }: { value: { markers: Array<{ id: string; name: string; lat: number; lng: number; color: string; address?: string; memo?: string }>; center?: { lat: number; lng: number }; level?: number } }) {
+  const { loading, error } = useKakaoLoader();
+  const [selectedMarker, setSelectedMarker] = useState<typeof value.markers[0] | null>(null);
+  const [center, setCenter] = useState(value.center || { lat: 37.5665, lng: 126.9780 });
+  const level = value.level || 5;
+
+  // 마커 클릭 핸들러
+  const handleMarkerClick = useCallback((marker: typeof value.markers[0]) => {
+    setSelectedMarker(selectedMarker?.id === marker.id ? null : marker);
+  }, [selectedMarker]);
+
+  // 목록에서 마커 클릭 핸들러
+  const handleListItemClick = useCallback((marker: typeof value.markers[0]) => {
+    setCenter({ lat: marker.lat, lng: marker.lng });
+    setSelectedMarker(marker);
+  }, []);
+
+  // 로딩 중
+  if (loading) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="text-gray-500">지도 로딩 중...</div>
+      </div>
+    );
+  }
+
+  // 에러
+  if (error) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center text-gray-500 p-4">
+        <MapPin className="w-8 h-8 mb-2" />
+        <p className="text-sm text-center">
+          카카오맵을 불러올 수 없습니다.<br />
+          API 키를 확인해주세요.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full bg-white">
-      {/* 지도 미리보기 */}
-      <div className="flex-1">
-        <MapBlockPreview value={value} />
+      {/* 지도 */}
+      <div className="flex-1 relative">
+        <KakaoMap
+          center={center}
+          level={level}
+          style={{ width: '100%', height: '100%' }}
+          onCenterChanged={(map) => setCenter({ lat: map.getCenter().getLat(), lng: map.getCenter().getLng() })}
+        >
+          {/* 마커들 */}
+          {value.markers.map((marker) => (
+            <CustomOverlayMap
+              key={marker.id}
+              position={{ lat: marker.lat, lng: marker.lng }}
+              yAnchor={1.3}
+            >
+              <button
+                onClick={() => handleMarkerClick(marker)}
+                className="flex flex-col items-center"
+              >
+                <div
+                  className="w-16 h-16 rounded-full border-4 border-white flex items-center justify-center transition-transform hover:scale-110"
+                  style={{
+                    backgroundColor: marker.color,
+                    boxShadow: '0 6px 16px rgba(0, 0, 0, 0.45), 0 3px 6px rgba(0, 0, 0, 0.35)'
+                  }}
+                >
+                  <MapPin className="w-8 h-8 text-white" />
+                </div>
+                <span
+                  className="mt-1 px-2 py-0.5 bg-white rounded text-xs font-medium text-gray-800 max-w-[100px] truncate"
+                  style={{ boxShadow: '0 4px 8px rgba(0, 0, 0, 0.25), 0 2px 4px rgba(0, 0, 0, 0.15)' }}
+                >
+                  {marker.name}
+                </span>
+              </button>
+            </CustomOverlayMap>
+          ))}
+
+          {/* 선택된 마커 정보 */}
+          {selectedMarker && (
+            <CustomOverlayMap
+              position={{ lat: selectedMarker.lat, lng: selectedMarker.lng }}
+              xAnchor={0.5}
+              yAnchor={0}
+            >
+              <div style={{ transform: 'translateY(calc(-100% - 83px - 8px))' }}>
+                <div className="bg-white rounded-lg shadow-lg p-3 min-w-[150px] max-w-[200px]">
+                  <p className="font-medium text-gray-900 text-sm break-words whitespace-pre-wrap">{selectedMarker.name}</p>
+                  {selectedMarker.address && (
+                    <p className="text-xs text-gray-500 mt-0.5 break-words whitespace-pre-wrap">{selectedMarker.address}</p>
+                  )}
+                  {selectedMarker.memo && (
+                    <p className="text-xs text-gray-600 mt-1 border-t pt-1 break-words whitespace-pre-wrap">{selectedMarker.memo}</p>
+                  )}
+                </div>
+              </div>
+            </CustomOverlayMap>
+          )}
+        </KakaoMap>
       </div>
 
       {/* 마커 목록 */}
@@ -1423,9 +1656,12 @@ function MapBlockViewer({ value }: { value: { markers: Array<{ id: string; name:
         <div className="flex-none max-h-40 overflow-auto border-t">
           <div className="p-2 space-y-1">
             {value.markers.map((marker) => (
-              <div
+              <button
                 key={marker.id}
-                className="flex items-center gap-2 p-2 rounded-lg bg-gray-50"
+                onClick={() => handleListItemClick(marker)}
+                className={`w-full flex items-center gap-2 p-2 rounded-lg transition-colors text-left ${
+                  selectedMarker?.id === marker.id ? 'bg-gray-200' : 'bg-gray-50 hover:bg-gray-100'
+                }`}
               >
                 <div
                   className="w-4 h-4 rounded-full flex-none"
@@ -1437,7 +1673,7 @@ function MapBlockViewer({ value }: { value: { markers: Array<{ id: string; name:
                     <p className="text-xs text-gray-500 truncate">{marker.address}</p>
                   )}
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         </div>
@@ -1922,8 +2158,44 @@ function VideoBlockViewer({ videos }: { videos: string[] }) {
   );
 }
 
-// 링크 블록 뷰어
-function LinkBlockViewer({ links }: { links: { url: string }[] }) {
+// URL에서 도메인 추출
+const getDomain = (url: string): string => {
+  try {
+    const urlObj = new URL(url);
+    return urlObj.hostname;
+  } catch {
+    return '';
+  }
+};
+
+// YouTube 썸네일 URL 추출
+const getYoutubeThumbnail = (url: string): string | null => {
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+  const match = url.match(regExp);
+  if (match && match[2].length === 11) {
+    return `https://img.youtube.com/vi/${match[2]}/mqdefault.jpg`;
+  }
+  return null;
+};
+
+// YouTube 임베드 URL 변환
+const getYoutubeEmbedUrl = (url: string): string | null => {
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+  const match = url.match(regExp);
+  if (match && match[2].length === 11) {
+    return `https://www.youtube.com/embed/${match[2]}`;
+  }
+  return null;
+};
+
+// YouTube 비디오인지 확인
+const isYoutubeUrl = (url: string): boolean => {
+  const domain = getDomain(url).toLowerCase();
+  return domain.includes('youtube.com') || domain.includes('youtu.be');
+};
+
+// 링크 블록 뷰어 - LinkBlockEditor 스타일
+function LinkBlockViewer({ links }: { links: LinkItem[] }) {
   const {
     currentIndex,
     containerRef,
@@ -1931,13 +2203,96 @@ function LinkBlockViewer({ links }: { links: { url: string }[] }) {
     handleScroll,
     handleScrollEnd,
     getItemStyle,
-  } = useCarousel<{ url: string }>(links);
+  } = useCarousel<LinkItem>(links);
+
+  // 링크 열기 핸들러
+  const handleOpenLink = useCallback((e: React.MouseEvent, url: string) => {
+    e.stopPropagation();
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }, []);
+
+  // 링크 프리뷰 렌더링
+  const renderLinkPreview = (link: LinkItem, isActive: boolean) => {
+    const youtubeThumbnail = getYoutubeThumbnail(link.url);
+    const youtubeEmbedUrl = getYoutubeEmbedUrl(link.url);
+    const isYoutube = isYoutubeUrl(link.url);
+
+    if (link.displayMode === 'embed' && isYoutube) {
+      if (isActive && youtubeEmbedUrl) {
+        return (
+          <div className="h-full w-full relative bg-black rounded-2xl overflow-hidden">
+            <iframe
+              src={`${youtubeEmbedUrl}?autoplay=0&rel=0`}
+              className="w-full h-full"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+          </div>
+        );
+      } else if (youtubeThumbnail) {
+        return (
+          <div className="h-full w-full relative bg-black rounded-2xl overflow-hidden">
+            <img
+              src={youtubeThumbnail}
+              alt=""
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+              <div className="w-12 h-12 bg-red-600 rounded-full flex items-center justify-center">
+                <Play className="w-6 h-6 text-white fill-white ml-0.5" />
+              </div>
+            </div>
+          </div>
+        );
+      }
+    }
+
+    return (
+      <div
+        className="h-full w-full p-4 flex flex-col bg-white rounded-2xl cursor-pointer hover:bg-gray-50 transition-colors"
+        onClick={isActive ? (e) => handleOpenLink(e, link.url) : undefined}
+      >
+        <div className="flex-1 min-h-0 flex items-center justify-center bg-gray-50 rounded-xl mb-3">
+          {link.metadata?.favicon ? (
+            <img
+              src={link.metadata.favicon}
+              alt=""
+              className="w-16 h-16"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+              }}
+            />
+          ) : (
+            <Globe className="w-16 h-16 text-gray-300" />
+          )}
+        </div>
+
+        <div className="flex-none text-center">
+          <p className="text-base font-medium text-gray-800 truncate">
+            {link.metadata?.title || getDomain(link.url)}
+          </p>
+          <p className="text-sm text-gray-400 truncate flex items-center justify-center gap-1 mt-1">
+            <ExternalLink className="w-3 h-3 flex-none" />
+            {getDomain(link.url)}
+          </p>
+        </div>
+
+        {isActive && (
+          <div className="flex-none mt-2 text-center">
+            <span className="text-xs text-gray-900 font-medium">탭하여 링크 열기</span>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="flex flex-col h-full bg-gray-100">
       {/* 링크 카운트 */}
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 px-4 py-1.5 bg-black/60 rounded-full text-white text-sm font-medium">
-        {currentIndex + 1} / {links.length}
+      <div className="flex-none flex justify-center py-3 bg-gray-100">
+        <div className="px-4 py-1.5 bg-black/60 rounded-full text-white text-sm font-medium">
+          {currentIndex + 1} / {links.length}
+        </div>
       </div>
 
       {/* 수직 스크롤 캐러셀 */}
@@ -1952,17 +2307,17 @@ function LinkBlockViewer({ links }: { links: { url: string }[] }) {
           scrollBehavior: 'smooth',
         }}
       >
-        <div style={{ height: 'calc(50% - 80px)' }} />
+        <div style={{ height: 'calc(50% - 140px)', minHeight: '60px' }} />
 
         {links.map((link, index) => {
-          const { isActive, scale, opacity } = getItemStyle(index);
+          const { isActive, scale, opacity, blur, height, width } = getItemStyle(index);
 
           return (
             <div
               key={index}
               className="flex justify-center items-center px-4"
               style={{
-                height: isActive ? '160px' : '100px',
+                height,
                 scrollSnapAlign: 'center',
                 transition: 'all 0.3s ease-out',
                 marginBottom: '16px',
@@ -1970,42 +2325,61 @@ function LinkBlockViewer({ links }: { links: { url: string }[] }) {
               onClick={() => !isActive && scrollToIndex(index)}
             >
               <div
-                className="w-full max-w-md p-4 bg-white rounded-xl shadow-lg"
+                className="relative overflow-hidden shadow-2xl"
                 style={{
+                  width,
+                  height: '100%',
+                  borderRadius: '16px',
                   transform: `scale(${scale})`,
                   opacity,
+                  filter: blur > 0 ? `blur(${blur}px)` : 'none',
                   transition: 'all 0.3s ease-out',
                 }}
               >
-                <a
-                  href={link.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(e) => e.stopPropagation()}
-                  className="block p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  <p className="font-medium text-gray-900 break-all text-sm">{link.url}</p>
-                </a>
+                {renderLinkPreview(link, isActive)}
               </div>
             </div>
           );
         })}
 
-        <div style={{ height: 'calc(50% - 80px)' }} />
+        <div style={{ height: 'calc(50% - 140px)', minHeight: '60px' }} />
       </div>
 
-      {/* 하단 인디케이터 */}
+      {/* 하단 썸네일/인디케이터 영역 */}
       <div className="flex-none p-4 bg-white border-t border-gray-200">
-        <div className="flex gap-2 justify-center">
-          {links.map((_, index) => (
-            <button
-              key={index}
-              onClick={() => scrollToIndex(index)}
-              className={`w-2 h-2 rounded-full transition-all ${
-                index === currentIndex ? 'bg-gray-900 w-4' : 'bg-gray-300'
-              }`}
-            />
-          ))}
+        <div className="flex gap-2 overflow-x-auto pb-1 justify-center">
+          {links.map((link, index) => {
+            const isYoutube = isYoutubeUrl(link.url);
+            const youtubeThumbnail = getYoutubeThumbnail(link.url);
+
+            return (
+              <button
+                key={index}
+                onClick={() => scrollToIndex(index)}
+                className={`flex-none w-14 h-14 rounded-lg overflow-hidden border-2 transition-all flex items-center justify-center ${
+                  index === currentIndex
+                    ? 'border-gray-900 shadow-md'
+                    : 'border-transparent opacity-70 hover:opacity-100'
+                } ${isYoutube && youtubeThumbnail ? 'bg-black' : 'bg-gray-100'}`}
+              >
+                {isYoutube && youtubeThumbnail ? (
+                  <img
+                    src={youtubeThumbnail}
+                    alt=""
+                    className="w-full h-full object-cover"
+                  />
+                ) : link.metadata?.favicon ? (
+                  <img
+                    src={link.metadata.favicon}
+                    alt=""
+                    className="w-8 h-8"
+                  />
+                ) : (
+                  <Globe className="w-6 h-6 text-gray-400" />
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>
