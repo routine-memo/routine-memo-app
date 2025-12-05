@@ -1,9 +1,21 @@
+'use client';
+
 import Link from 'next/link';
-import { Sparkles, Calendar, Copy } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Sparkles, Calendar, Copy, ArrowLeft } from 'lucide-react';
 
 export default function CreatePage() {
+  const router = useRouter();
+
   return (
     <main className="min-h-screen p-6 bg-white">
+      {/* 헤더 */}
+      <div className="mb-6">
+        <button onClick={() => router.back()} className="text-gray-900">
+          <ArrowLeft className="w-6 h-6" />
+        </button>
+      </div>
+
       {/* 옵션 선택 */}
       <section className="space-y-4">
         <Link href="/template/new" className="block w-full p-6 rounded-xl border-2 border-black bg-white text-left hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] transition-all">

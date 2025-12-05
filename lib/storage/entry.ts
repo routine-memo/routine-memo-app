@@ -14,6 +14,7 @@ export interface Entry {
   createdAt: string;         // 생성 시간
   updatedAt: string;         // 수정 시간
   blockValues: BlockValue[]; // 각 블록의 입력값
+  tags?: string[];           // 태그 목록
 }
 
 // 블록별 입력값 - 블록 ID와 값을 매핑
@@ -49,6 +50,24 @@ export function getEntriesByAlbum(albumId: string): Entry[] {
   return entries
     .filter(e => e.albumId === albumId)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
+// 특정 앨범에서 사용된 모든 태그 가져오기 (빈도순 정렬)
+export function getTagsByAlbum(albumId: string): { tag: string; count: number }[] {
+  const entries = getEntriesByAlbum(albumId);
+  const tagCount = new Map<string, number>();
+
+  entries.forEach(entry => {
+    if (entry.tags) {
+      entry.tags.forEach(tag => {
+        tagCount.set(tag, (tagCount.get(tag) || 0) + 1);
+      });
+    }
+  });
+
+  return Array.from(tagCount.entries())
+    .map(([tag, count]) => ({ tag, count }))
+    .sort((a, b) => b.count - a.count);
 }
 
 // 미디어 데이터를 IndexedDB로 분리하고 참조로 대체

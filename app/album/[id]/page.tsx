@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft, Plus, Calendar } from 'lucide-react';
 import { getAlbum, Album } from '@/lib/storage/album';
-import { getEntriesByAlbum, Entry, deleteEntry, loadEntryWithMedia } from '@/lib/storage/entry';
+import { getEntriesByAlbum, Entry, deleteEntry, loadEntryWithMedia, getTagsByAlbum } from '@/lib/storage/entry';
 import { EntryCarousel } from './components/EntryCarousel';
 import { BlockFilter } from './components/BlockFilter';
+import { TagFilter } from './components/TagFilter';
 
 export default function AlbumEntriesPage() {
   const router = useRouter();
@@ -17,6 +18,8 @@ export default function AlbumEntriesPage() {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedBlockIds, setSelectedBlockIds] = useState<string[]>([]);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [albumTags, setAlbumTags] = useState<{ tag: string; count: number }[]>([]);
   const [isFullscreenMode, setIsFullscreenMode] = useState(false);
 
   useEffect(() => {
@@ -30,11 +33,23 @@ export default function AlbumEntriesPage() {
           loadedEntries.map(entry => loadEntryWithMedia(entry))
         );
         setEntries(entriesWithMedia);
+
+        // 태그 목록 로드
+        const tags = getTagsByAlbum(albumId);
+        setAlbumTags(tags);
       }
       setIsLoading(false);
     };
     loadData();
   }, [albumId]);
+
+  // 태그로 필터링된 엔트리
+  const filteredEntries = useMemo(() => {
+    if (selectedTags.length === 0) return entries;
+    return entries.filter(entry =>
+      entry.tags?.some(tag => selectedTags.includes(tag))
+    );
+  }, [entries, selectedTags]);
 
   // 기록 삭제
   const handleDeleteEntry = async (entryId: string) => {
@@ -84,13 +99,25 @@ export default function AlbumEntriesPage() {
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-semibold text-gray-900 truncate">{album.name}</h1>
             <div className="flex items-center gap-2">
-              <p className="text-sm text-gray-500">{entries.length}개의 기록</p>
+              <p className="text-sm text-gray-500">
+                {selectedTags.length > 0
+                  ? `${filteredEntries.length}/${entries.length}개 기록`
+                  : `${entries.length}개의 기록`}
+              </p>
               {/* 블록 필터 */}
               {album.blocks.length > 0 && entries.length > 0 && (
                 <BlockFilter
                   blocks={album.blocks}
                   selectedBlockIds={selectedBlockIds}
                   onSelectionChange={setSelectedBlockIds}
+                />
+              )}
+              {/* 태그 필터 */}
+              {albumTags.length > 0 && (
+                <TagFilter
+                  tags={albumTags}
+                  selectedTags={selectedTags}
+                  onSelectionChange={setSelectedTags}
                 />
               )}
             </div>
@@ -124,9 +151,27 @@ export default function AlbumEntriesPage() {
             </button>
           </div>
         </div>
+      ) : filteredEntries.length === 0 ? (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center px-4">
+            <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
+              <Calendar className="w-10 h-10 text-gray-400" />
+            </div>
+            <p className="text-gray-700 mb-2 font-medium">선택한 태그의 기록이 없어요</p>
+            <p className="text-sm text-gray-500 mb-6">
+              다른 태그를 선택하거나 필터를 해제해보세요
+            </p>
+            <button
+              onClick={() => setSelectedTags([])}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-gray-900 text-white rounded-xl font-medium hover:bg-gray-800 transition-colors"
+            >
+              필터 해제
+            </button>
+          </div>
+        </div>
       ) : (
         <EntryCarousel
-          entries={entries}
+          entries={filteredEntries}
           blocks={album.blocks}
           selectedBlockIds={selectedBlockIds}
           albumId={albumId}

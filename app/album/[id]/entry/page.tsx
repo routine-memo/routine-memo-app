@@ -2,12 +2,14 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
-import { ArrowLeft, X, Pencil, Check } from 'lucide-react';
+import { ArrowLeft, X, Pencil, Check, Tag, Plus } from 'lucide-react';
 import { BlockPosition, BlockDefaultValue, TextBlockDefault, ChecklistBlockDefault, WeatherBlockDefault, EmotionBlockDefault, ImageBlockDefault, VideoBlockDefault, LinkBlockDefault, FileBlockDefault, DateBlockDefault, TimelineBlockDefault, DataGraphBlockDefault, MapBlockDefault, ProgressBlockDefault } from '@/app/template/new/types';
 import { blockPalette } from '@/app/template/new/blockPalette';
 import { iconMap } from '@/app/template/new/iconMap';
 import { getAlbum } from '@/lib/storage/album';
-import { saveEntry, getEntry, updateEntry, loadEntryWithMedia, BlockValue } from '@/lib/storage/entry';
+import { saveEntry, getEntry, updateEntry, loadEntryWithMedia, BlockValue, getTagsByAlbum } from '@/lib/storage/entry';
+
+type EntryStep = 'blocks' | 'tags';
 
 // 에디터 컴포넌트들
 import { TextBlockEditor, TextBlockEditorHandle } from '@/app/template/new/components/TextBlockEditor';
@@ -61,6 +63,12 @@ export default function EntryPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [originalCreatedAt, setOriginalCreatedAt] = useState<string | null>(null);
 
+  // 태그 관련 상태
+  const [step, setStep] = useState<EntryStep>('blocks');
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState('');
+  const [existingTags, setExistingTags] = useState<{ tag: string; count: number }[]>([]);
+
   const labelInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const textEditorRef = useRef<TextBlockEditorHandle>(null);
@@ -84,6 +92,10 @@ export default function EntryPage() {
       if (loadedAlbum) {
         setAlbum({ name: loadedAlbum.name, blocks: loadedAlbum.blocks });
 
+        // 기존 태그 목록 로드
+        const albumTags = getTagsByAlbum(albumId);
+        setExistingTags(albumTags);
+
         // 수정 모드인 경우 기존 기록 로드
         if (editEntryId) {
           const existingEntry = getEntry(editEntryId);
@@ -98,6 +110,11 @@ export default function EntryPage() {
               valuesMap.set(bv.blockId, bv.value);
             });
             setBlockValues(valuesMap);
+
+            // 기존 태그 로드
+            if (entryWithMedia.tags) {
+              setTags(entryWithMedia.tags);
+            }
           }
         } else {
           // 새 기록은 빈 상태로 시작 (기본값은 에디터에서 초기값으로만 사용)
@@ -286,12 +303,14 @@ export default function EntryPage() {
         // 수정 모드: 기존 기록 업데이트
         updateEntry(editEntryId, {
           blockValues: entryBlockValues,
+          tags: tags.length > 0 ? tags : undefined,
         });
       } else {
         // 새 기록 저장 (IndexedDB에 미디어 저장 포함)
         await saveEntry({
           albumId,
           blockValues: entryBlockValues,
+          tags: tags.length > 0 ? tags : undefined,
         });
       }
 
@@ -300,10 +319,16 @@ export default function EntryPage() {
       console.error('Failed to save entry:', error);
       setIsSaving(false);
     }
-  }, [album, albumId, blockValues, isSaving, router, isEditMode, editEntryId]);
+  }, [album, albumId, blockValues, isSaving, router, isEditMode, editEntryId, tags]);
 
   // 취소 (뒤로가기) 핸들러
   const handleCancel = useCallback(() => {
+    // 태그 단계에서 뒤로가기하면 블록 단계로
+    if (step === 'tags') {
+      setStep('blocks');
+      return;
+    }
+
     // 입력된 값이 있는지 확인
     const hasAnyValue = blockValues.size > 0;
 
@@ -318,7 +343,26 @@ export default function EntryPage() {
     } else {
       router.back();
     }
-  }, [blockValues, isEditMode, router]);
+  }, [blockValues, isEditMode, router, step]);
+
+  // 다음 단계로 이동 (블록 → 태그)
+  const handleNext = useCallback(() => {
+    setStep('tags');
+  }, []);
+
+  // 태그 추가
+  const addTag = useCallback((tag: string) => {
+    const trimmedTag = tag.trim();
+    if (trimmedTag && !tags.includes(trimmedTag)) {
+      setTags(prev => [...prev, trimmedTag]);
+    }
+    setTagInput('');
+  }, [tags]);
+
+  // 태그 제거
+  const removeTag = useCallback((tagToRemove: string) => {
+    setTags(prev => prev.filter(t => t !== tagToRemove));
+  }, []);
 
   // 블록 에디터 렌더링
   const renderBlockEditor = (block: BlockPosition) => {
@@ -532,6 +576,122 @@ export default function EntryPage() {
     );
   }
 
+  // 태그 입력 단계 렌더링
+  if (step === 'tags') {
+    // 입력 중인 태그와 매칭되는 기존 태그 필터링
+    const filteredExistingTags = existingTags.filter(
+      et => !tags.includes(et.tag) && et.tag.toLowerCase().includes(tagInput.toLowerCase())
+    );
+
+    return (
+      <main className="fixed inset-0 flex flex-col bg-white">
+        {/* 헤더 */}
+        <div className="flex-none bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+          <button onClick={handleCancel} className="text-gray-900">
+            <ArrowLeft className="w-6 h-6" />
+          </button>
+          <div className="text-center">
+            <h1 className="text-lg font-semibold text-gray-900">태그 추가</h1>
+            {isEditMode && (
+              <p className="text-xs text-blue-500">수정 중</p>
+            )}
+          </div>
+          <button
+            onClick={handleSave}
+            disabled={isSaving}
+            className="px-4 py-2 text-sm font-semibold text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50"
+          >
+            {isSaving ? '저장 중...' : isEditMode ? '수정' : '저장'}
+          </button>
+        </div>
+
+        {/* 태그 입력 영역 */}
+        <div className="flex-1 overflow-y-auto p-4">
+          {/* 안내 */}
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-2">
+              <Tag className="w-5 h-5 text-gray-600" />
+              <h2 className="text-lg font-semibold text-gray-900">오늘의 태그</h2>
+            </div>
+            <p className="text-sm text-gray-500">
+              이 기록에 태그를 추가하세요 (선택사항)
+            </p>
+          </div>
+
+          {/* 태그 입력 필드 */}
+          <div className="mb-4">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && tagInput.trim()) {
+                    e.preventDefault();
+                    addTag(tagInput);
+                  }
+                }}
+                placeholder="태그 입력 후 Enter"
+                className="flex-1 px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-gray-900 focus:outline-none"
+              />
+              <button
+                onClick={() => addTag(tagInput)}
+                disabled={!tagInput.trim()}
+                className="px-4 py-3 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Plus className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          {/* 선택된 태그들 */}
+          {tags.length > 0 && (
+            <div className="mb-6">
+              <h3 className="text-sm font-medium text-gray-700 mb-2">선택된 태그</h3>
+              <div className="flex flex-wrap gap-2">
+                {tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 bg-gray-900 text-white rounded-full text-sm"
+                  >
+                    #{tag}
+                    <button
+                      onClick={() => removeTag(tag)}
+                      className="p-0.5 hover:bg-gray-700 rounded-full transition-colors"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 기존 태그 추천 */}
+          {filteredExistingTags.length > 0 && (
+            <div>
+              <h3 className="text-sm font-medium text-gray-700 mb-2">
+                이전에 사용한 태그
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {filteredExistingTags.map(({ tag, count }) => (
+                  <button
+                    key={tag}
+                    onClick={() => addTag(tag)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full text-sm transition-colors"
+                  >
+                    #{tag}
+                    <span className="text-xs text-gray-400">({count})</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="fixed inset-0 flex flex-col bg-gray-50">
       {/* 헤더 */}
@@ -546,11 +706,10 @@ export default function EntryPage() {
           )}
         </div>
         <button
-          onClick={handleSave}
-          disabled={isSaving}
-          className="px-4 py-2 text-sm font-semibold text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50"
+          onClick={handleNext}
+          className="px-4 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
         >
-          {isSaving ? '저장 중...' : isEditMode ? '수정' : '저장'}
+          다음
         </button>
       </div>
 
