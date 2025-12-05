@@ -416,14 +416,27 @@ export default function EntryPage() {
           />
         );
       case 'progress':
+        // 앨범 기본값에서 모드 가져오기 (기록 시에는 모드 변경 불가)
+        const albumProgressDefault = block.defaultValue?.type === 'progress' ? block.defaultValue.value : null;
         const progressDefault = currentValue?.type === 'progress'
-          ? currentValue.value
-          : { mode: 'dday' as const, title: '', targetDate: '', currentValue: 0, targetValue: 100 };
+          ? {
+              ...currentValue.value,
+              // 앨범에서 설정한 모드로 고정
+              mode: albumProgressDefault?.mode || currentValue.value.mode,
+            }
+          : {
+              mode: albumProgressDefault?.mode || ('dday' as const),
+              title: albumProgressDefault?.title || '',
+              targetDate: albumProgressDefault?.targetDate || '',
+              currentValue: 0,
+              targetValue: albumProgressDefault?.targetValue ?? 100,
+            };
         return (
           <ProgressBlockEditor
             ref={progressEditorRef}
             initialValue={progressDefault}
             onChange={(value) => handleProgressBlockChange(block.id, value)}
+            lockMode={true}
           />
         );
       default:

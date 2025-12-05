@@ -7,6 +7,7 @@ import { ProgressBlockDefault, ProgressMode } from '../types';
 interface ProgressBlockEditorProps {
   initialValue?: ProgressBlockDefault;
   onChange: (value: ProgressBlockDefault) => void;
+  lockMode?: boolean; // true면 모드 변경 불가 (기록 입력 시)
 }
 
 export interface ProgressBlockEditorHandle {
@@ -14,7 +15,7 @@ export interface ProgressBlockEditorHandle {
 }
 
 const ProgressBlockEditorInner = forwardRef<ProgressBlockEditorHandle, ProgressBlockEditorProps>(
-  ({ initialValue, onChange }, ref) => {
+  ({ initialValue, onChange, lockMode = false }, ref) => {
     const [mode, setMode] = useState<ProgressMode>(initialValue?.mode || 'dday');
     const [title, setTitle] = useState(initialValue?.title || '');
     const [targetDate, setTargetDate] = useState(initialValue?.targetDate || '');
@@ -65,36 +66,38 @@ const ProgressBlockEditorInner = forwardRef<ProgressBlockEditorHandle, ProgressB
 
     return (
       <div className="h-full flex flex-col bg-white p-4 overflow-auto">
-        {/* 모드 선택 */}
-        <div className="flex-none mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            측정 방식
-          </label>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setMode('dday')}
-              className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 transition-all ${
-                mode === 'dday'
-                  ? 'border-gray-900 bg-gray-900 text-white'
-                  : 'border-gray-200 text-gray-500 hover:border-gray-300'
-              }`}
-            >
-              <Calendar className="w-5 h-5" />
-              <span className="font-medium">D-Day</span>
-            </button>
-            <button
-              onClick={() => setMode('percent')}
-              className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 transition-all ${
-                mode === 'percent'
-                  ? 'border-gray-900 bg-gray-900 text-white'
-                  : 'border-gray-200 text-gray-500 hover:border-gray-300'
-              }`}
-            >
-              <Percent className="w-5 h-5" />
-              <span className="font-medium">달성률</span>
-            </button>
+        {/* 모드 선택 - lockMode가 true면 숨김 */}
+        {!lockMode && (
+          <div className="flex-none mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              측정 방식
+            </label>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setMode('dday')}
+                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 transition-all ${
+                  mode === 'dday'
+                    ? 'border-gray-900 bg-gray-900 text-white'
+                    : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                }`}
+              >
+                <Calendar className="w-5 h-5" />
+                <span className="font-medium">D-Day</span>
+              </button>
+              <button
+                onClick={() => setMode('percent')}
+                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 transition-all ${
+                  mode === 'percent'
+                    ? 'border-gray-900 bg-gray-900 text-white'
+                    : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                }`}
+              >
+                <Percent className="w-5 h-5" />
+                <span className="font-medium">달성률</span>
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* 목표 제목 */}
         <div className="flex-none mb-4">

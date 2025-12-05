@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
-import { Trash2 } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Trash2, X, Download } from 'lucide-react';
 import { Entry } from '@/lib/storage/entry';
 import { BlockPosition, BlockDefaultValue } from '@/app/template/new/types';
 import { blockPalette } from '@/app/template/new/blockPalette';
@@ -17,6 +18,7 @@ import { DataGraphBlockPreview } from '@/app/template/new/components/DataGraphBl
 import { MapBlockPreview } from '@/app/template/new/components/MapBlockPreview';
 import { ProgressBlockPreview } from '@/app/template/new/components/ProgressBlockPreview';
 import { SwipeablePreview } from '@/app/template/new/components/SwipeablePreview';
+import { useCarousel } from '@/app/template/new/hooks/useCarousel';
 
 const GRID_COLS = 6;
 const MARGIN = 8;
@@ -486,6 +488,7 @@ export function EntryCarousel({
                   selectedBlockIds={selectedBlockIds}
                   albumId={albumId}
                   hideHeader={true}
+                  disableBlockClick={viewProgress < 0.5}
                 />
               </div>
             </div>
@@ -509,12 +512,14 @@ interface EntryGridViewProps {
   selectedBlockIds: string[];
   albumId: string;
   hideHeader?: boolean;
+  disableBlockClick?: boolean;
 }
 
-function EntryGridView({ entry, blocks, selectedBlockIds, albumId, hideHeader = false }: EntryGridViewProps) {
+function EntryGridView({ entry, blocks, selectedBlockIds, albumId, hideHeader = false, disableBlockClick = false }: EntryGridViewProps) {
   const [gridWidth, setGridWidth] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  const [selectedBlock, setSelectedBlock] = useState<BlockPosition | null>(null);
 
   // 블록 값 맵
   const valueMap = useMemo(() => {
@@ -632,7 +637,16 @@ function EntryGridView({ entry, blocks, selectedBlockIds, albumId, hideHeader = 
           return (
             <div
               key={block.id}
-              className="absolute bg-white border-2 border-gray-900 rounded-lg shadow-sm overflow-hidden"
+              onClick={(e) => {
+                if (!disableBlockClick) {
+                  e.stopPropagation();
+                  setSelectedBlock(block);
+                }
+                // disableBlockClick일 때는 이벤트가 카드로 전파되어 전체화면 전환됨
+              }}
+              className={`absolute bg-white border-2 border-gray-900 rounded-lg shadow-sm overflow-hidden transition-colors ${
+                disableBlockClick ? '' : 'cursor-pointer hover:border-gray-700'
+              }`}
               style={{
                 left: style.left,
                 top: style.top,
@@ -658,6 +672,14 @@ function EntryGridView({ entry, blocks, selectedBlockIds, albumId, hideHeader = 
           );
         })}
       </div>
+
+      {/* 블록 상세 패널 */}
+      <BlockDetailPanel
+        block={selectedBlock}
+        value={selectedBlock ? getBlockValue(selectedBlock) : undefined}
+        albumId={albumId}
+        onClose={() => setSelectedBlock(null)}
+      />
     </div>
   );
 }
@@ -808,6 +830,713 @@ function BlockContentPreview({ block, value, albumId }: BlockContentPreviewProps
   return (
     <div className="h-full flex items-center justify-center">
       <span className="text-xs text-gray-400">입력 없음</span>
+    </div>
+  );
+}
+
+// 블록 상세 패널 (전체 화면 슬라이드 업)
+interface BlockDetailPanelProps {
+  block: BlockPosition | null;
+  value?: BlockDefaultValue;
+  albumId: string;
+  onClose: () => void;
+}
+
+function BlockDetailPanel({ block, value, albumId, onClose }: BlockDetailPanelProps) {
+  const paletteItem = block ? blockPalette.find(p => p.type === block.type) : null;
+  const Icon = iconMap[paletteItem?.icon || 'Type'];
+  const [mounted, setMounted] = useState(false);
+
+  // 클라이언트에서만 렌더링 (Portal 사용을 위해)
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // ESC 키로 닫기
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && block) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose, block]);
+
+  // 서버에서는 렌더링하지 않음
+  if (!mounted) return null;
+
+  // Portal을 사용하여 document.body에 직접 렌더링 (stacking context 문제 해결)
+  return createPortal(
+    <div
+      className={`
+        fixed inset-0 z-[60] transition-all duration-300 ease-out
+        ${block ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}
+      `}
+    >
+      {/* 배경 오버레이 */}
+      <div
+        className={`
+          absolute inset-0 bg-black/50 transition-opacity duration-300
+          ${block ? 'opacity-100' : 'opacity-0'}
+        `}
+        onClick={onClose}
+      />
+
+      {/* 편집 패널 - 전체 화면 */}
+      <div
+        className={`
+          absolute inset-0 bg-white
+          transition-transform duration-300 ease-out
+          ${block ? 'translate-y-0' : 'translate-y-full'}
+        `}
+      >
+        {block && (
+          <div className="h-full flex flex-col overflow-hidden">
+            {/* 패널 헤더 - flex-none으로 고정 높이 */}
+            <div className="flex-none flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-900">
+              <div className="flex items-center gap-2">
+                <Icon className="w-5 h-5 text-white" />
+                <span className="font-semibold text-white">
+                  {block.customLabel || paletteItem?.label}
+                </span>
+              </div>
+              <button
+                onClick={onClose}
+                className="p-2 hover:bg-white/10 rounded-full transition-colors"
+              >
+                <X className="w-5 h-5 text-white" />
+              </button>
+            </div>
+
+            {/* 콘텐츠 영역 - flex-1로 나머지 공간 차지 */}
+            <div className="flex-1 overflow-hidden">
+              <BlockDetailContent block={block} value={value} albumId={albumId} />
+            </div>
+          </div>
+        )}
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+// 블록 상세 콘텐츠 (모달용 - 더 큰 사이즈)
+function BlockDetailContent({ block, value, albumId }: { block: BlockPosition; value?: BlockDefaultValue; albumId: string }) {
+  // 텍스트
+  if (block.type === 'text' && value?.type === 'text' && value.value.richText && value.value.richText !== '<p></p>') {
+    return (
+      <div
+        className="prose prose-sm max-w-none text-gray-700 leading-relaxed"
+        dangerouslySetInnerHTML={{ __html: value.value.richText }}
+      />
+    );
+  }
+
+  // 체크리스트
+  if (block.type === 'checklist' && value?.type === 'checklist' && value.value.html) {
+    return (
+      <div
+        className="checklist-preview text-gray-700 leading-relaxed"
+        dangerouslySetInnerHTML={{ __html: value.value.html }}
+      />
+    );
+  }
+
+  // 날씨
+  if (block.type === 'weather' && value?.type === 'weather' && value.value.weather) {
+    const info = getWeatherInfo(value.value.weather);
+    return (
+      <div className="flex flex-col items-center justify-center py-8">
+        <span className="text-7xl mb-4">{info?.emoji}</span>
+        <span className="text-xl text-gray-700">{info?.label}</span>
+      </div>
+    );
+  }
+
+  // 감정
+  if (block.type === 'emotion' && value?.type === 'emotion' && value.value.emotion) {
+    const info = getEmotionInfo(value.value.emotion);
+    return (
+      <div className="flex flex-col items-center justify-center py-8">
+        <span className="text-7xl mb-4">{info?.emoji}</span>
+        <span className="text-xl text-gray-700">{info?.label}</span>
+      </div>
+    );
+  }
+
+  // 이미지
+  if (block.type === 'image' && value?.type === 'image' && value.value.images.filter(img => img).length > 0) {
+    const images = value.value.images.filter(img => img);
+    return <ImageBlockViewer images={images} />;
+  }
+
+  // 비디오
+  if (block.type === 'video' && value?.type === 'video' && value.value.videos.filter(v => v).length > 0) {
+    const videos = value.value.videos.filter(v => v);
+    return <VideoBlockViewer videos={videos} />;
+  }
+
+  // 링크
+  if (block.type === 'link' && value?.type === 'link' && value.value.links?.length > 0) {
+    return <LinkBlockViewer links={value.value.links} />;
+  }
+
+  // 파일
+  if (block.type === 'file' && value?.type === 'file' && value.value.files?.filter(f => f.data).length > 0) {
+    const files = value.value.files.filter(f => f.data);
+    return <FileBlockViewer files={files} />;
+  }
+
+  // 날짜
+  if (block.type === 'date' && value?.type === 'date' && value.value.date) {
+    return (
+      <div className="py-4">
+        <DateBlockPreview date={value.value} />
+      </div>
+    );
+  }
+
+  // 타임라인
+  if (block.type === 'timeline' && value?.type === 'timeline' && value.value.items?.length > 0) {
+    return (
+      <div className="py-2">
+        <TimelineBlockPreview value={value.value} />
+      </div>
+    );
+  }
+
+  // 데이터 그래프
+  if (block.type === 'dataGraph' && block.defaultValue?.type === 'dataGraph' && block.defaultValue.value.fields?.length > 0) {
+    return (
+      <div className="py-2">
+        <DataGraphBlockPreview
+          value={{
+            fields: block.defaultValue.value.fields,
+            values: value?.type === 'dataGraph' ? value.value.values : undefined
+          }}
+          albumId={albumId}
+          blockId={block.id}
+        />
+      </div>
+    );
+  }
+
+  // 지도
+  if (block.type === 'map' && value?.type === 'map' && value.value.markers?.length > 0) {
+    return (
+      <div className="h-64">
+        <MapBlockPreview value={value.value} />
+      </div>
+    );
+  }
+
+  // 달성도
+  if (block.type === 'progress' && value?.type === 'progress') {
+    return (
+      <div className="py-4">
+        <ProgressBlockPreview value={value.value} />
+      </div>
+    );
+  }
+
+  // 입력 없음
+  return (
+    <div className="flex items-center justify-center py-12">
+      <span className="text-gray-400">입력된 내용이 없습니다</span>
+    </div>
+  );
+}
+
+// 이미지 블록 뷰어 (ImageBlockEditor와 동일한 UI, 보기 전용)
+function ImageBlockViewer({ images }: { images: string[] }) {
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const {
+    currentIndex,
+    containerRef,
+    setCurrentIndex,
+    scrollToIndex,
+    handleScroll,
+    handleScrollEnd,
+    getItemStyle,
+  } = useCarousel<string>(images);
+
+  const toggleFullscreen = useCallback(() => {
+    setIsFullscreen(prev => !prev);
+  }, []);
+
+  const handleDownload = useCallback((imageData: string, index: number) => {
+    const link = document.createElement('a');
+    link.href = imageData;
+    const mimeMatch = imageData.match(/data:image\/(\w+);/);
+    const ext = mimeMatch ? mimeMatch[1] : 'png';
+    link.download = `image_${index + 1}.${ext}`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }, []);
+
+  return (
+    <div className="flex flex-col h-full bg-gray-100 overflow-hidden">
+      {/* 이미지 카운트 - 고정 헤더 */}
+      <div className="flex-none flex justify-center py-3 bg-gray-100">
+        <div className="px-4 py-1.5 bg-black/60 rounded-full text-white text-sm font-medium">
+          {currentIndex + 1} / {images.length}
+        </div>
+      </div>
+
+      {/* 수직 스크롤 캐러셀 */}
+      <div
+        ref={containerRef}
+        className="flex-1 overflow-y-auto overflow-x-hidden"
+        onScroll={handleScroll}
+        onTouchEnd={handleScrollEnd}
+        onMouseUp={handleScrollEnd}
+        style={{
+          scrollSnapType: 'y mandatory',
+          scrollBehavior: 'smooth',
+        }}
+      >
+        {/* 상단 패딩 */}
+        <div style={{ height: 'calc(50% - 140px)', minHeight: '60px' }} />
+
+        {images.map((img, index) => {
+          const { isActive, scale, opacity, blur, height, width } = getItemStyle(index);
+
+          return (
+            <div
+              key={index}
+              className="flex justify-center items-center px-4"
+              style={{
+                height,
+                scrollSnapAlign: 'center',
+                transition: 'all 0.3s ease-out',
+                marginBottom: '16px',
+              }}
+              onClick={() => !isActive && scrollToIndex(index)}
+            >
+              <div
+                className="relative overflow-hidden shadow-2xl bg-black"
+                style={{
+                  width,
+                  height: '100%',
+                  borderRadius: isActive ? '16px' : '24px',
+                  transform: `scale(${scale})`,
+                  opacity,
+                  filter: blur > 0 ? `blur(${blur}px)` : 'none',
+                  transition: 'all 0.3s ease-out',
+                }}
+              >
+                <img
+                  src={img}
+                  alt={`이미지 ${index + 1}`}
+                  className="w-full h-full object-contain cursor-pointer"
+                  onClick={isActive ? (e) => {
+                    e.stopPropagation();
+                    toggleFullscreen();
+                  } : undefined}
+                />
+
+                {/* 활성 이미지일 때 다운로드 버튼 */}
+                {isActive && (
+                  <div className="absolute top-3 right-3 flex gap-2 z-10">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDownload(img, index);
+                      }}
+                      className="p-2 bg-black/50 hover:bg-black/70 rounded-full transition-colors"
+                    >
+                      <Download className="w-5 h-5 text-white" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+
+        {/* 하단 패딩 */}
+        <div style={{ height: 'calc(50% - 140px)', minHeight: '60px' }} />
+      </div>
+
+      {/* 하단 썸네일 영역 */}
+      <div className="flex-none p-4 bg-white border-t border-gray-200">
+        <div className="flex gap-2 overflow-x-auto">
+          {images.map((img, index) => (
+            <button
+              key={index}
+              onClick={() => scrollToIndex(index)}
+              className={`flex-none w-14 h-14 rounded-lg overflow-hidden border-2 transition-all ${
+                index === currentIndex
+                  ? 'border-gray-900 shadow-md'
+                  : 'border-transparent opacity-70 hover:opacity-100'
+              }`}
+            >
+              <img
+                src={img}
+                alt={`썸네일 ${index + 1}`}
+                className="w-full h-full object-cover"
+              />
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 전체화면 모달 - z-[100]으로 모든 UI 위에 표시 */}
+      {isFullscreen && images[currentIndex] && (
+        <div
+          className="fixed inset-0 z-[100] bg-black flex items-center justify-center"
+          onClick={toggleFullscreen}
+        >
+          <div className="absolute top-4 left-0 right-0 flex items-center justify-between px-4">
+            <div className="flex-1 flex justify-center">
+              {images.length > 1 && (
+                <div className="px-4 py-2 bg-black/50 rounded-full text-white text-sm font-medium">
+                  {currentIndex + 1} / {images.length}
+                </div>
+              )}
+            </div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDownload(images[currentIndex], currentIndex);
+              }}
+              className="absolute right-4 p-3 bg-black/50 hover:bg-black/70 rounded-full transition-colors"
+            >
+              <Download className="w-6 h-6 text-white" />
+            </button>
+          </div>
+
+          <img
+            src={images[currentIndex]}
+            alt={`이미지 ${currentIndex + 1}`}
+            className="max-w-full max-h-full object-contain cursor-pointer"
+          />
+
+          {images.length > 1 && (
+            <>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCurrentIndex(currentIndex > 0 ? currentIndex - 1 : images.length - 1);
+                }}
+                className="absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-black/50 hover:bg-black/70 rounded-full transition-colors"
+              >
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCurrentIndex(currentIndex < images.length - 1 ? currentIndex + 1 : 0);
+                }}
+                className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-black/50 hover:bg-black/70 rounded-full transition-colors"
+              >
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// 비디오 블록 뷰어
+function VideoBlockViewer({ videos }: { videos: string[] }) {
+  const {
+    currentIndex,
+    containerRef,
+    scrollToIndex,
+    handleScroll,
+    handleScrollEnd,
+    getItemStyle,
+  } = useCarousel<string>(videos);
+
+  return (
+    <div className="flex flex-col h-full bg-gray-100">
+      {/* 비디오 카운트 */}
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 px-4 py-1.5 bg-black/60 rounded-full text-white text-sm font-medium">
+        {currentIndex + 1} / {videos.length}
+      </div>
+
+      {/* 수직 스크롤 캐러셀 */}
+      <div
+        ref={containerRef}
+        className="flex-1 overflow-y-auto overflow-x-hidden relative"
+        onScroll={handleScroll}
+        onTouchEnd={handleScrollEnd}
+        onMouseUp={handleScrollEnd}
+        style={{
+          scrollSnapType: 'y mandatory',
+          scrollBehavior: 'smooth',
+        }}
+      >
+        <div style={{ height: 'calc(50% - 140px)' }} />
+
+        {videos.map((video, index) => {
+          const { isActive, scale, opacity, blur, height, width } = getItemStyle(index);
+
+          return (
+            <div
+              key={index}
+              className="flex justify-center items-center px-4"
+              style={{
+                height,
+                scrollSnapAlign: 'center',
+                transition: 'all 0.3s ease-out',
+                marginBottom: '16px',
+              }}
+              onClick={() => !isActive && scrollToIndex(index)}
+            >
+              <div
+                className="relative overflow-hidden shadow-2xl bg-black"
+                style={{
+                  width,
+                  height: '100%',
+                  borderRadius: isActive ? '16px' : '24px',
+                  transform: `scale(${scale})`,
+                  opacity,
+                  filter: blur > 0 ? `blur(${blur}px)` : 'none',
+                  transition: 'all 0.3s ease-out',
+                }}
+              >
+                <video
+                  src={video}
+                  className="w-full h-full object-contain"
+                  controls={isActive}
+                  playsInline
+                />
+              </div>
+            </div>
+          );
+        })}
+
+        <div style={{ height: 'calc(50% - 140px)' }} />
+      </div>
+
+      {/* 하단 썸네일 영역 */}
+      <div className="flex-none p-4 bg-white border-t border-gray-200">
+        <div className="flex gap-2 overflow-x-auto">
+          {videos.map((video, index) => (
+            <button
+              key={index}
+              onClick={() => scrollToIndex(index)}
+              className={`flex-none w-14 h-14 rounded-lg overflow-hidden border-2 transition-all bg-gray-800 flex items-center justify-center ${
+                index === currentIndex
+                  ? 'border-gray-900 shadow-md'
+                  : 'border-transparent opacity-70 hover:opacity-100'
+              }`}
+            >
+              <video src={video} className="w-full h-full object-cover" muted />
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 링크 블록 뷰어
+function LinkBlockViewer({ links }: { links: { url: string }[] }) {
+  const {
+    currentIndex,
+    containerRef,
+    scrollToIndex,
+    handleScroll,
+    handleScrollEnd,
+    getItemStyle,
+  } = useCarousel<{ url: string }>(links);
+
+  return (
+    <div className="flex flex-col h-full bg-gray-100">
+      {/* 링크 카운트 */}
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 px-4 py-1.5 bg-black/60 rounded-full text-white text-sm font-medium">
+        {currentIndex + 1} / {links.length}
+      </div>
+
+      {/* 수직 스크롤 캐러셀 */}
+      <div
+        ref={containerRef}
+        className="flex-1 overflow-y-auto overflow-x-hidden relative"
+        onScroll={handleScroll}
+        onTouchEnd={handleScrollEnd}
+        onMouseUp={handleScrollEnd}
+        style={{
+          scrollSnapType: 'y mandatory',
+          scrollBehavior: 'smooth',
+        }}
+      >
+        <div style={{ height: 'calc(50% - 80px)' }} />
+
+        {links.map((link, index) => {
+          const { isActive, scale, opacity } = getItemStyle(index);
+
+          return (
+            <div
+              key={index}
+              className="flex justify-center items-center px-4"
+              style={{
+                height: isActive ? '160px' : '100px',
+                scrollSnapAlign: 'center',
+                transition: 'all 0.3s ease-out',
+                marginBottom: '16px',
+              }}
+              onClick={() => !isActive && scrollToIndex(index)}
+            >
+              <div
+                className="w-full max-w-md p-4 bg-white rounded-xl shadow-lg"
+                style={{
+                  transform: `scale(${scale})`,
+                  opacity,
+                  transition: 'all 0.3s ease-out',
+                }}
+              >
+                <a
+                  href={link.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="block p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  <p className="font-medium text-gray-900 break-all text-sm">{link.url}</p>
+                </a>
+              </div>
+            </div>
+          );
+        })}
+
+        <div style={{ height: 'calc(50% - 80px)' }} />
+      </div>
+
+      {/* 하단 인디케이터 */}
+      <div className="flex-none p-4 bg-white border-t border-gray-200">
+        <div className="flex gap-2 justify-center">
+          {links.map((_, index) => (
+            <button
+              key={index}
+              onClick={() => scrollToIndex(index)}
+              className={`w-2 h-2 rounded-full transition-all ${
+                index === currentIndex ? 'bg-gray-900 w-4' : 'bg-gray-300'
+              }`}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 파일 블록 뷰어
+function FileBlockViewer({ files }: { files: { name: string; data: string; size?: number }[] }) {
+  const {
+    currentIndex,
+    containerRef,
+    scrollToIndex,
+    handleScroll,
+    handleScrollEnd,
+    getItemStyle,
+  } = useCarousel<{ name: string; data: string; size?: number }>(files);
+
+  const handleDownload = useCallback((file: { name: string; data: string }) => {
+    const link = document.createElement('a');
+    link.href = file.data;
+    link.download = file.name;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }, []);
+
+  return (
+    <div className="flex flex-col h-full bg-gray-100">
+      {/* 파일 카운트 */}
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 px-4 py-1.5 bg-black/60 rounded-full text-white text-sm font-medium">
+        {currentIndex + 1} / {files.length}
+      </div>
+
+      {/* 수직 스크롤 캐러셀 */}
+      <div
+        ref={containerRef}
+        className="flex-1 overflow-y-auto overflow-x-hidden relative"
+        onScroll={handleScroll}
+        onTouchEnd={handleScrollEnd}
+        onMouseUp={handleScrollEnd}
+        style={{
+          scrollSnapType: 'y mandatory',
+          scrollBehavior: 'smooth',
+        }}
+      >
+        <div style={{ height: 'calc(50% - 80px)' }} />
+
+        {files.map((file, index) => {
+          const { isActive, scale, opacity } = getItemStyle(index);
+
+          return (
+            <div
+              key={index}
+              className="flex justify-center items-center px-4"
+              style={{
+                height: isActive ? '160px' : '100px',
+                scrollSnapAlign: 'center',
+                transition: 'all 0.3s ease-out',
+                marginBottom: '16px',
+              }}
+              onClick={() => !isActive && scrollToIndex(index)}
+            >
+              <div
+                className="w-full max-w-md p-4 bg-white rounded-xl shadow-lg"
+                style={{
+                  transform: `scale(${scale})`,
+                  opacity,
+                  transition: 'all 0.3s ease-out',
+                }}
+              >
+                <div className="flex items-center justify-between p-3 border border-gray-200 rounded-lg bg-gray-50">
+                  <div className="flex-1 min-w-0 mr-3">
+                    <p className="font-medium text-gray-900 truncate">{file.name}</p>
+                    <p className="text-sm text-gray-500">
+                      {file.size ? `${(file.size / 1024).toFixed(1)} KB` : ''}
+                    </p>
+                  </div>
+                  {isActive && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDownload(file);
+                      }}
+                      className="p-2 bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors"
+                    >
+                      <Download className="w-4 h-4 text-white" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+
+        <div style={{ height: 'calc(50% - 80px)' }} />
+      </div>
+
+      {/* 하단 인디케이터 */}
+      <div className="flex-none p-4 bg-white border-t border-gray-200">
+        <div className="flex gap-2 justify-center">
+          {files.map((_, index) => (
+            <button
+              key={index}
+              onClick={() => scrollToIndex(index)}
+              className={`w-2 h-2 rounded-full transition-all ${
+                index === currentIndex ? 'bg-gray-900 w-4' : 'bg-gray-300'
+              }`}
+            />
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
