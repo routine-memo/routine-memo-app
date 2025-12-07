@@ -46,7 +46,8 @@ const SketchCanvasInner = forwardRef<SketchCanvasHandle, SketchCanvasProps>(
       },
       loadPaths: async (paths: unknown[]) => {
         if (!canvasRef.current) return;
-        await canvasRef.current.loadPaths(paths);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await canvasRef.current.loadPaths(paths as any);
       },
       eraseMode: (isEraser: boolean) => {
         canvasRef.current?.eraseMode(isEraser);

@@ -345,9 +345,88 @@ export function AlbumCard({
   );
 }
 
+// 블록에서 선택될 블록 ID를 미리 계산하는 헬퍼 함수
+// mediaAlreadyUsed: 이미 이미지/영상이 사용됐으면 true
+function getSelectedBlockId(
+  blocks: BlockPosition[],
+  blockValues?: BlockValue[],
+  excludeBlockIds?: Set<string>,
+  mediaAlreadyUsed?: boolean
+): string | null {
+  const getBlockValue = (blockId: string): BlockDefaultValue | undefined => {
+    return blockValues?.find(bv => bv.blockId === blockId)?.value;
+  };
+
+  // 1. 이미지나 영상 확인 (mediaAlreadyUsed가 아닐 때만)
+  if (!mediaAlreadyUsed) {
+    for (const block of blocks) {
+      const value = getBlockValue(block.id);
+      if (block.type === 'image' && value?.type === 'image' && value.value.images?.length > 0) {
+        const firstImage = value.value.images.find(img => img);
+        if (firstImage) return block.id;
+      }
+      if (block.type === 'video' && value?.type === 'video' && value.value.videos?.length > 0) {
+        const firstVideo = value.value.videos.find(v => v);
+        if (firstVideo) return block.id;
+      }
+    }
+  }
+
+  // 2. 비미디어 블록에서 선택 (중복 제외)
+  const nonMediaBlocks = blocks.filter(b => b.type !== 'image' && b.type !== 'video');
+  if (nonMediaBlocks.length === 0) return null;
+
+  // 가장 왼쪽 위 블록 찾기 (제외된 블록 제외)
+  const sortedBlocks = [...nonMediaBlocks].sort((a, b) => {
+    if (a.row !== b.row) return a.row - b.row;
+    return a.colStart - b.colStart;
+  });
+
+  // 제외 목록에 없는 첫 번째 블록 찾기
+  for (const block of sortedBlocks) {
+    if (!excludeBlockIds?.has(block.id)) {
+      return block.id;
+    }
+  }
+
+  // 모두 제외된 경우 첫 번째 블록 반환 (fallback)
+  return sortedBlocks[0]?.id || null;
+}
+
 // 겹쳐진 카드 형태의 미리보기
 function StackedCardsPreview({ blocks, previewEntries }: { blocks: BlockPosition[]; previewEntries?: PreviewEntry[] }) {
   const cards = [0, 1, 2];
+
+  // 사용된 블록 ID 추적 (비미디어 블록만)
+  const usedBlockIds = new Set<string>();
+  // 미디어가 이미 사용됐는지 추적
+  let mediaAlreadyUsed = false;
+
+  // 각 카드별로 선택될 블록 ID 미리 계산
+  const cardSelections = cards.map((cardIndex) => {
+    const entry = previewEntries?.[cardIndex];
+    const currentBlocks = entry?.blocks || blocks;
+    const currentValues = entry?.blockValues;
+
+    // 이 카드에서 선택될 블록 ID 계산
+    const selectedBlockId = getSelectedBlockId(currentBlocks, currentValues, usedBlockIds, mediaAlreadyUsed);
+
+    // 선택된 블록 타입 확인
+    if (selectedBlockId) {
+      const selectedBlock = currentBlocks.find(b => b.id === selectedBlockId);
+      if (selectedBlock) {
+        if (selectedBlock.type === 'image' || selectedBlock.type === 'video') {
+          // 미디어 블록이 선택됨 -> 다음 카드에서는 미디어 제외
+          mediaAlreadyUsed = true;
+        } else {
+          // 비미디어 블록 -> usedBlockIds에 추가
+          usedBlockIds.add(selectedBlockId);
+        }
+      }
+    }
+
+    return { currentBlocks, currentValues, selectedBlockId };
+  });
 
   return (
     <div className="relative h-24 w-full flex justify-center items-end">
@@ -356,7 +435,7 @@ function StackedCardsPreview({ blocks, previewEntries }: { blocks: BlockPosition
         const translateX = (cardIndex - 1) * 30;
         const translateY = Math.abs(cardIndex - 1) * 5;
         const zIndex = cardIndex === 1 ? 3 : cardIndex === 0 ? 2 : 1;
-        const entry = previewEntries?.[cardIndex];
+        const { currentBlocks, currentValues, selectedBlockId } = cardSelections[cardIndex];
 
         return (
           <div
@@ -368,8 +447,9 @@ function StackedCardsPreview({ blocks, previewEntries }: { blocks: BlockPosition
             }}
           >
             <PreviewCardContent
-              blocks={entry?.blocks || blocks}
-              blockValues={entry?.blockValues}
+              blocks={currentBlocks}
+              blockValues={currentValues}
+              selectedBlockId={selectedBlockId}
             />
           </div>
         );
@@ -378,69 +458,69 @@ function StackedCardsPreview({ blocks, previewEntries }: { blocks: BlockPosition
   );
 }
 
-// 프리뷰 카드 콘텐츠: 이미지/영상 우선, 없으면 가장 왼쪽 위 블록 내용
-function PreviewCardContent({ blocks, blockValues }: { blocks: BlockPosition[]; blockValues?: BlockValue[] }) {
+// 프리뷰 카드 콘텐츠: 미리 계산된 selectedBlockId로 렌더링
+function PreviewCardContent({
+  blocks,
+  blockValues,
+  selectedBlockId
+}: {
+  blocks: BlockPosition[];
+  blockValues?: BlockValue[];
+  excludeBlockIds?: Set<string>;
+  selectedBlockId?: string | null;
+}) {
   // 블록 ID로 값 찾기
   const getBlockValue = (blockId: string): BlockDefaultValue | undefined => {
     return blockValues?.find(bv => bv.blockId === blockId)?.value;
   };
 
-  // 1. 이미지나 영상이 있는지 먼저 확인
-  for (const block of blocks) {
-    const value = getBlockValue(block.id);
+  // selectedBlockId가 있으면 해당 블록 렌더링
+  if (selectedBlockId) {
+    const block = blocks.find(b => b.id === selectedBlockId);
+    if (block) {
+      const value = getBlockValue(block.id);
 
-    // 이미지 블록
-    if (block.type === 'image' && value?.type === 'image' && value.value.images?.length > 0) {
-      const firstImage = value.value.images.find(img => img);
-      if (firstImage) {
-        return (
-          <img
-            src={firstImage}
-            alt=""
-            className="w-full h-full object-cover"
-          />
-        );
+      // 이미지 블록
+      if (block.type === 'image' && value?.type === 'image' && value.value.images?.length > 0) {
+        const firstImage = value.value.images.find(img => img);
+        if (firstImage) {
+          return (
+            <img
+              src={firstImage}
+              alt=""
+              className="w-full h-full object-cover"
+            />
+          );
+        }
       }
-    }
 
-    // 비디오 블록
-    if (block.type === 'video' && value?.type === 'video' && value.value.videos?.length > 0) {
-      const firstVideo = value.value.videos.find(v => v);
-      if (firstVideo) {
-        return (
-          <video
-            src={firstVideo}
-            className="w-full h-full object-cover"
-            muted
-          />
-        );
+      // 비디오 블록
+      if (block.type === 'video' && value?.type === 'video' && value.value.videos?.length > 0) {
+        const firstVideo = value.value.videos.find(v => v);
+        if (firstVideo) {
+          return (
+            <video
+              src={firstVideo}
+              className="w-full h-full object-cover"
+              muted
+            />
+          );
+        }
       }
+
+      // 그 외 블록
+      const paletteItem = blockPalette.find(p => p.type === block.type);
+      const Icon = iconMap[paletteItem?.icon || 'Type'];
+      return renderBlockPreview(block.type, value, Icon, block);
     }
   }
 
-  // 2. 이미지/영상이 없으면, 가장 왼쪽 위 블록 찾기 (이미지/영상 제외)
-  const nonMediaBlocks = blocks.filter(b => b.type !== 'image' && b.type !== 'video');
-  if (nonMediaBlocks.length === 0) {
-    // 블록이 없으면 기본 아이콘
-    return (
-      <div className="w-full h-full flex items-center justify-center bg-gray-100">
-        <span className="text-gray-400 text-xs">빈 기록</span>
-      </div>
-    );
-  }
-
-  // 가장 왼쪽 위 블록 찾기 (row 우선, 같으면 colStart)
-  const topLeftBlock = nonMediaBlocks.sort((a, b) => {
-    if (a.row !== b.row) return a.row - b.row;
-    return a.colStart - b.colStart;
-  })[0];
-
-  const value = getBlockValue(topLeftBlock.id);
-  const paletteItem = blockPalette.find(p => p.type === topLeftBlock.type);
-  const Icon = iconMap[paletteItem?.icon || 'Type'];
-
-  // 블록 타입별 렌더링 (값이 있든 없든 블록 타입에 맞게)
-  return renderBlockPreview(topLeftBlock.type, value, Icon, topLeftBlock);
+  // 블록이 없으면 기본 아이콘
+  return (
+    <div className="w-full h-full flex items-center justify-center bg-gray-100">
+      <span className="text-gray-400 text-xs">빈 기록</span>
+    </div>
+  );
 }
 
 // 블록 타입별 프리뷰 렌더링 - 실제 BlockPreview 컴포넌트 사용

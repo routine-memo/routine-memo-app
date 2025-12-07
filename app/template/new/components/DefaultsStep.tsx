@@ -562,7 +562,7 @@ export const DefaultsStep = ({
                     <DataGraphBlockPreview value={block.defaultValue.value} />
                   ) : block.type === 'map' && block.defaultValue?.type === 'map' && block.defaultValue.value.markers?.length > 0 ? (
                     <MapBlockPreview value={block.defaultValue.value} />
-                  ) : block.type === 'progress' && block.defaultValue?.type === 'progress' && (block.defaultValue.value.title || block.defaultValue.value.targetDate || block.defaultValue.value.currentValue > 0) ? (
+                  ) : block.type === 'progress' && block.defaultValue?.type === 'progress' && (block.defaultValue.value.title || block.defaultValue.value.targetDate || (block.defaultValue.value.currentValue ?? 0) > 0) ? (
                     <ProgressBlockPreview value={block.defaultValue.value} />
                   ) : (
                     <div className="h-full flex items-center justify-center">
