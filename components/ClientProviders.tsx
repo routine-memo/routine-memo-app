@@ -1,6 +1,7 @@
 'use client';
 
 import { MediaMigrationProvider } from './MediaMigrationProvider';
+import { DarkModeProvider } from './DarkModeProvider';
 
 interface ClientProvidersProps {
   children: React.ReactNode;
@@ -8,8 +9,10 @@ interface ClientProvidersProps {
 
 export function ClientProviders({ children }: ClientProvidersProps) {
   return (
-    <MediaMigrationProvider>
-      {children}
-    </MediaMigrationProvider>
+    <DarkModeProvider>
+      <MediaMigrationProvider>
+        {children}
+      </MediaMigrationProvider>
+    </DarkModeProvider>
   );
 }

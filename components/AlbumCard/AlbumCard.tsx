@@ -440,7 +440,7 @@ function StackedCardsPreview({ blocks, previewEntries }: { blocks: BlockPosition
         return (
           <div
             key={cardIndex}
-            className="absolute w-[109px] h-[137px] bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden"
+            className="absolute w-[109px] h-[137px] bg-white dark:bg-gray-700 rounded-lg shadow-lg border border-gray-200 dark:border-gray-600 overflow-hidden"
             style={{
               transform: `translateX(${translateX}px) translateY(${translateY}px) rotate(${rotation}deg)`,
               zIndex: cardZIndex,
@@ -517,8 +517,8 @@ function PreviewCardContent({
 
   // 블록이 없으면 기본 아이콘
   return (
-    <div className="w-full h-full flex items-center justify-center bg-gray-100">
-      <span className="text-gray-400 text-xs">빈 기록</span>
+    <div className="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-600">
+      <span className="text-gray-400 dark:text-gray-300 text-xs">빈 기록</span>
     </div>
   );
 }
@@ -619,8 +619,8 @@ function renderBlockPreview(
     const textContent = value.value.richText.replace(/<[^>]*>/g, '').trim();
     if (textContent) {
       return (
-        <div className="w-full h-full p-2 flex items-center justify-center bg-white overflow-hidden rounded-xl">
-          <span className="text-[8px] leading-tight text-gray-700 text-center line-clamp-4">
+        <div className="w-full h-full p-2 flex items-center justify-center bg-white dark:bg-gray-600 overflow-hidden rounded-xl">
+          <span className="text-[8px] leading-tight text-gray-700 dark:text-gray-200 text-center line-clamp-4">
             {textContent.slice(0, 50)}
           </span>
         </div>
@@ -635,7 +635,7 @@ function renderBlockPreview(
       typhoon: '🌀', dusty: '😷', cold: '🥶', hot: '🥵'
     };
     return (
-      <div className="w-full h-full flex items-center justify-center bg-white rounded-xl">
+      <div className="w-full h-full flex items-center justify-center bg-white dark:bg-gray-600 rounded-xl">
         <span className="text-2xl">{weatherEmoji[value.value.weather] || '☀️'}</span>
       </div>
     );
@@ -650,7 +650,7 @@ function renderBlockPreview(
       anxious: '😰', unpleasant: '😣', embarrassed: '😳', regretful: '😔'
     };
     return (
-      <div className="w-full h-full flex items-center justify-center bg-white rounded-xl">
+      <div className="w-full h-full flex items-center justify-center bg-white dark:bg-gray-600 rounded-xl">
         <span className="text-2xl">{emotionEmoji[value.value.emotion] || '😐'}</span>
       </div>
     );
@@ -661,9 +661,9 @@ function renderBlockPreview(
     const checkedCount = (value.value.html.match(/checked="true"/g) || []).length;
     const totalCount = (value.value.html.match(/<li/g) || []).length;
     return (
-      <div className="w-full h-full flex flex-col items-center justify-center bg-white rounded-xl">
-        <span className="text-lg font-bold text-gray-900">{checkedCount}/{totalCount}</span>
-        <span className="text-[7px] text-gray-500">완료</span>
+      <div className="w-full h-full flex flex-col items-center justify-center bg-white dark:bg-gray-600 rounded-xl">
+        <span className="text-lg font-bold text-gray-900 dark:text-white">{checkedCount}/{totalCount}</span>
+        <span className="text-[7px] text-gray-500 dark:text-gray-300">완료</span>
       </div>
     );
   }
@@ -671,17 +671,17 @@ function renderBlockPreview(
   // customLabel이 있으면 표시
   if (block?.customLabel) {
     return (
-      <div className="w-full h-full flex flex-col items-center justify-center bg-gray-50 rounded-xl">
-        <Icon className="w-5 h-5 text-gray-400" />
-        <span className="text-[6px] text-gray-500 text-center px-1 truncate w-full mt-0.5">{block.customLabel}</span>
+      <div className="w-full h-full flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-600 rounded-xl">
+        <Icon className="w-5 h-5 text-gray-400 dark:text-gray-300" />
+        <span className="text-[6px] text-gray-500 dark:text-gray-300 text-center px-1 truncate w-full mt-0.5">{block.customLabel}</span>
       </div>
     );
   }
 
   // 기본: 아이콘 표시
   return (
-    <div className="w-full h-full flex items-center justify-center bg-gray-50 rounded-xl">
-      <Icon className="w-6 h-6 text-gray-300" />
+    <div className="w-full h-full flex items-center justify-center bg-gray-50 dark:bg-gray-600 rounded-xl">
+      <Icon className="w-6 h-6 text-gray-300 dark:text-gray-400" />
     </div>
   );
 }

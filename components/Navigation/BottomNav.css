@@ -11,13 +11,13 @@
   align-items: center;
   padding: 0 16px;
   z-index: 100;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
-@media (prefers-color-scheme: dark) {
-  .bottom-nav {
-    background: #FFFFFF;
-    border-top-color: #000000;
-  }
+/* 다크모드 지원 (Tailwind class 기반) */
+:root.dark .bottom-nav {
+  background: #171717;
+  border-top-color: #404040;
 }
 
 .nav-item-wrapper {
@@ -42,8 +42,20 @@
   color: #000000;
 }
 
+:root.dark .nav-item:hover {
+  color: #FFFFFF;
+}
+
 .nav-item.active {
   color: #000000;
+}
+
+:root.dark .nav-item.active {
+  color: #FFFFFF;
+}
+
+:root.dark .nav-item {
+  color: #A3A3A3;
 }
 
 .nav-icon {

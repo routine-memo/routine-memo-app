@@ -477,20 +477,20 @@ export default function RecordsPage() {
   }, [filter, filteredDailyEntries.length, searchQuery]);
 
   return (
-    <main className="min-h-screen p-6 bg-white relative">
+    <main className="min-h-screen p-6 bg-white dark:bg-gray-900 relative transition-colors">
       {/* 검색 바 */}
       <div className="relative mb-6">
         <Search
           size={20}
           strokeWidth={2}
-          className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"
+          className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500"
         />
         <input
           type="text"
           placeholder="앨범 검색..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-12 pr-4 py-3 rounded-lg border-2 border-gray-300 bg-white text-black placeholder-gray-400 focus:outline-none focus:border-black"
+          className="w-full pl-12 pr-4 py-3 rounded-lg border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-black dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-black dark:focus:border-gray-400 transition-colors"
         />
       </div>
 
@@ -500,8 +500,8 @@ export default function RecordsPage() {
           onClick={() => setFilter('all')}
           className={`px-4 py-2 rounded-full border-2 text-sm font-medium whitespace-nowrap transition-colors ${
             filter === 'all'
-              ? 'border-black bg-black text-white'
-              : 'border-gray-300 bg-white text-black hover:border-black'
+              ? 'border-black dark:border-white bg-black dark:bg-white text-white dark:text-black'
+              : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-black dark:text-white hover:border-black dark:hover:border-gray-400'
           }`}
         >
           전체
@@ -510,8 +510,8 @@ export default function RecordsPage() {
           onClick={() => setFilter('week')}
           className={`px-4 py-2 rounded-full border-2 text-sm font-medium whitespace-nowrap transition-colors ${
             filter === 'week'
-              ? 'border-black bg-black text-white'
-              : 'border-gray-300 bg-white text-black hover:border-black'
+              ? 'border-black dark:border-white bg-black dark:bg-white text-white dark:text-black'
+              : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-black dark:text-white hover:border-black dark:hover:border-gray-400'
           }`}
         >
           최근 7일
@@ -520,8 +520,8 @@ export default function RecordsPage() {
           onClick={() => setFilter('month')}
           className={`px-4 py-2 rounded-full border-2 text-sm font-medium whitespace-nowrap transition-colors ${
             filter === 'month'
-              ? 'border-black bg-black text-white'
-              : 'border-gray-300 bg-white text-black hover:border-black'
+              ? 'border-black dark:border-white bg-black dark:bg-white text-white dark:text-black'
+              : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-black dark:text-white hover:border-black dark:hover:border-gray-400'
           }`}
         >
           이번 달
@@ -531,15 +531,15 @@ export default function RecordsPage() {
       {/* 즉석 앨범 카드 (밝은 버전) */}
       {showDailyAlbum && (
         <div className="mb-4 h-[180px]">
-          <div className="h-full rounded-2xl bg-white border-2 border-gray-200 overflow-hidden shadow-sm">
+          <div className="h-full rounded-2xl bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm transition-colors">
             {/* 클릭 가능한 메인 영역 */}
             <div
               onClick={() => router.push('/daily')}
-              className="p-4 cursor-pointer hover:bg-gray-50 transition-colors h-[128px]"
+              className="p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors h-[128px]"
             >
               {/* 앨범 이름 */}
               <div className="flex items-center gap-2 mb-2">
-                <h3 className="text-lg font-bold text-gray-900">
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">
                   즉석 앨범
                 </h3>
               </div>
@@ -548,14 +548,14 @@ export default function RecordsPage() {
               <div className="flex items-end gap-3">
                 <div className="flex flex-col mb-[30px]">
                   <div className="flex items-end gap-1">
-                    <span className="text-3xl font-bold text-gray-900 leading-none">
+                    <span className="text-3xl font-bold text-gray-900 dark:text-white leading-none">
                       {filter === 'all' ? dailyEntries.length : filteredDailyEntries.length}
                     </span>
-                    <span className="text-xs text-gray-500 mb-0.5">장</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">장</span>
                   </div>
                   <div className="flex items-center gap-0.5 mt-1">
-                    <span className="text-[10px] text-gray-500">기록 보기</span>
-                    <ChevronRight className="w-3 h-3 text-gray-500" />
+                    <span className="text-[10px] text-gray-500 dark:text-gray-400">기록 보기</span>
+                    <ChevronRight className="w-3 h-3 text-gray-500 dark:text-gray-400" />
                   </div>
                 </div>
 
@@ -566,10 +566,10 @@ export default function RecordsPage() {
             </div>
 
             {/* 액션 버튼 영역 */}
-            <div className="border-t border-gray-200 relative z-10 bg-white">
+            <div className="border-t border-gray-200 dark:border-gray-700 relative z-10 bg-white dark:bg-gray-800 transition-colors">
               <button
                 onClick={() => router.push('/daily/new')}
-                className="w-full flex items-center justify-center gap-2 py-3 text-gray-900 hover:bg-gray-50 transition-colors bg-white"
+                className="w-full flex items-center justify-center gap-2 py-3 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors bg-white dark:bg-gray-800"
               >
                 <Plus className="w-4 h-4" />
                 <span className="text-sm font-medium">기록하기</span>
@@ -583,17 +583,17 @@ export default function RecordsPage() {
       <div className="space-y-3 mb-20">
         {isLoading ? (
           <div className="text-center py-8">
-            <p className="text-gray-500">로딩 중...</p>
+            <p className="text-gray-500 dark:text-gray-400">로딩 중...</p>
           </div>
         ) : sortedAlbums.length === 0 ? (
           <div className="text-center py-16">
-            <div className="w-24 h-24 mx-auto mb-6 rounded-full border-2 border-gray-300 bg-gray-50 flex items-center justify-center">
-              <FileText size={48} strokeWidth={1.5} className="text-gray-400" />
+            <div className="w-24 h-24 mx-auto mb-6 rounded-full border-2 border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 flex items-center justify-center transition-colors">
+              <FileText size={48} strokeWidth={1.5} className="text-gray-400 dark:text-gray-500" />
             </div>
-            <p className="text-gray-700 mb-2 font-medium">
+            <p className="text-gray-700 dark:text-gray-300 mb-2 font-medium">
               아직 앨범이 없어요
             </p>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
               아래 버튼을 눌러 첫 앨범을 만들어보세요
             </p>
           </div>
@@ -623,7 +623,7 @@ export default function RecordsPage() {
       <div className="fixed bottom-20 left-0 right-0 px-4 pb-4">
         <Link
           href="/create"
-          className="flex items-center justify-center gap-2 w-full py-4 rounded-xl bg-gray-900 hover:bg-gray-800 text-white font-semibold transition-colors"
+          className="flex items-center justify-center gap-2 w-full py-4 rounded-xl bg-gray-900 dark:bg-white hover:bg-gray-800 dark:hover:bg-gray-200 text-white dark:text-black font-semibold transition-colors"
         >
           <Plus size={20} strokeWidth={2.5} />
           <span>새 앨범</span>
