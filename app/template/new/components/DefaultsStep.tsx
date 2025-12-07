@@ -56,6 +56,7 @@ export const DefaultsStep = ({
   const [gridWidth, setGridWidth] = useState(0);
   const [isEditingLabel, setIsEditingLabel] = useState(false);
   const [editingLabelValue, setEditingLabelValue] = useState('');
+  const [validationError, setValidationError] = useState<string | null>(null);
   const labelInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const textEditorRef = useRef<TextBlockEditorHandle>(null);
@@ -200,6 +201,24 @@ export const DefaultsStep = ({
 
   // 모달 닫기 (저장 후)
   const closeModal = useCallback(async () => {
+    // 달성도, 데이터그래프 블록은 유효성 검증 필요
+    if (progressEditorRef.current) {
+      const isValid = progressEditorRef.current.validate();
+      if (!isValid) return; // 유효하지 않으면 모달 닫기 중단
+    }
+    if (dataGraphEditorRef.current) {
+      const isValid = dataGraphEditorRef.current.validate();
+      if (!isValid) return; // 유효하지 않으면 모달 닫기 중단
+    }
+
+    // 에디터에서 블러 처리 (IME 입력 완료)
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+
+    // 블러 후 약간의 지연을 주어 IME 입력이 완료되도록 함
+    await new Promise(resolve => setTimeout(resolve, 50));
+
     if (textEditorRef.current) {
       await textEditorRef.current.save();
     }
@@ -239,6 +258,9 @@ export const DefaultsStep = ({
     if (progressEditorRef.current) {
       await progressEditorRef.current.save();
     }
+
+    // 상태 업데이트 후 모달 닫기
+    await new Promise(resolve => setTimeout(resolve, 10));
     setIsEditingLabel(false);
     setSelectedBlockId(null);
   }, []);
@@ -428,6 +450,49 @@ export const DefaultsStep = ({
     return maxBottom;
   }, [blocks, rowHeight]);
 
+  // 달성도/데이터그래프 블록 기본값 검증
+  const validateRequiredDefaults = useCallback((): { valid: boolean; missingBlocks: string[] } => {
+    const missingBlocks: string[] = [];
+
+    for (const block of blocks) {
+      if (block.type === 'progress') {
+        const defaultValue = block.defaultValue;
+        if (!defaultValue || defaultValue.type !== 'progress') {
+          const paletteItem = blockPalette.find(p => p.type === block.type);
+          missingBlocks.push(block.customLabel || paletteItem?.label || '달성도');
+          continue;
+        }
+        const progressValue = defaultValue.value;
+        if (progressValue.mode === 'dday' && !progressValue.targetDate) {
+          const paletteItem = blockPalette.find(p => p.type === block.type);
+          missingBlocks.push(block.customLabel || paletteItem?.label || '달성도');
+        } else if (progressValue.mode === 'percent' && (!progressValue.targetValue || progressValue.targetValue <= 0)) {
+          const paletteItem = blockPalette.find(p => p.type === block.type);
+          missingBlocks.push(block.customLabel || paletteItem?.label || '달성도');
+        }
+      } else if (block.type === 'dataGraph') {
+        const defaultValue = block.defaultValue;
+        if (!defaultValue || defaultValue.type !== 'dataGraph' || !defaultValue.value.fields || defaultValue.value.fields.length === 0) {
+          const paletteItem = blockPalette.find(p => p.type === block.type);
+          missingBlocks.push(block.customLabel || paletteItem?.label || '데이터 그래프');
+        }
+      }
+    }
+
+    return { valid: missingBlocks.length === 0, missingBlocks };
+  }, [blocks]);
+
+  // 다음 버튼 클릭 핸들러
+  const handleNext = useCallback(() => {
+    const { valid, missingBlocks } = validateRequiredDefaults();
+    if (!valid) {
+      setValidationError(`다음 블록의 기본값을 설정해주세요: ${missingBlocks.join(', ')}`);
+      return;
+    }
+    setValidationError(null);
+    onNext(blocks);
+  }, [validateRequiredDefaults, onNext, blocks]);
+
   return (
     <main className="fixed inset-0 flex flex-col bg-gray-50">
       {/* 헤더 */}
@@ -437,12 +502,19 @@ export const DefaultsStep = ({
         </button>
         <h1 className="text-lg font-semibold text-gray-900">{templateName}</h1>
         <button
-          onClick={() => onNext(blocks)}
+          onClick={handleNext}
           className="px-4 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
         >
           다음
         </button>
       </div>
+
+      {/* 에러 메시지 */}
+      {validationError && (
+        <div className="px-4 py-3 bg-red-50 border-b border-red-200">
+          <p className="text-sm text-red-600">{validationError}</p>
+        </div>
+      )}
 
       {/* 안내 텍스트 */}
       <div className="px-4 py-3 bg-white border-b border-gray-100">

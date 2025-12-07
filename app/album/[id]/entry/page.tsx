@@ -261,6 +261,14 @@ export default function EntryPage() {
 
   // 모달 닫기 (저장 후)
   const closeModal = useCallback(async () => {
+    // 에디터에서 블러 처리 (IME 입력 완료)
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+
+    // 블러 후 약간의 지연을 주어 IME 입력이 완료되도록 함
+    await new Promise(resolve => setTimeout(resolve, 50));
+
     if (textEditorRef.current) await textEditorRef.current.save();
     if (checklistEditorRef.current) await checklistEditorRef.current.save();
     if (weatherEditorRef.current) await weatherEditorRef.current.save();
@@ -274,6 +282,9 @@ export default function EntryPage() {
     if (dataGraphEditorRef.current) await dataGraphEditorRef.current.save();
     if (mapEditorRef.current) await mapEditorRef.current.save();
     if (progressEditorRef.current) await progressEditorRef.current.save();
+
+    // 상태 업데이트 후 모달 닫기
+    await new Promise(resolve => setTimeout(resolve, 10));
     setIsEditingLabel(false);
     setSelectedBlockId(null);
   }, []);

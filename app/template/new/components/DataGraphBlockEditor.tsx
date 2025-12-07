@@ -7,10 +7,12 @@ import { DataGraphBlockDefault, DataGraphField, DataGraphFormat } from '../types
 interface DataGraphBlockEditorProps {
   initialValue?: DataGraphBlockDefault;
   onChange: (value: DataGraphBlockDefault) => void;
+  onValidationChange?: (isValid: boolean) => void;
 }
 
 export interface DataGraphBlockEditorHandle {
   save: () => Promise<void>;
+  validate: () => boolean;
 }
 
 // 기본 색상 팔레트
@@ -20,12 +22,16 @@ const COLOR_PALETTE = [
 ];
 
 const DataGraphBlockEditorInner = forwardRef<DataGraphBlockEditorHandle, DataGraphBlockEditorProps>(
-  ({ initialValue, onChange }, ref) => {
+  ({ initialValue, onChange, onValidationChange }, ref) => {
     const [fields, setFields] = useState<DataGraphField[]>(
       initialValue?.fields || []
     );
     const [editingField, setEditingField] = useState<DataGraphField | null>(null);
     const [isAddMode, setIsAddMode] = useState(false);
+    const [showError, setShowError] = useState(false);
+
+    // 유효성 검사: 최소 1개 이상의 필드 필요
+    const isValid = fields.length > 0;
 
     // 새 필드 기본값
     const createNewField = (): DataGraphField => ({
@@ -62,8 +68,16 @@ const DataGraphBlockEditorInner = forwardRef<DataGraphBlockEditorHandle, DataGra
       onChange({ fields });
     }, [fields, onChange]);
 
-    // 부모에게 save 메서드 노출
-    useImperativeHandle(ref, () => ({ save }), [save]);
+    // 유효성 검증
+    const validate = useCallback(() => {
+      if (!isValid) {
+        setShowError(true);
+      }
+      return isValid;
+    }, [isValid]);
+
+    // 부모에게 save, validate 메서드 노출
+    useImperativeHandle(ref, () => ({ save, validate }), [save, validate]);
 
     // 필드 수정 모달
     const renderFieldEditor = () => {
@@ -180,6 +194,11 @@ const DataGraphBlockEditorInner = forwardRef<DataGraphBlockEditorHandle, DataGra
             <div className="flex flex-col items-center justify-center h-full text-gray-400 p-4">
               <p className="text-sm mb-2">추적할 항목이 없습니다</p>
               <p className="text-xs">아래 버튼을 눌러 항목을 추가하세요</p>
+              {showError && (
+                <p className="text-sm text-red-500 mt-4">
+                  최소 1개 이상의 항목을 추가해주세요.
+                </p>
+              )}
             </div>
           ) : (
             <div className="p-4 space-y-2">

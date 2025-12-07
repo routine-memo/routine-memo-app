@@ -8,23 +8,52 @@ interface ProgressBlockEditorProps {
   initialValue?: ProgressBlockDefault;
   onChange: (value: ProgressBlockDefault) => void;
   lockMode?: boolean; // true면 모드 변경 불가 (기록 입력 시)
+  onValidationChange?: (isValid: boolean) => void; // 유효성 상태 콜백
 }
 
 export interface ProgressBlockEditorHandle {
   save: () => Promise<void>;
+  validate: () => boolean;
 }
 
 const ProgressBlockEditorInner = forwardRef<ProgressBlockEditorHandle, ProgressBlockEditorProps>(
-  ({ initialValue, onChange, lockMode = false }, ref) => {
+  ({ initialValue, onChange, lockMode = false, onValidationChange }, ref) => {
     const [mode, setMode] = useState<ProgressMode>(initialValue?.mode || 'dday');
     const [title, setTitle] = useState(initialValue?.title || '');
     const [targetDate, setTargetDate] = useState(initialValue?.targetDate || '');
-    const [currentValue, setCurrentValue] = useState(initialValue?.currentValue ?? 0);
-    const [targetValue, setTargetValue] = useState(initialValue?.targetValue ?? 100);
+    // 빈 문자열로 시작 (0 대신)
+    const [currentValueStr, setCurrentValueStr] = useState(
+      initialValue?.currentValue !== undefined && initialValue?.currentValue !== 0
+        ? String(initialValue.currentValue)
+        : ''
+    );
+    const [targetValueStr, setTargetValueStr] = useState(
+      initialValue?.targetValue !== undefined && initialValue?.targetValue !== 100
+        ? String(initialValue.targetValue)
+        : ''
+    );
+    const [showError, setShowError] = useState(false);
 
     // onChange를 ref로 감싸서 무한 루프 방지
     const onChangeRef = useRef(onChange);
     onChangeRef.current = onChange;
+
+    const onValidationChangeRef = useRef(onValidationChange);
+    onValidationChangeRef.current = onValidationChange;
+
+    // 숫자값으로 변환
+    const currentValue = currentValueStr === '' ? 0 : Number(currentValueStr);
+    const targetValue = targetValueStr === '' ? 0 : Number(targetValueStr);
+
+    // 유효성 검사
+    const isValid = mode === 'dday'
+      ? !!targetDate // D-Day: 날짜 필수
+      : (currentValueStr !== '' && targetValueStr !== '' && targetValue > 0); // 달성률: 현재값, 목표값 필수
+
+    // 유효성 상태 변경 알림
+    useEffect(() => {
+      onValidationChangeRef.current?.(isValid);
+    }, [isValid]);
 
     // 변경사항 전파
     useEffect(() => {
@@ -33,16 +62,22 @@ const ProgressBlockEditorInner = forwardRef<ProgressBlockEditorHandle, ProgressB
         title,
         targetDate,
         currentValue,
-        targetValue,
+        targetValue: targetValue || 100,
       });
     }, [mode, title, targetDate, currentValue, targetValue]);
 
-    // 저장 핸들러
+    // 저장 및 유효성 검사 핸들러
     useImperativeHandle(ref, () => ({
       save: async () => {
         // 현재 상태가 이미 onChange로 전파됨
       },
-    }));
+      validate: () => {
+        if (!isValid) {
+          setShowError(true);
+        }
+        return isValid;
+      },
+    }), [isValid]);
 
     // D-Day 계산
     const calculateDDay = () => {
@@ -117,14 +152,24 @@ const ProgressBlockEditorInner = forwardRef<ProgressBlockEditorHandle, ProgressB
         {mode === 'dday' && (
           <div className="flex-none mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              목표 날짜
+              목표 날짜 <span className="text-red-500">*</span>
             </label>
             <input
               type="date"
               value={targetDate}
-              onChange={(e) => setTargetDate(e.target.value)}
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+              onChange={(e) => {
+                setTargetDate(e.target.value);
+                setShowError(false);
+              }}
+              className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent ${
+                showError && !targetDate ? 'border-red-500' : 'border-gray-300'
+              }`}
             />
+            {showError && !targetDate && (
+              <p className="mt-2 text-sm text-red-500">
+                목표 날짜를 선택해주세요.
+              </p>
+            )}
             {dday !== null && (
               <p className="mt-2 text-sm text-gray-500">
                 {dday === 0
@@ -143,29 +188,58 @@ const ProgressBlockEditorInner = forwardRef<ProgressBlockEditorHandle, ProgressB
             <div className="flex-none mb-4 grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  현재 값
+                  현재 값 <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="number"
-                  value={currentValue}
-                  onChange={(e) => setCurrentValue(Number(e.target.value))}
+                  value={currentValueStr}
+                  onChange={(e) => {
+                    setCurrentValueStr(e.target.value);
+                    setShowError(false);
+                  }}
+                  onFocus={(e) => {
+                    if (e.target.value === '0') {
+                      setCurrentValueStr('');
+                    }
+                  }}
+                  placeholder="0"
                   min={0}
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                  className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent ${
+                    showError && currentValueStr === '' ? 'border-red-500' : 'border-gray-300'
+                  }`}
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  목표 값
+                  목표 값 <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="number"
-                  value={targetValue}
-                  onChange={(e) => setTargetValue(Number(e.target.value))}
+                  value={targetValueStr}
+                  onChange={(e) => {
+                    setTargetValueStr(e.target.value);
+                    setShowError(false);
+                  }}
+                  onFocus={(e) => {
+                    if (e.target.value === '0') {
+                      setTargetValueStr('');
+                    }
+                  }}
+                  placeholder="100"
                   min={1}
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                  className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent ${
+                    showError && targetValueStr === '' ? 'border-red-500' : 'border-gray-300'
+                  }`}
                 />
               </div>
             </div>
+
+            {/* 에러 메시지 */}
+            {showError && (currentValueStr === '' || targetValueStr === '') && (
+              <p className="text-sm text-red-500 mb-4">
+                현재 값과 목표 값을 모두 입력해주세요.
+              </p>
+            )}
 
             {/* 진행률 미리보기 */}
             <div className="flex-none mb-4">
@@ -180,7 +254,7 @@ const ProgressBlockEditorInner = forwardRef<ProgressBlockEditorHandle, ProgressB
                 />
               </div>
               <p className="mt-2 text-sm text-gray-500">
-                {currentValue} / {targetValue}
+                {currentValue} / {targetValue || 100}
               </p>
             </div>
           </>
