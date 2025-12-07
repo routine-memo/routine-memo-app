@@ -5,12 +5,21 @@ import { eq, isNotNull } from "drizzle-orm";
 import webpush from "web-push";
 import type { AlbumNotification } from "@/lib/api/albums";
 
-// VAPID 설정
-webpush.setVapidDetails(
-  "mailto:support@routine-memo.app",
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!
-);
+// VAPID 설정 (런타임에 초기화)
+function initializeWebPush() {
+  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  const privateKey = process.env.VAPID_PRIVATE_KEY;
+
+  if (publicKey && privateKey) {
+    webpush.setVapidDetails(
+      "mailto:support@routine-memo.app",
+      publicKey,
+      privateKey
+    );
+    return true;
+  }
+  return false;
+}
 
 // Vercel Cron 인증 헤더 확인
 function verifyCronSecret(request: NextRequest): boolean {
@@ -27,6 +36,14 @@ export async function GET(request: NextRequest) {
   // Cron 인증 확인
   if (!verifyCronSecret(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // VAPID 초기화
+  if (!initializeWebPush()) {
+    return NextResponse.json(
+      { error: "VAPID keys not configured" },
+      { status: 500 }
+    );
   }
 
   try {
