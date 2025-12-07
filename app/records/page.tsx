@@ -244,8 +244,8 @@ function renderDailyBlockPreview(
   }
 
   // 데이터 그래프 블록
-  if (type === 'dataGraph' && value?.type === 'dataGraph' && value.value.values?.length > 0) {
-    const firstValue = value.value.values[0];
+  if (type === 'dataGraph' && value?.type === 'dataGraph' && (value.value.values?.length ?? 0) > 0) {
+    const firstValue = value.value.values![0];
     const field = value.value.fields?.find(f => f.id === firstValue.fieldId);
     const displayValue = field?.format === 'percent' ? `${firstValue.value}%` : firstValue.value;
     return (
@@ -257,9 +257,9 @@ function renderDailyBlockPreview(
   }
 
   // 지도 블록
-  if (type === 'map' && value?.type === 'map' && value.value.markers?.length > 0) {
-    const markerCount = value.value.markers.length;
-    const firstName = value.value.markers[0].name;
+  if (type === 'map' && value?.type === 'map' && (value.value.markers?.length ?? 0) > 0) {
+    const markerCount = value.value.markers!.length;
+    const firstName = value.value.markers![0].name;
     return (
       <div className="w-full h-full flex flex-col items-center justify-center bg-gray-700">
         <span className="text-lg">📍</span>
@@ -271,8 +271,8 @@ function renderDailyBlockPreview(
   }
 
   // 링크 블록
-  if (type === 'link' && value?.type === 'link' && value.value.links?.length > 0) {
-    const firstLink = value.value.links[0];
+  if (type === 'link' && value?.type === 'link' && (value.value.links?.length ?? 0) > 0) {
+    const firstLink = value.value.links![0];
     let title = '';
     try {
       title = firstLink.metadata?.title || new URL(firstLink.url).hostname;
@@ -288,9 +288,9 @@ function renderDailyBlockPreview(
   }
 
   // 파일 블록
-  if (type === 'file' && value?.type === 'file' && value.value.files?.length > 0) {
-    const fileCount = value.value.files.length;
-    const firstName = value.value.files[0].name;
+  if (type === 'file' && value?.type === 'file' && (value.value.files?.length ?? 0) > 0) {
+    const fileCount = value.value.files!.length;
+    const firstName = value.value.files![0].name;
     return (
       <div className="w-full h-full flex flex-col items-center justify-center bg-gray-700">
         <span className="text-lg">📎</span>
