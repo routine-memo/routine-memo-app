@@ -25,18 +25,19 @@ function DailyStackedCardsPreview({ previewEntries }: { previewEntries: DailyPre
   const cards = [0, 1, 2];
 
   return (
-    <div className="relative h-20 w-full flex justify-center items-end">
+    <div className="relative h-24 w-full flex justify-center items-end">
       {cards.map((cardIndex) => {
         const rotation = (cardIndex - 1) * 6;
-        const translateX = (cardIndex - 1) * 28;
-        const translateY = Math.abs(cardIndex - 1) * 4;
+        const translateX = (cardIndex - 1) * 34;
+        const translateY = Math.abs(cardIndex - 1) * 5 - 10;
+        // zIndex를 낮춰서 기록하기 버튼보다 뒤에 표시
         const zIndex = cardIndex === 1 ? 3 : cardIndex === 0 ? 2 : 1;
         const entry = previewEntries[cardIndex];
 
         return (
           <div
             key={cardIndex}
-            className="absolute w-16 h-20 bg-gray-800 rounded-lg shadow-lg border border-gray-700 overflow-hidden"
+            className="absolute w-[77px] h-24 bg-gray-800 rounded-lg shadow-lg border border-gray-700 overflow-hidden"
             style={{
               transform: `translateX(${translateX}px) translateY(${translateY}px) rotate(${rotation}deg)`,
               zIndex,
@@ -545,7 +546,7 @@ export default function RecordsPage() {
 
               {/* 하단 영역 */}
               <div className="flex items-end gap-3">
-                <div className="flex flex-col">
+                <div className="flex flex-col mb-[30px]">
                   <div className="flex items-end gap-1">
                     <span className="text-3xl font-bold text-gray-900 leading-none">
                       {filter === 'all' ? dailyEntries.length : filteredDailyEntries.length}
@@ -558,17 +559,17 @@ export default function RecordsPage() {
                   </div>
                 </div>
 
-                <div className="flex-1 flex justify-center">
+                <div className="flex-1 flex justify-center z-0">
                   <DailyStackedCardsPreview previewEntries={dailyPreviewEntries} />
                 </div>
               </div>
             </div>
 
             {/* 액션 버튼 영역 */}
-            <div className="border-t border-gray-200">
+            <div className="border-t border-gray-200 relative z-10 bg-white">
               <button
                 onClick={() => router.push('/daily/new')}
-                className="w-full flex items-center justify-center gap-2 py-3 text-gray-900 hover:bg-gray-50 transition-colors"
+                className="w-full flex items-center justify-center gap-2 py-3 text-gray-900 hover:bg-gray-50 transition-colors bg-white"
               >
                 <Plus className="w-4 h-4" />
                 <span className="text-sm font-medium">기록하기</span>
