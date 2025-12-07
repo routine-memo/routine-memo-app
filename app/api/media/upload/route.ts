@@ -29,16 +29,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             "video/quicktime",
             "video/x-msvideo",
           ],
-          maximumSizeInBytes: 100 * 1024 * 1024, // 100MB
+          maximumSizeInBytes: 500 * 1024 * 1024, // 500MB (Vercel Blob 제한)
           tokenPayload: JSON.stringify({
             userId: user.id,
           }),
         };
       },
       onUploadCompleted: async ({ blob, tokenPayload }) => {
-        // 업로드 완료 후 처리 (필요시 DB에 저장)
-        console.log("Upload completed:", blob.url);
-        // 여기서 DB에 저장할 수 있지만, 클라이언트에서 별도로 처리하므로 생략
+        // 업로드 완료 콜백 - 에러 발생해도 업로드 자체는 성공으로 처리
+        try {
+          console.log("Upload completed:", blob.url);
+        } catch (e) {
+          // 콜백 에러 무시
+          console.error("onUploadCompleted error:", e);
+        }
       },
     });
 

@@ -396,9 +396,25 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
       const files = e.target.files;
       if (!files || files.length === 0) return;
 
+      const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500MB (Vercel Blob 제한)
       const fileArray = Array.from(files);
+
+      // 파일 크기 검증
+      const oversizedFiles = fileArray.filter(f => f.size > MAX_FILE_SIZE);
+      if (oversizedFiles.length > 0) {
+        const names = oversizedFiles.map(f => `${f.name} (${(f.size / 1024 / 1024).toFixed(0)}MB)`).join(', ');
+        alert(`파일 크기가 500MB를 초과하여 업로드할 수 없습니다: ${names}`);
+        e.target.value = '';
+        return;
+      }
+
+      if (validFiles.length === 0) {
+        e.target.value = '';
+        return;
+      }
+
       const newIndex = videos.length;
-      const placeholderCount = fileArray.length;
+      const placeholderCount = validFiles.length;
 
       // 1. 먼저 플레이스홀더로 상태 업데이트
       const placeholders = new Array(placeholderCount).fill('');
@@ -430,7 +446,7 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
       }, 50);
 
       // 3. 백그라운드에서 Vercel Blob에 업로드
-      fileArray.forEach(async (file, idx) => {
+      validFiles.forEach(async (file, idx) => {
         try {
           const result = await uploadMedia(file);
           setVideos(prev => {
