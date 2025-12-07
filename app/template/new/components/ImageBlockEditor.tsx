@@ -4,6 +4,7 @@ import { useState, useCallback, useImperativeHandle, forwardRef, useRef, useEffe
 import { Plus, Trash2, ImagePlus, Download, Loader2 } from 'lucide-react';
 import { ImageBlockDefault } from '../types';
 import { useCarousel } from '../hooks/useCarousel';
+import { uploadManager } from '@/lib/uploadManager';
 
 interface ImageBlockEditorProps {
   initialValue?: ImageBlockDefault;
@@ -53,9 +54,26 @@ const ImageBlockEditorInner = forwardRef<ImageBlockEditorHandle, ImageBlockEdito
       const files = e.target.files;
       if (!files || files.length === 0) return;
 
+      const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500MB (Vercel Blob 제한)
       const fileArray = Array.from(files);
+
+      // 파일 크기 검증
+      const oversizedFiles = fileArray.filter(f => f.size > MAX_FILE_SIZE);
+      if (oversizedFiles.length > 0) {
+        const names = oversizedFiles.map(f => `${f.name} (${(f.size / 1024 / 1024).toFixed(0)}MB)`).join(', ');
+        alert(`파일 크기가 500MB를 초과하여 업로드할 수 없습니다: ${names}`);
+        e.target.value = '';
+        return;
+      }
+
+      const validFiles = fileArray.filter(f => f.size <= MAX_FILE_SIZE);
+      if (validFiles.length === 0) {
+        e.target.value = '';
+        return;
+      }
+
       const newIndex = images.length;
-      const placeholderCount = fileArray.length;
+      const placeholderCount = validFiles.length;
 
       // 1. 먼저 플레이스홀더로 상태 업데이트 (빈 문자열)
       const placeholders = new Array(placeholderCount).fill('');
@@ -81,18 +99,48 @@ const ImageBlockEditorInner = forwardRef<ImageBlockEditorHandle, ImageBlockEdito
         setCurrentIndex(newIndex);
       }, 50);
 
-      // 3. 백그라운드에서 실제 이미지 로드
-      fileArray.forEach((file, idx) => {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          const result = event.target?.result as string;
-          setImages(prev => {
-            const updated = [...prev];
-            updated[newIndex + idx] = result;
-            return updated;
-          });
-        };
-        reader.readAsDataURL(file);
+      // 3. 백그라운드에서 전역 업로드 매니저를 통해 업로드
+      // 컴포넌트가 언마운트되어도 업로드는 계속 진행됨
+      validFiles.forEach((file, idx) => {
+        const targetIndex = newIndex + idx;
+
+        // 업로드 매니저에 작업 추가
+        const uploadId = uploadManager.addTask(file, {
+          onComplete: (url) => {
+            // 업로드 완료 시 URL로 업데이트
+            setImages(prev => {
+              const updated = [...prev];
+              // placeholder ID를 URL로 교체
+              const placeholderIndex = updated.findIndex(item => item === `__uploading__${uploadId}`);
+              if (placeholderIndex !== -1) {
+                updated[placeholderIndex] = url;
+              } else if (targetIndex < updated.length) {
+                // fallback: 원래 인덱스에 업데이트
+                updated[targetIndex] = url;
+              }
+              return updated;
+            });
+          },
+          onError: (error) => {
+            console.error('Failed to upload image:', error);
+            // 업로드 실패 시 해당 플레이스홀더 제거
+            setImages(prev => {
+              const updated = [...prev];
+              const placeholderIndex = updated.findIndex(item => item === `__uploading__${uploadId}`);
+              if (placeholderIndex !== -1) {
+                updated.splice(placeholderIndex, 1);
+              }
+              return updated;
+            });
+          }
+        });
+
+        // 빈 문자열 대신 업로드 ID를 placeholder로 사용
+        setImages(prev => {
+          const updated = [...prev];
+          updated[targetIndex] = `__uploading__${uploadId}`;
+          return updated;
+        });
       });
 
       e.target.value = '';
@@ -104,16 +152,35 @@ const ImageBlockEditorInner = forwardRef<ImageBlockEditorHandle, ImageBlockEdito
     }, []);
 
     // 이미지 다운로드
-    const handleDownload = useCallback((imageData: string, index: number) => {
-      const link = document.createElement('a');
-      link.href = imageData;
-      // 확장자 추출 (base64 데이터에서)
-      const mimeMatch = imageData.match(/data:image\/(\w+);/);
-      const ext = mimeMatch ? mimeMatch[1] : 'png';
-      link.download = `image_${index + 1}.${ext}`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+    const handleDownload = useCallback(async (imageData: string, index: number) => {
+      try {
+        // URL인 경우 fetch로 blob 가져오기
+        if (imageData.startsWith('http')) {
+          const response = await fetch(imageData);
+          const blob = await response.blob();
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          const ext = blob.type.split('/')[1] || 'png';
+          link.download = `image_${index + 1}.${ext}`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+        } else {
+          // base64인 경우 기존 방식
+          const link = document.createElement('a');
+          link.href = imageData;
+          const mimeMatch = imageData.match(/data:image\/(\w+);/);
+          const ext = mimeMatch ? mimeMatch[1] : 'png';
+          link.download = `image_${index + 1}.${ext}`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
+      } catch (error) {
+        console.error('Failed to download image:', error);
+      }
     }, []);
 
     // 저장 함수
@@ -202,7 +269,7 @@ const ImageBlockEditorInner = forwardRef<ImageBlockEditorHandle, ImageBlockEdito
                       }}
                     >
                       {/* 로딩 중 (플레이스홀더) */}
-                      {!img ? (
+                      {!img || img.startsWith('__uploading__') ? (
                         <div className="w-full h-full flex items-center justify-center bg-gray-800">
                           <Loader2 className="w-8 h-8 text-white animate-spin" />
                         </div>
@@ -264,7 +331,7 @@ const ImageBlockEditorInner = forwardRef<ImageBlockEditorHandle, ImageBlockEdito
                         : 'border-transparent opacity-70 hover:opacity-100'
                     }`}
                   >
-                    {img ? (
+                    {img && !img.startsWith('__uploading__') ? (
                       <img
                         src={img}
                         alt={`썸네일 ${index + 1}`}
