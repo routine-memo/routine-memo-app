@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { User, FileText, FolderOpen, Calendar, Moon, Sun, Bell, Database, Info, ChevronRight } from 'lucide-react';
+import { useSession, signOut } from 'next-auth/react';
+import { User, FileText, FolderOpen, Calendar, Moon, Sun, Bell, Database, Info, ChevronRight, LogOut } from 'lucide-react';
+import Image from 'next/image';
 import { useDarkMode } from '@/components/DarkModeProvider';
 import { getAlbums } from '@/lib/storage/album';
 import { getEntries } from '@/lib/storage/entry';
@@ -69,6 +71,7 @@ function calculateStreak(): number {
 }
 
 export default function ProfilePage() {
+  const { data: session, status } = useSession();
   const { isDarkMode, toggleDarkMode } = useDarkMode();
   const [stats, setStats] = useState({
     totalRecords: 0,
@@ -89,18 +92,36 @@ export default function ProfilePage() {
     setStats({ totalRecords, categories, streak });
   }, []);
 
+  const handleSignOut = () => {
+    signOut({ callbackUrl: '/login' });
+  };
+
   return (
     <main className="min-h-screen p-6 bg-white dark:bg-gray-900 transition-colors">
       {/* 프로필 카드 */}
       <section className="mb-8">
         <div className="rounded-xl border-2 border-black dark:border-gray-600 p-6 bg-white dark:bg-gray-800 transition-colors">
           <div className="flex items-center gap-4 mb-4">
-            <div className="w-16 h-16 rounded-full border-2 border-black dark:border-gray-600 bg-gray-100 dark:bg-gray-700 flex items-center justify-center transition-colors">
-              <User size={32} strokeWidth={2} className="text-black dark:text-white" />
-            </div>
+            {session?.user?.image ? (
+              <Image
+                src={session.user.image}
+                alt="프로필 이미지"
+                width={64}
+                height={64}
+                className="w-16 h-16 rounded-full border-2 border-black dark:border-gray-600"
+              />
+            ) : (
+              <div className="w-16 h-16 rounded-full border-2 border-black dark:border-gray-600 bg-gray-100 dark:bg-gray-700 flex items-center justify-center transition-colors">
+                <User size={32} strokeWidth={2} className="text-black dark:text-white" />
+              </div>
+            )}
             <div>
-              <h2 className="text-xl font-bold text-black dark:text-white">사용자</h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400">꾸준히 기록하는 중</p>
+              <h2 className="text-xl font-bold text-black dark:text-white">
+                {session?.user?.name || '사용자'}
+              </h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                {session?.user?.email || '꾸준히 기록하는 중'}
+              </p>
             </div>
           </div>
           <div className="grid grid-cols-3 gap-4 pt-4 border-t-2 border-black dark:border-gray-600 transition-colors">
@@ -126,6 +147,22 @@ export default function ProfilePage() {
               <p className="text-2xl font-bold text-black dark:text-white">{stats.streak}<span className="text-sm ml-0.5">일</span></p>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* 계정 */}
+      <section className="mb-8">
+        <h2 className="text-xl font-semibold mb-4 text-black dark:text-white pb-2 border-b-1 border-gray-300 dark:border-gray-700">계정</h2>
+        <div className="space-y-2">
+          <button
+            onClick={handleSignOut}
+            className="w-full px-4 py-4 bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-300 dark:border-gray-600 text-left flex items-center justify-between hover:border-red-500 dark:hover:border-red-400 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <LogOut size={20} strokeWidth={2} className="text-red-500 dark:text-red-400" />
+              <span className="text-red-500 dark:text-red-400 font-medium">로그아웃</span>
+            </div>
+          </button>
         </div>
       </section>
 
