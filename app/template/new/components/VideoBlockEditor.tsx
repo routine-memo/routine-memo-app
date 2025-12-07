@@ -408,6 +408,7 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
         return;
       }
 
+      const validFiles = fileArray.filter(f => f.size <= MAX_FILE_SIZE);
       if (validFiles.length === 0) {
         e.target.value = '';
         return;
