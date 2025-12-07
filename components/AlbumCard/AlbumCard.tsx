@@ -134,7 +134,7 @@ export function AlbumCard({
       >
         {/* 앞면 - 메인 카드 */}
         <div
-          className={`absolute inset-0 rounded-2xl bg-gray-900 overflow-hidden ${isFlipped ? 'pointer-events-none' : ''}`}
+          className={`absolute inset-0 rounded-2xl bg-gray-900 overflow-hidden border-2 border-transparent dark:border-gray-700 ${isFlipped ? 'pointer-events-none' : ''}`}
           style={{ backfaceVisibility: 'hidden' }}
         >
           {/* 오른쪽 위 아이콘들 */}
@@ -265,7 +265,7 @@ export function AlbumCard({
 
         {/* 뒷면 - 알림 설정 */}
         <div
-          className="absolute inset-0 rounded-2xl bg-gray-900 overflow-hidden p-4 flex flex-col"
+          className="absolute inset-0 rounded-2xl bg-gray-900 overflow-hidden p-4 flex flex-col border-2 border-transparent dark:border-gray-700"
           style={{
             backfaceVisibility: 'hidden',
             transform: 'rotateY(180deg)',
