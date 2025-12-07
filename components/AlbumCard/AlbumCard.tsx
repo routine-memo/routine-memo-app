@@ -432,7 +432,7 @@ function StackedCardsPreview({ blocks, previewEntries }: { blocks: BlockPosition
     <div className="relative h-24 w-full flex justify-center items-end">
       {cards.map((cardIndex) => {
         const rotation = (cardIndex - 1) * 8;
-        const translateX = (cardIndex - 1) * 45;
+        const translateX = (cardIndex - 1) * 51;
         const translateY = Math.abs(cardIndex - 1) * 8 + 50;
         const cardZIndex = cardIndex === 1 ? 3 : cardIndex === 0 ? 2 : 1;
         const { currentBlocks, currentValues, selectedBlockId } = cardSelections[cardIndex];
@@ -440,7 +440,7 @@ function StackedCardsPreview({ blocks, previewEntries }: { blocks: BlockPosition
         return (
           <div
             key={cardIndex}
-            className="absolute w-24 h-[120px] bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden"
+            className="absolute w-[109px] h-[137px] bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden"
             style={{
               transform: `translateX(${translateX}px) translateY(${translateY}px) rotate(${rotation}deg)`,
               zIndex: cardZIndex,
