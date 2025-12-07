@@ -16,21 +16,24 @@ export async function getCurrentUser() {
   const name = session.user.name || null;
   const image = session.user.image || null;
 
-  // 기존 사용자 찾기
-  let user = await db.query.users.findFirst({
-    where: eq(users.googleId, googleId),
-  });
-
-  // 없으면 새로 생성
-  if (!user) {
-    const [newUser] = await db.insert(users).values({
+  // upsert: 있으면 업데이트, 없으면 생성 (race condition 방지)
+  const [user] = await db.insert(users)
+    .values({
       googleId,
       email,
       name,
       image,
-    }).returning();
-    user = newUser;
-  }
+    })
+    .onConflictDoUpdate({
+      target: users.googleId,
+      set: {
+        email,
+        name,
+        image,
+        updatedAt: new Date(),
+      },
+    })
+    .returning();
 
   return user;
 }
