@@ -225,7 +225,7 @@ export function AlbumCard({
                 </div>
               </div>
 
-              <div className="flex-1 flex justify-center">
+              <div className="flex-1 flex justify-center relative z-0">
                 {album.blocks.length > 0 ? (
                   <StackedCardsPreview blocks={album.blocks} previewEntries={previewEntries} />
                 ) : (
@@ -238,7 +238,7 @@ export function AlbumCard({
           </div>
 
           {/* 액션 버튼 영역 */}
-          <div className="flex border-t border-gray-800">
+          <div className="flex border-t border-gray-800 relative z-10 bg-gray-900">
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -432,18 +432,18 @@ function StackedCardsPreview({ blocks, previewEntries }: { blocks: BlockPosition
     <div className="relative h-24 w-full flex justify-center items-end">
       {cards.map((cardIndex) => {
         const rotation = (cardIndex - 1) * 8;
-        const translateX = (cardIndex - 1) * 30;
-        const translateY = Math.abs(cardIndex - 1) * 5;
-        const zIndex = cardIndex === 1 ? 3 : cardIndex === 0 ? 2 : 1;
+        const translateX = (cardIndex - 1) * 45;
+        const translateY = Math.abs(cardIndex - 1) * 8 + 50;
+        const cardZIndex = cardIndex === 1 ? 3 : cardIndex === 0 ? 2 : 1;
         const { currentBlocks, currentValues, selectedBlockId } = cardSelections[cardIndex];
 
         return (
           <div
             key={cardIndex}
-            className="absolute w-16 h-20 bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden"
+            className="absolute w-24 h-[120px] bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden"
             style={{
               transform: `translateX(${translateX}px) translateY(${translateY}px) rotate(${rotation}deg)`,
-              zIndex,
+              zIndex: cardZIndex,
             }}
           >
             <PreviewCardContent
