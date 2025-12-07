@@ -129,6 +129,9 @@ const TextBlockEditorInner = forwardRef<TextBlockEditorHandle, TextBlockEditorPr
 
   // 저장 함수 (모달 닫을 때 호출)
   const save = useCallback(async () => {
+    // 에디터에서 현재 HTML 직접 가져오기 (마지막 입력 누락 방지)
+    const currentHtml = editor?.getHTML() || richTextRef.current;
+
     let sketchData = '';
     if (canvasRef.current) {
       try {
@@ -139,10 +142,10 @@ const TextBlockEditorInner = forwardRef<TextBlockEditorHandle, TextBlockEditorPr
       }
     }
     onChange({
-      richText: richTextRef.current,
+      richText: currentHtml,
       sketchData,
     });
-  }, [onChange]);
+  }, [onChange, editor]);
 
   // 부모에게 save 메서드 노출
   useImperativeHandle(ref, () => ({ save }), [save]);

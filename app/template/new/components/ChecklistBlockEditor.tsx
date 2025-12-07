@@ -76,8 +76,10 @@ const ChecklistBlockEditorInner = forwardRef<ChecklistBlockEditorHandle, Checkli
 
     // 저장 함수
     const save = useCallback(async () => {
-      onChange({ html: htmlRef.current });
-    }, [onChange]);
+      // 에디터에서 현재 HTML 직접 가져오기 (마지막 입력 누락 방지)
+      const currentHtml = editor?.getHTML() || htmlRef.current;
+      onChange({ html: currentHtml });
+    }, [onChange, editor]);
 
     // 부모에게 save 메서드 노출
     useImperativeHandle(ref, () => ({ save }), [save]);

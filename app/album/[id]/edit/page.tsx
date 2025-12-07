@@ -4,7 +4,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft, Bell, Pencil, Check, X } from 'lucide-react';
 import { NotificationSettings } from '@/types/template';
-import { getAlbum, updateAlbum } from '@/lib/storage/album';
+import { getAlbum, updateAlbum, Album } from '@/lib/api/albums';
 
 // Import types and utilities
 import { BlockPosition, BlockType, Step } from '@/app/template/new/types';
@@ -39,14 +39,21 @@ export default function EditAlbumPage() {
 
   // 앨범 데이터 로드
   useEffect(() => {
-    const album = getAlbum(albumId);
-    if (album) {
-      setTemplateName(album.name);
-      setBlockPositions(album.blocks);
-    } else {
-      router.push('/records');
-    }
-    setIsLoading(false);
+    const loadAlbum = async () => {
+      try {
+        const album = await getAlbum(albumId);
+        setTemplateName(album.name);
+        setBlockPositions(album.blocks);
+        if (album.notification) {
+          setNotification(album.notification as NotificationSettings);
+        }
+      } catch {
+        router.push('/records');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadAlbum();
   }, [albumId, router]);
 
   // 이름 편집 시작
@@ -267,13 +274,19 @@ export default function EditAlbumPage() {
         </div>
 
         <button
-          onClick={() => {
+          onClick={async () => {
             // 앨범 업데이트
-            updateAlbum(albumId, {
-              name: templateName,
-              blocks: blockPositions,
-            });
-            router.push(`/album/${albumId}`);
+            try {
+              await updateAlbum(albumId, {
+                name: templateName,
+                blocks: blockPositions,
+                notification: notification,
+              });
+              router.push(`/album/${albumId}`);
+            } catch (error) {
+              console.error('Failed to update album:', error);
+              alert('앨범 저장에 실패했습니다.');
+            }
           }}
           className="w-full py-3 bg-gray-900 text-white rounded-lg font-semibold hover:bg-gray-800 transition-colors"
         >
