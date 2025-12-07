@@ -58,6 +58,16 @@ export const media = pgTable("media", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// 푸시 알림 구독 테이블
+export const pushSubscriptions = pgTable("push_subscriptions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  endpoint: text("endpoint").notNull().unique(),
+  p256dh: text("p256dh").notNull(), // 암호화 키
+  auth: text("auth").notNull(), // 인증 키
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // 타입 추론을 위한 export
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -69,3 +79,5 @@ export type DailyEntry = typeof dailyEntries.$inferSelect;
 export type NewDailyEntry = typeof dailyEntries.$inferInsert;
 export type Media = typeof media.$inferSelect;
 export type NewMedia = typeof media.$inferInsert;
+export type PushSubscription = typeof pushSubscriptions.$inferSelect;
+export type NewPushSubscription = typeof pushSubscriptions.$inferInsert;

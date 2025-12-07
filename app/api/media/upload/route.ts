@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { getCurrentUser } from "@/lib/db/users";
+import { db } from "@/lib/db";
+import { media } from "@/lib/db/schema";
 
 // POST: 클라이언트 업로드를 위한 토큰 생성
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -36,11 +38,29 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         };
       },
       onUploadCompleted: async ({ blob, tokenPayload }) => {
-        // 업로드 완료 콜백 - 에러 발생해도 업로드 자체는 성공으로 처리
+        // 업로드 완료 콜백 - media 테이블에 인덱스 저장
         try {
-          console.log("Upload completed:", blob.url);
+          const payload = JSON.parse(tokenPayload || "{}");
+          const userId = payload.userId;
+
+          if (userId) {
+            // 파일 타입 판별
+            const contentType = blob.contentType || "";
+            const fileType = contentType.startsWith("image/") ? "image" :
+                            contentType.startsWith("video/") ? "video" : null;
+
+            // media 테이블에 저장 (인덱싱용)
+            await db.insert(media).values({
+              userId,
+              blobUrl: blob.url,
+              fileName: blob.pathname,
+              fileType,
+            });
+
+            console.log("Media saved to DB:", blob.url, "type:", fileType);
+          }
         } catch (e) {
-          // 콜백 에러 무시
+          // 콜백 에러 무시 (업로드 자체는 성공으로 처리)
           console.error("onUploadCompleted error:", e);
         }
       },

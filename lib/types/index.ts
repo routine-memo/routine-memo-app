@@ -45,3 +45,11 @@ export interface CategoryCard {
   lastRecordDate?: Date;
   previewData?: any;
 }
+
+// 앨범 알림 설정
+export interface AlbumNotification {
+  enabled: boolean;
+  time: string; // HH:mm 형식 (예: "09:00")
+  days: number[]; // 0-6 (일-토), 빈 배열이면 매일
+  message?: string; // 커스텀 알림 메시지
+}

@@ -2,11 +2,11 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
-import { ArrowLeft, X, Pencil, Check, Tag, Plus } from 'lucide-react';
+import { ArrowLeft, X, Pencil, Check, Tag, Plus, Bell } from 'lucide-react';
 import { BlockPosition, BlockDefaultValue, TextBlockDefault, ChecklistBlockDefault, WeatherBlockDefault, EmotionBlockDefault, ImageBlockDefault, VideoBlockDefault, LinkBlockDefault, FileBlockDefault, DateBlockDefault, TimelineBlockDefault, DataGraphBlockDefault, MapBlockDefault, ProgressBlockDefault } from '@/app/template/new/types';
 import { blockPalette } from '@/app/template/new/blockPalette';
 import { iconMap } from '@/app/template/new/iconMap';
-import { getAlbum } from '@/lib/api/albums';
+import { getAlbum, updateAlbum, AlbumNotification } from '@/lib/api/albums';
 import { createEntry, getEntry, updateEntry, Entry, BlockValue } from '@/lib/api/entries';
 import { getEntries } from '@/lib/api/entries';
 import { uploadManager } from '@/lib/uploadManager';
@@ -71,6 +71,12 @@ export default function EntryPage() {
   const [tagInput, setTagInput] = useState('');
   const [existingTags, setExistingTags] = useState<{ tag: string; count: number }[]>([]);
 
+  // 알림 관련 상태
+  const [reminderEnabled, setReminderEnabled] = useState(false);
+  const [reminderTime, setReminderTime] = useState('09:00');
+  const [reminderDays, setReminderDays] = useState<number[]>([]);
+  const [initialNotification, setInitialNotification] = useState<AlbumNotification | null>(null);
+
   const labelInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const textEditorRef = useRef<TextBlockEditorHandle>(null);
@@ -93,6 +99,18 @@ export default function EntryPage() {
       try {
         const loadedAlbum = await getAlbum(albumId);
         setAlbum({ name: loadedAlbum.name, blocks: loadedAlbum.blocks });
+
+        // 앨범의 기존 알림 설정 로드
+        if (loadedAlbum.notification) {
+          setInitialNotification(loadedAlbum.notification);
+          setReminderEnabled(loadedAlbum.notification.enabled);
+          if (loadedAlbum.notification.time) {
+            setReminderTime(loadedAlbum.notification.time);
+          }
+          if (loadedAlbum.notification.days) {
+            setReminderDays(loadedAlbum.notification.days);
+          }
+        }
 
         // 기존 태그 목록 로드 (앨범의 모든 entries에서 추출)
         const allEntries = await getEntries(albumId);
@@ -387,12 +405,27 @@ export default function EntryPage() {
         });
       }
 
+      // 알림 설정이 변경되었으면 앨범 업데이트
+      const notificationChanged =
+        reminderEnabled !== (initialNotification?.enabled ?? false) ||
+        reminderTime !== (initialNotification?.time ?? '09:00') ||
+        JSON.stringify(reminderDays) !== JSON.stringify(initialNotification?.days ?? []);
+
+      if (notificationChanged) {
+        const newNotification: AlbumNotification = {
+          enabled: reminderEnabled,
+          time: reminderTime,
+          days: reminderDays,
+        };
+        await updateAlbum(albumId, { notification: newNotification });
+      }
+
       router.push(`/album/${albumId}`);
     } catch (error) {
       console.error('Failed to save entry:', error);
       setIsSaving(false);
     }
-  }, [album, albumId, blockValues, isSaving, router, isEditMode, editEntryId, tags]);
+  }, [album, albumId, blockValues, isSaving, router, isEditMode, editEntryId, tags, reminderEnabled, reminderTime, reminderDays, initialNotification]);
 
   // 취소 (뒤로가기) 핸들러
   const handleCancel = useCallback(() => {
@@ -742,7 +775,7 @@ export default function EntryPage() {
 
           {/* 기존 태그 추천 */}
           {filteredExistingTags.length > 0 && (
-            <div>
+            <div className="mb-6">
               <h3 className="text-sm font-medium text-gray-700 mb-2">
                 이전에 사용한 태그
               </h3>
@@ -760,6 +793,72 @@ export default function EntryPage() {
               </div>
             </div>
           )}
+
+          {/* 알림 설정 */}
+          <div className="mt-6 pt-6 border-t border-gray-200">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Bell className="w-5 h-5 text-gray-600" />
+                <span className="font-medium text-gray-900">알림 설정</span>
+              </div>
+              <button
+                onClick={() => setReminderEnabled(!reminderEnabled)}
+                className={`relative w-12 h-7 rounded-full transition-colors ${
+                  reminderEnabled ? 'bg-gray-900' : 'bg-gray-300'
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow transition-transform ${
+                    reminderEnabled ? 'translate-x-5' : 'translate-x-0.5'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* 알림 설정 상세 (토글이 켜졌을 때만 표시) */}
+            {reminderEnabled && (
+              <div className="space-y-4 bg-gray-900 rounded-2xl p-4">
+                {/* 알림 시간 */}
+                <div>
+                  <label className="text-sm text-gray-400 block mb-2">알림 시간</label>
+                  <div className="relative">
+                    <input
+                      type="time"
+                      value={reminderTime}
+                      onChange={(e) => setReminderTime(e.target.value)}
+                      className="w-full px-4 py-3 bg-gray-800 text-white rounded-xl border border-gray-700 focus:border-gray-500 focus:outline-none appearance-none"
+                    />
+                  </div>
+                </div>
+
+                {/* 반복 요일 */}
+                <div>
+                  <label className="text-sm text-gray-400 block mb-2">반복 요일 (선택 안하면 매일)</label>
+                  <div className="flex gap-2">
+                    {['일', '월', '화', '수', '목', '금', '토'].map((dayLabel, dayIndex) => (
+                      <button
+                        key={dayIndex}
+                        onClick={() => {
+                          setReminderDays(prev =>
+                            prev.includes(dayIndex)
+                              ? prev.filter(d => d !== dayIndex)
+                              : [...prev, dayIndex]
+                          );
+                        }}
+                        className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          reminderDays.includes(dayIndex)
+                            ? 'bg-white text-gray-900'
+                            : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                        }`}
+                      >
+                        {dayLabel}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </main>
     );
@@ -860,9 +959,9 @@ export default function EntryPage() {
                       <span className="text-4xl">{getEmotionInfo(currentValue.value.emotion)?.emoji}</span>
                       <span className="text-xs text-gray-600 mt-1">{getEmotionInfo(currentValue.value.emotion)?.label}</span>
                     </div>
-                  ) : block.type === 'image' && currentValue?.type === 'image' && currentValue.value.images.filter(img => img).length > 0 ? (
+                  ) : block.type === 'image' && currentValue?.type === 'image' && currentValue.value.images.filter(img => img && !img.startsWith('__uploading__')).length > 0 ? (
                     <SwipeablePreview>
-                      {currentValue.value.images.filter(img => img).map((img, idx) => (
+                      {currentValue.value.images.filter(img => img && !img.startsWith('__uploading__')).map((img, idx) => (
                         <img
                           key={idx}
                           src={img}
@@ -871,9 +970,9 @@ export default function EntryPage() {
                         />
                       ))}
                     </SwipeablePreview>
-                  ) : block.type === 'video' && currentValue?.type === 'video' && currentValue.value.videos.filter(v => v).length > 0 ? (
+                  ) : block.type === 'video' && currentValue?.type === 'video' && currentValue.value.videos.filter(v => v && !v.startsWith('__uploading__')).length > 0 ? (
                     <SwipeablePreview>
-                      {currentValue.value.videos.filter(v => v).map((video, idx) => (
+                      {currentValue.value.videos.filter(v => v && !v.startsWith('__uploading__')).map((video, idx) => (
                         <video
                           key={idx}
                           src={video}
