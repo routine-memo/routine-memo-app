@@ -9,6 +9,7 @@ import { iconMap } from '@/app/template/new/iconMap';
 import { getAlbum } from '@/lib/api/albums';
 import { createEntry, getEntry, updateEntry, Entry, BlockValue } from '@/lib/api/entries';
 import { getEntries } from '@/lib/api/entries';
+import { uploadManager } from '@/lib/uploadManager';
 
 type EntryStep = 'blocks' | 'tags';
 
@@ -309,10 +310,66 @@ export default function EntryPage() {
     setIsSaving(true);
 
     try {
-      // blockValues를 BlockValue 배열로 변환
+      // 진행 중인 업로드가 있는지 확인
+      const activeUploads = uploadManager.getActiveCount();
+      if (activeUploads > 0) {
+        // 업로드 완료 대기 (최대 5분)
+        const maxWait = 5 * 60 * 1000;
+        const startTime = Date.now();
+
+        while (uploadManager.getActiveCount() > 0 && Date.now() - startTime < maxWait) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+
+      // blockValues를 BlockValue 배열로 변환 (pending placeholder를 URL로 교체)
       const entryBlockValues: BlockValue[] = [];
       blockValues.forEach((value, blockId) => {
-        entryBlockValues.push({ blockId, value });
+        // 이미지 블록: __uploading__ placeholder를 실제 URL로 교체
+        if (value.type === 'image' && value.value.images) {
+          const resolvedImages = value.value.images
+            .map((img: string) => {
+              if (img && img.startsWith('__uploading__')) {
+                const uploadId = img.replace('__uploading__', '');
+                const task = uploadManager.getTask(uploadId);
+                if (task?.status === 'completed' && task.url) {
+                  return task.url;
+                }
+                return null; // 아직 완료 안됐거나 실패한 경우 제거
+              }
+              return img;
+            })
+            .filter((img: string | null): img is string => img !== null && img !== '');
+
+          entryBlockValues.push({
+            blockId,
+            value: { type: 'image', value: { images: resolvedImages } }
+          });
+        }
+        // 비디오 블록: __uploading__ placeholder를 실제 URL로 교체
+        else if (value.type === 'video' && value.value.videos) {
+          const resolvedVideos = value.value.videos
+            .map((video: string) => {
+              if (video && video.startsWith('__uploading__')) {
+                const uploadId = video.replace('__uploading__', '');
+                const task = uploadManager.getTask(uploadId);
+                if (task?.status === 'completed' && task.url) {
+                  return task.url;
+                }
+                return null;
+              }
+              return video;
+            })
+            .filter((video: string | null): video is string => video !== null && video !== '');
+
+          entryBlockValues.push({
+            blockId,
+            value: { type: 'video', value: { videos: resolvedVideos } }
+          });
+        }
+        else {
+          entryBlockValues.push({ blockId, value });
+        }
       });
 
       if (isEditMode && editEntryId) {

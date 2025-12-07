@@ -4,7 +4,7 @@ import { useState, useCallback, useImperativeHandle, forwardRef, useRef, useEffe
 import { Plus, Trash2, Video, Play, Pause, Volume2, VolumeX, Maximize2, Minimize2, ChevronLeft, ChevronRight, Download, Loader2 } from 'lucide-react';
 import { VideoBlockDefault } from '../types';
 import { useCarousel } from '../hooks/useCarousel';
-import { uploadMedia } from '@/lib/api/media';
+import { uploadManager } from '@/lib/uploadManager';
 
 interface VideoBlockEditorProps {
   initialValue?: VideoBlockDefault;
@@ -446,24 +446,48 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
         setDuration(0);
       }, 50);
 
-      // 3. 백그라운드에서 Vercel Blob에 업로드
-      validFiles.forEach(async (file, idx) => {
-        try {
-          const result = await uploadMedia(file);
-          setVideos(prev => {
-            const updated = [...prev];
-            updated[newIndex + idx] = result.url;
-            return updated;
-          });
-        } catch (error) {
-          console.error('Failed to upload video:', error);
-          // 업로드 실패 시 해당 플레이스홀더 제거
-          setVideos(prev => {
-            const updated = [...prev];
-            updated.splice(newIndex + idx, 1);
-            return updated;
-          });
-        }
+      // 3. 백그라운드에서 전역 업로드 매니저를 통해 업로드
+      // 컴포넌트가 언마운트되어도 업로드는 계속 진행됨
+      validFiles.forEach((file, idx) => {
+        const targetIndex = newIndex + idx;
+
+        // 업로드 매니저에 작업 추가
+        const uploadId = uploadManager.addTask(file, {
+          onComplete: (url) => {
+            // 업로드 완료 시 URL로 업데이트
+            setVideos(prev => {
+              const updated = [...prev];
+              // placeholder ID를 URL로 교체
+              const placeholderIndex = updated.findIndex(item => item === `__uploading__${uploadId}`);
+              if (placeholderIndex !== -1) {
+                updated[placeholderIndex] = url;
+              } else if (targetIndex < updated.length) {
+                // fallback: 원래 인덱스에 업데이트
+                updated[targetIndex] = url;
+              }
+              return updated;
+            });
+          },
+          onError: (error) => {
+            console.error('Failed to upload video:', error);
+            // 업로드 실패 시 해당 플레이스홀더 제거
+            setVideos(prev => {
+              const updated = [...prev];
+              const placeholderIndex = updated.findIndex(item => item === `__uploading__${uploadId}`);
+              if (placeholderIndex !== -1) {
+                updated.splice(placeholderIndex, 1);
+              }
+              return updated;
+            });
+          }
+        });
+
+        // 빈 문자열 대신 업로드 ID를 placeholder로 사용
+        setVideos(prev => {
+          const updated = [...prev];
+          updated[targetIndex] = `__uploading__${uploadId}`;
+          return updated;
+        });
       });
 
       e.target.value = '';
@@ -549,7 +573,7 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
                       }}
                     >
                       {/* 로딩 중 */}
-                      {!video ? (
+                      {!video || video.startsWith('__uploading__') ? (
                         <div className="w-full h-full flex items-center justify-center bg-gray-800">
                           <Loader2 className="w-8 h-8 text-white animate-spin" />
                         </div>
@@ -695,7 +719,7 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
                         : 'border-transparent opacity-70 hover:opacity-100'
                     }`}
                   >
-                    {video ? (
+                    {video && !video.startsWith('__uploading__') ? (
                       <video
                         src={video}
                         className="w-full h-full object-cover"
