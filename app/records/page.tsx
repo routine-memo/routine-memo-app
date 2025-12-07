@@ -4,10 +4,10 @@ import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, Plus, FileText, Calendar, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
-import { getAlbums, Album } from '@/lib/storage/album';
+import { getAlbums, Album } from '@/lib/api/albums';
 import { AlbumCard } from '@/components/AlbumCard';
-import { getDailyEntries, DailyEntry, loadDailyEntryWithMedia } from '@/lib/storage/dailyEntry';
-import { getEntries, Entry, loadEntryWithMedia } from '@/lib/storage/entry';
+import { getDailyEntries, DailyEntry } from '@/lib/api/dailyEntries';
+import { getEntries, Entry } from '@/lib/api/entries';
 import { BlockPosition } from '@/app/template/new/types';
 import { blockPalette } from '@/app/template/new/blockPalette';
 import { iconMap } from '@/app/template/new/iconMap';
@@ -321,32 +321,34 @@ export default function RecordsPage() {
 
   useEffect(() => {
     const loadData = async () => {
-      const loadedAlbums = getAlbums();
-      setAlbums(loadedAlbums);
+      try {
+        const [loadedAlbums, entries, daily] = await Promise.all([
+          getAlbums(),
+          getEntries(),
+          getDailyEntries(),
+        ]);
 
-      const entries = getEntries();
-      setAllEntries(entries);
+        setAlbums(loadedAlbums);
+        setAllEntries(entries);
+        setDailyEntries(daily);
 
-      const daily = getDailyEntries();
-      setDailyEntries(daily);
+        // 즉석 앨범 미리보기용 엔트리 로드 (최신 3개 기록만)
+        const sortedDaily = [...daily].sort((a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        const previewEntriesRaw = sortedDaily.slice(0, 3);
 
-      // 즉석 앨범 미리보기용 엔트리 로드 (최신 3개 기록만)
-      const sortedDaily = [...daily].sort((a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
-      const previewEntriesRaw = sortedDaily.slice(0, 3);
-      const loadedPreviewEntries = await Promise.all(
-        previewEntriesRaw.map(entry => loadDailyEntryWithMedia(entry))
-      );
-
-      // 즉석 앨범은 각 기록이 자체 blocks를 가짐
-      const dailyPreviews: DailyPreviewEntry[] = loadedPreviewEntries.map(entry => ({
-        blocks: entry.blocks,
-        blockValues: entry.blockValues,
-      }));
-      setDailyPreviewEntries(dailyPreviews);
-
-      setIsLoading(false);
+        // 즉석 앨범은 각 기록이 자체 blocks를 가짐 (API에서 미디어 URL이 이미 포함됨)
+        const dailyPreviews: DailyPreviewEntry[] = previewEntriesRaw.map(entry => ({
+          blocks: entry.blocks,
+          blockValues: entry.blockValues,
+        }));
+        setDailyPreviewEntries(dailyPreviews);
+      } catch (error) {
+        console.error('Failed to load data:', error);
+      } finally {
+        setIsLoading(false);
+      }
     };
 
     loadData();
@@ -365,7 +367,7 @@ export default function RecordsPage() {
   const [albumPreviewEntries, setAlbumPreviewEntries] = useState<Map<string, PreviewEntry[]>>(new Map());
 
   useEffect(() => {
-    const loadAlbumPreviewEntries = async () => {
+    const loadAlbumPreviewEntries = () => {
       const entryMap = new Map<string, PreviewEntry[]>();
 
       for (const album of albums) {
@@ -374,14 +376,11 @@ export default function RecordsPage() {
           .filter(e => e.albumId === album.id)
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-        // 최대 3개 기록만 로드
+        // 최대 3개 기록만 (API에서 미디어 URL이 이미 포함됨)
         const previewEntriesRaw = albumEntries.slice(0, 3);
-        const loadedEntries = await Promise.all(
-          previewEntriesRaw.map(entry => loadEntryWithMedia(entry))
-        );
 
         // 일반 앨범은 블록 구조가 앨범에 있음
-        const previewEntries: PreviewEntry[] = loadedEntries.map(entry => ({
+        const previewEntries: PreviewEntry[] = previewEntriesRaw.map(entry => ({
           blocks: album.blocks,
           blockValues: entry.blockValues,
         }));

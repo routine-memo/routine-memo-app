@@ -4,7 +4,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Bell } from 'lucide-react';
 import { NotificationSettings } from '@/types/template';
-import { saveAlbum } from '@/lib/storage/album';
+import { createAlbum, AlbumNotification } from '@/lib/api/albums';
 
 // Import types and utilities
 import { BlockPosition, BlockType, Step } from './types';
@@ -20,9 +20,10 @@ export default function NewTemplatePage() {
   const [templateName, setTemplateName] = useState('');
   const [blockPositions, setBlockPositions] = useState<BlockPosition[]>([]);
   const [showPalette, setShowPalette] = useState(false);
-  const [notification, setNotification] = useState<NotificationSettings>({
+  const [notification, setNotification] = useState<AlbumNotification>({
     enabled: false,
   });
+  const [isSaving, setIsSaving] = useState(false);
   const [gridWidth, setGridWidth] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -209,17 +210,26 @@ export default function NewTemplatePage() {
         </div>
 
         <button
-          onClick={() => {
-            // 앨범 저장
-            saveAlbum({
-              name: templateName,
-              blocks: blockPositions,
-            });
-            router.push('/records');
+          onClick={async () => {
+            if (isSaving) return;
+            setIsSaving(true);
+            try {
+              // 앨범 저장 (API 호출)
+              await createAlbum({
+                name: templateName,
+                blocks: blockPositions,
+                notification: notification.enabled ? notification : undefined,
+              });
+              router.push('/records');
+            } catch (error) {
+              console.error('Failed to create album:', error);
+              setIsSaving(false);
+            }
           }}
-          className="w-full py-3 bg-gray-900 text-white rounded-lg font-semibold hover:bg-gray-800 transition-colors"
+          disabled={isSaving}
+          className="w-full py-3 bg-gray-900 text-white rounded-lg font-semibold hover:bg-gray-800 transition-colors disabled:opacity-50"
         >
-          완료
+          {isSaving ? '저장 중...' : '완료'}
         </button>
       </div>
     </main>

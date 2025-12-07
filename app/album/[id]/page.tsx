@@ -3,8 +3,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft, Plus, Calendar } from 'lucide-react';
-import { getAlbum, Album } from '@/lib/storage/album';
-import { getEntriesByAlbum, Entry, deleteEntry, loadEntryWithMedia, getTagsByAlbum } from '@/lib/storage/entry';
+import { getAlbum, Album } from '@/lib/api/albums';
+import { getEntries, Entry, deleteEntry } from '@/lib/api/entries';
 import { EntryCarousel } from './components/EntryCarousel';
 import { BlockFilter } from './components/BlockFilter';
 import { TagFilter } from './components/TagFilter';
@@ -24,21 +24,29 @@ export default function AlbumEntriesPage() {
 
   useEffect(() => {
     const loadData = async () => {
-      const loadedAlbum = getAlbum(albumId);
-      if (loadedAlbum) {
-        setAlbum(loadedAlbum);
-        const loadedEntries = getEntriesByAlbum(albumId);
-        // 미디어 참조를 실제 데이터로 로드
-        const entriesWithMedia = await Promise.all(
-          loadedEntries.map(entry => loadEntryWithMedia(entry))
-        );
-        setEntries(entriesWithMedia);
+      try {
+        const [loadedAlbum, loadedEntries] = await Promise.all([
+          getAlbum(albumId),
+          getEntries(albumId),
+        ]);
 
-        // 태그 목록 로드
-        const tags = getTagsByAlbum(albumId);
+        setAlbum(loadedAlbum);
+        setEntries(loadedEntries);
+
+        // 태그 목록 추출 (entries에서 직접)
+        const tagCounts: Record<string, number> = {};
+        loadedEntries.forEach(entry => {
+          entry.tags?.forEach(tag => {
+            tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+          });
+        });
+        const tags = Object.entries(tagCounts).map(([tag, count]) => ({ tag, count }));
         setAlbumTags(tags);
+      } catch (error) {
+        console.error('Failed to load album data:', error);
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
     loadData();
   }, [albumId]);
@@ -54,8 +62,12 @@ export default function AlbumEntriesPage() {
   // 기록 삭제
   const handleDeleteEntry = async (entryId: string) => {
     if (confirm('이 기록을 삭제하시겠습니까?')) {
-      await deleteEntry(entryId);
-      setEntries(prev => prev.filter(e => e.id !== entryId));
+      try {
+        await deleteEntry(entryId);
+        setEntries(prev => prev.filter(e => e.id !== entryId));
+      } catch (error) {
+        console.error('Failed to delete entry:', error);
+      }
     }
   };
 

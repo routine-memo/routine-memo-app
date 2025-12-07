@@ -5,15 +5,12 @@ import { useSession, signOut } from 'next-auth/react';
 import { User, FileText, FolderOpen, Calendar, Moon, Sun, Bell, Database, Info, ChevronRight, LogOut } from 'lucide-react';
 import Image from 'next/image';
 import { useDarkMode } from '@/components/DarkModeProvider';
-import { getAlbums } from '@/lib/storage/album';
-import { getEntries } from '@/lib/storage/entry';
-import { getDailyEntries } from '@/lib/storage/dailyEntry';
+import { getAlbums } from '@/lib/api/albums';
+import { getEntries, Entry } from '@/lib/api/entries';
+import { getDailyEntries, DailyEntry } from '@/lib/api/dailyEntries';
 
-// 연속 기록 일수 계산
-function calculateStreak(): number {
-  const entries = getEntries();
-  const dailyEntries = getDailyEntries();
-
+// 연속 기록 일수 계산 (entries와 dailyEntries를 인자로 받음)
+function calculateStreak(entries: Entry[], dailyEntries: DailyEntry[]): number {
   // 모든 기록의 날짜 수집 (날짜만 추출)
   const allDates = new Set<string>();
 
@@ -80,16 +77,25 @@ export default function ProfilePage() {
   });
 
   useEffect(() => {
-    // 통계 계산
-    const albums = getAlbums();
-    const entries = getEntries();
-    const dailyEntries = getDailyEntries();
+    const loadStats = async () => {
+      try {
+        const [albums, entries, dailyEntries] = await Promise.all([
+          getAlbums(),
+          getEntries(),
+          getDailyEntries(),
+        ]);
 
-    const totalRecords = entries.length + dailyEntries.length;
-    const categories = albums.length + (dailyEntries.length > 0 ? 1 : 0); // 앨범 + 즉석앨범
-    const streak = calculateStreak();
+        const totalRecords = entries.length + dailyEntries.length;
+        const categories = albums.length + (dailyEntries.length > 0 ? 1 : 0); // 앨범 + 즉석앨범
+        const streak = calculateStreak(entries, dailyEntries);
 
-    setStats({ totalRecords, categories, streak });
+        setStats({ totalRecords, categories, streak });
+      } catch (error) {
+        console.error('Failed to load stats:', error);
+      }
+    };
+
+    loadStats();
   }, []);
 
   const handleSignOut = () => {
