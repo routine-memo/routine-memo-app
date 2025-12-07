@@ -4,8 +4,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { FileText, Bell, TrendingUp, Calendar, ChevronRight, ChevronLeft } from 'lucide-react';
 import Link from 'next/link';
-import { getAlbums, Album } from '@/lib/storage/album';
-import { getEntries, Entry } from '@/lib/storage/entry';
+import { getAlbums, Album } from '@/lib/api/albums';
+import { getEntries, Entry } from '@/lib/api/entries';
 import { AlbumCard } from '@/components/AlbumCard';
 
 // 주의 시작일 가져오기 (월요일 기준)
@@ -162,11 +162,21 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const loadedAlbums = getAlbums();
-    const loadedEntries = getEntries();
-    setAlbums(loadedAlbums);
-    setEntries(loadedEntries);
-    setIsLoading(false);
+    async function loadData() {
+      try {
+        const [loadedAlbums, loadedEntries] = await Promise.all([
+          getAlbums(),
+          getEntries(),
+        ]);
+        setAlbums(loadedAlbums);
+        setEntries(loadedEntries);
+      } catch (error) {
+        console.error('Failed to load data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    loadData();
   }, []);
 
   // 통계 계산

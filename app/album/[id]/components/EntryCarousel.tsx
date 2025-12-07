@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Trash2, X, Download, Target, Calendar, Percent, Globe, ExternalLink, Play, MapPin, Type, PenTool, Pencil } from 'lucide-react';
-import { Entry, getEntriesByAlbum } from '@/lib/storage/entry';
+import { Entry, getEntries, BlockValue } from '@/lib/api/entries';
 import { BlockPosition, BlockDefaultValue, LinkItem, DataGraphField, DataGraphValue } from '@/app/template/new/types';
 import { blockPalette } from '@/app/template/new/blockPalette';
 import { iconMap } from '@/app/template/new/iconMap';
@@ -1651,11 +1651,18 @@ function DataGraphDetailChart({
   blockId: string;
   entryDate: string;
 }) {
+  const [entries, setEntries] = useState<Entry[]>([]);
+
+  // 비동기로 entries 로드
+  useEffect(() => {
+    if (!albumId) return;
+    getEntries(albumId).then(setEntries).catch(console.error);
+  }, [albumId]);
+
   // 앨범의 기록에서 데이터 수집
   const dataPoints = useMemo(() => {
-    if (!albumId || !blockId) return [];
+    if (!albumId || !blockId || entries.length === 0) return [];
 
-    const entries = getEntriesByAlbum(albumId);
     // 시간순 정렬 (오래된 것 → 최신)
     let sortedEntries = [...entries].sort(
       (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
@@ -1672,10 +1679,10 @@ function DataGraphDetailChart({
     const points: Array<{ date: string; values: Map<string, number> }> = [];
 
     for (const entry of sortedEntries) {
-      const blockValue = entry.blockValues.find(bv => bv.blockId === blockId);
+      const blockValue = entry.blockValues.find((bv: BlockValue) => bv.blockId === blockId);
       if (blockValue?.value?.type === 'dataGraph' && blockValue.value.value.values) {
         const valuesMap = new Map<string, number>();
-        blockValue.value.value.values.forEach(v => {
+        blockValue.value.value.values.forEach((v: DataGraphValue) => {
           valuesMap.set(v.fieldId, v.value);
         });
         if (valuesMap.size > 0) {
@@ -1688,7 +1695,7 @@ function DataGraphDetailChart({
     }
 
     return points;
-  }, [albumId, blockId, entryDate]);
+  }, [albumId, blockId, entryDate, entries]);
 
   // 각 필드별 min/max 계산
   const fieldStats = useMemo(() => {

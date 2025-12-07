@@ -2,11 +2,11 @@
 
 import { useState, useRef } from 'react';
 import { Plus, Settings, ChevronRight, Pencil, Check, X, Clock, Trash2, Bell, BellOff } from 'lucide-react';
-import { Album, AlbumNotification, updateAlbum, deleteAlbum } from '@/lib/storage/album';
+import { Album, AlbumNotification, updateAlbum, deleteAlbum } from '@/lib/api/albums';
 import { BlockPosition, BlockDefaultValue } from '@/app/template/new/types';
 import { blockPalette } from '@/app/template/new/blockPalette';
 import { iconMap } from '@/app/template/new/iconMap';
-import { BlockValue } from '@/lib/storage/entry';
+import { BlockValue } from '@/lib/api/entries';
 
 // 블록 프리뷰 컴포넌트들
 import { ProgressBlockPreview } from '@/app/template/new/components/ProgressBlockPreview';
@@ -65,11 +65,15 @@ export function AlbumCard({
     setTimeout(() => nameInputRef.current?.focus(), 50);
   };
 
-  const finishEditingName = (e: React.MouseEvent) => {
+  const finishEditingName = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (editingNameValue.trim() && editingNameValue.trim() !== album.name) {
-      updateAlbum(album.id, { name: editingNameValue.trim() });
-      onNameChange?.(editingNameValue.trim());
+      try {
+        await updateAlbum(album.id, { name: editingNameValue.trim() });
+        onNameChange?.(editingNameValue.trim());
+      } catch (error) {
+        console.error('Failed to update album name:', error);
+      }
     }
     setIsEditingName(false);
   };
@@ -86,37 +90,56 @@ export function AlbumCard({
   };
 
   // 알림 설정 변경
-  const toggleNotification = () => {
+  const toggleNotification = async () => {
     const newNotification = { ...notification, enabled: !notification.enabled };
     setNotification(newNotification);
-    updateAlbum(album.id, { notification: newNotification });
-    onNotificationChange?.(newNotification);
+    try {
+      await updateAlbum(album.id, { notification: newNotification });
+      onNotificationChange?.(newNotification);
+    } catch (error) {
+      console.error('Failed to update notification:', error);
+      setNotification(notification); // 롤백
+    }
   };
 
-  const updateTime = (time: string) => {
+  const updateTime = async (time: string) => {
     const newNotification = { ...notification, time };
     setNotification(newNotification);
-    updateAlbum(album.id, { notification: newNotification });
-    onNotificationChange?.(newNotification);
+    try {
+      await updateAlbum(album.id, { notification: newNotification });
+      onNotificationChange?.(newNotification);
+    } catch (error) {
+      console.error('Failed to update notification time:', error);
+      setNotification(notification); // 롤백
+    }
   };
 
-  const toggleDay = (day: number) => {
+  const toggleDay = async (day: number) => {
     const currentDays = notification.days || [];
     const newDays = currentDays.includes(day)
       ? currentDays.filter(d => d !== day)
       : [...currentDays, day].sort();
     const newNotification = { ...notification, days: newDays };
     setNotification(newNotification);
-    updateAlbum(album.id, { notification: newNotification });
-    onNotificationChange?.(newNotification);
+    try {
+      await updateAlbum(album.id, { notification: newNotification });
+      onNotificationChange?.(newNotification);
+    } catch (error) {
+      console.error('Failed to update notification days:', error);
+      setNotification(notification); // 롤백
+    }
   };
 
   // 삭제
-  const handleDelete = (e: React.MouseEvent) => {
+  const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (confirm('이 앨범을 삭제하시겠습니까? 모든 기록도 함께 삭제됩니다.')) {
-      deleteAlbum(album.id);
-      onDelete?.();
+      try {
+        await deleteAlbum(album.id);
+        onDelete?.();
+      } catch (error) {
+        console.error('Failed to delete album:', error);
+      }
     }
   };
 

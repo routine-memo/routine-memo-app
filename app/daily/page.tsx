@@ -3,8 +3,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Plus, Calendar } from 'lucide-react';
-import { DailyEntry, getDailyEntriesSorted, deleteDailyEntry, loadDailyEntryWithMedia, getDailyTags } from '@/lib/storage/dailyEntry';
-import { Entry } from '@/lib/storage/entry';
+import { DailyEntry, getDailyEntries, deleteDailyEntry } from '@/lib/api/dailyEntries';
+import { Entry } from '@/lib/api/entries';
 import { EntryCarousel } from '@/app/album/[id]/components/EntryCarousel';
 import { TagFilter } from '@/app/album/[id]/components/TagFilter';
 
@@ -12,6 +12,7 @@ import { TagFilter } from '@/app/album/[id]/components/TagFilter';
 function convertToEntryFormat(dailyEntry: DailyEntry): Entry & { blocks: typeof dailyEntry.blocks } {
   return {
     id: dailyEntry.id,
+    userId: dailyEntry.userId,
     albumId: 'daily', // placeholder
     createdAt: dailyEntry.createdAt,
     updatedAt: dailyEntry.updatedAt,
@@ -19,6 +20,17 @@ function convertToEntryFormat(dailyEntry: DailyEntry): Entry & { blocks: typeof 
     tags: dailyEntry.tags,
     blocks: dailyEntry.blocks, // 즉석 앨범은 각 엔트리가 자체 blocks를 가짐
   };
+}
+
+// 태그 목록 추출 (entries에서 직접)
+function extractTags(entries: DailyEntry[]): { tag: string; count: number }[] {
+  const tagCounts: Record<string, number> = {};
+  entries.forEach(entry => {
+    entry.tags?.forEach(tag => {
+      tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+    });
+  });
+  return Object.entries(tagCounts).map(([tag, count]) => ({ tag, count }));
 }
 
 export default function DailyPage() {
@@ -31,16 +43,17 @@ export default function DailyPage() {
 
   useEffect(() => {
     const loadData = async () => {
-      const loadedEntries = getDailyEntriesSorted();
-      const entriesWithMedia = await Promise.all(
-        loadedEntries.map(entry => loadDailyEntryWithMedia(entry))
-      );
-      setEntries(entriesWithMedia);
+      try {
+        const loadedEntries = await getDailyEntries();
+        setEntries(loadedEntries);
 
-      const tags = getDailyTags();
-      setDailyTags(tags);
-
-      setIsLoading(false);
+        const tags = extractTags(loadedEntries);
+        setDailyTags(tags);
+      } catch (error) {
+        console.error('Failed to load daily entries:', error);
+      } finally {
+        setIsLoading(false);
+      }
     };
     loadData();
   }, []);
@@ -62,8 +75,12 @@ export default function DailyPage() {
   // 기록 삭제
   const handleDeleteEntry = async (entryId: string) => {
     if (confirm('이 기록을 삭제하시겠습니까?')) {
-      await deleteDailyEntry(entryId);
-      setEntries(prev => prev.filter(e => e.id !== entryId));
+      try {
+        await deleteDailyEntry(entryId);
+        setEntries(prev => prev.filter(e => e.id !== entryId));
+      } catch (error) {
+        console.error('Failed to delete daily entry:', error);
+      }
     }
   };
 

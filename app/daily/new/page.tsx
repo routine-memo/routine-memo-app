@@ -12,7 +12,8 @@ import { createBlock, deleteBlock } from '@/app/template/new/blockManagement';
 const dailyBlockPalette = blockPalette.filter(b => b.type !== 'dataGraph');
 import { GridLayoutBlocks } from '@/app/template/new/components/GridLayoutBlocks';
 import { BlockPalette } from '@/app/template/new/components/BlockPalette';
-import { saveDailyEntry, getDailyTags, BlockValue } from '@/lib/storage/dailyEntry';
+import { createDailyEntry, getDailyEntries, DailyEntry } from '@/lib/api/dailyEntries';
+import { BlockValue } from '@/lib/api/entries';
 
 // 에디터 컴포넌트들
 import { TextBlockEditor, TextBlockEditorHandle } from '@/app/template/new/components/TextBlockEditor';
@@ -85,10 +86,24 @@ export default function DailyNewPage() {
   const mapEditorRef = useRef<MapBlockEditorHandle>(null);
   const progressEditorRef = useRef<ProgressBlockEditorHandle>(null);
 
-  // 기존 태그 로드
+  // 기존 태그 로드 (API에서 entries 가져와서 태그 추출)
   useEffect(() => {
-    const dailyTags = getDailyTags();
-    setExistingTags(dailyTags);
+    const loadTags = async () => {
+      try {
+        const entries = await getDailyEntries();
+        const tagCounts: Record<string, number> = {};
+        entries.forEach((entry: DailyEntry) => {
+          entry.tags?.forEach(tag => {
+            tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+          });
+        });
+        const tags = Object.entries(tagCounts).map(([tag, count]) => ({ tag, count }));
+        setExistingTags(tags);
+      } catch (error) {
+        console.error('Failed to load tags:', error);
+      }
+    };
+    loadTags();
   }, []);
 
   // 컨테이너 너비 감지
@@ -256,7 +271,7 @@ export default function DailyNewPage() {
         entryBlockValues.push({ blockId, value });
       });
 
-      await saveDailyEntry({
+      await createDailyEntry({
         blocks: blockPositions,
         blockValues: entryBlockValues,
         tags: tags.length > 0 ? tags : undefined,

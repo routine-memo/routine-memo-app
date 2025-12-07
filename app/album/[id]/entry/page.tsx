@@ -6,8 +6,9 @@ import { ArrowLeft, X, Pencil, Check, Tag, Plus } from 'lucide-react';
 import { BlockPosition, BlockDefaultValue, TextBlockDefault, ChecklistBlockDefault, WeatherBlockDefault, EmotionBlockDefault, ImageBlockDefault, VideoBlockDefault, LinkBlockDefault, FileBlockDefault, DateBlockDefault, TimelineBlockDefault, DataGraphBlockDefault, MapBlockDefault, ProgressBlockDefault } from '@/app/template/new/types';
 import { blockPalette } from '@/app/template/new/blockPalette';
 import { iconMap } from '@/app/template/new/iconMap';
-import { getAlbum } from '@/lib/storage/album';
-import { saveEntry, getEntry, updateEntry, loadEntryWithMedia, BlockValue, getTagsByAlbum } from '@/lib/storage/entry';
+import { getAlbum } from '@/lib/api/albums';
+import { createEntry, getEntry, updateEntry, Entry, BlockValue } from '@/lib/api/entries';
+import { getEntries } from '@/lib/api/entries';
 
 type EntryStep = 'blocks' | 'tags';
 
@@ -88,39 +89,43 @@ export default function EntryPage() {
   // 앨범 데이터 및 기존 기록 로드
   useEffect(() => {
     const loadData = async () => {
-      const loadedAlbum = getAlbum(albumId);
-      if (loadedAlbum) {
+      try {
+        const loadedAlbum = await getAlbum(albumId);
         setAlbum({ name: loadedAlbum.name, blocks: loadedAlbum.blocks });
 
-        // 기존 태그 목록 로드
-        const albumTags = getTagsByAlbum(albumId);
+        // 기존 태그 목록 로드 (앨범의 모든 entries에서 추출)
+        const allEntries = await getEntries(albumId);
+        const tagCounts: Record<string, number> = {};
+        allEntries.forEach((entry: Entry) => {
+          entry.tags?.forEach(tag => {
+            tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+          });
+        });
+        const albumTags = Object.entries(tagCounts).map(([tag, count]) => ({ tag, count }));
         setExistingTags(albumTags);
 
         // 수정 모드인 경우 기존 기록 로드
         if (editEntryId) {
-          const existingEntry = getEntry(editEntryId);
-          if (existingEntry) {
-            // 미디어 데이터 로드
-            const entryWithMedia = await loadEntryWithMedia(existingEntry);
-            setOriginalCreatedAt(entryWithMedia.createdAt);
+          const existingEntry = await getEntry(editEntryId);
+          setOriginalCreatedAt(existingEntry.createdAt);
 
-            // blockValues를 Map으로 변환
-            const valuesMap = new Map<string, BlockDefaultValue>();
-            entryWithMedia.blockValues.forEach(bv => {
-              valuesMap.set(bv.blockId, bv.value);
-            });
-            setBlockValues(valuesMap);
+          // blockValues를 Map으로 변환
+          const valuesMap = new Map<string, BlockDefaultValue>();
+          existingEntry.blockValues.forEach((bv: BlockValue) => {
+            valuesMap.set(bv.blockId, bv.value);
+          });
+          setBlockValues(valuesMap);
 
-            // 기존 태그 로드
-            if (entryWithMedia.tags) {
-              setTags(entryWithMedia.tags);
-            }
+          // 기존 태그 로드
+          if (existingEntry.tags) {
+            setTags(existingEntry.tags);
           }
         } else {
           // 새 기록은 빈 상태로 시작 (기본값은 에디터에서 초기값으로만 사용)
           setBlockValues(new Map());
         }
-      } else {
+      } catch (error) {
+        console.error('Failed to load data:', error);
         router.push('/records');
       }
     };
@@ -300,14 +305,14 @@ export default function EntryPage() {
       });
 
       if (isEditMode && editEntryId) {
-        // 수정 모드: 기존 기록 업데이트
-        updateEntry(editEntryId, {
+        // 수정 모드: 기존 기록 업데이트 (API)
+        await updateEntry(editEntryId, {
           blockValues: entryBlockValues,
           tags: tags.length > 0 ? tags : undefined,
         });
       } else {
-        // 새 기록 저장 (IndexedDB에 미디어 저장 포함)
-        await saveEntry({
+        // 새 기록 저장 (API)
+        await createEntry({
           albumId,
           blockValues: entryBlockValues,
           tags: tags.length > 0 ? tags : undefined,
