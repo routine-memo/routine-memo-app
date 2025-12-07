@@ -1,3 +1,5 @@
+import { upload } from "@vercel/blob/client";
+
 // 미디어 API 클라이언트
 export interface Media {
   id: string;
@@ -37,35 +39,21 @@ export async function getMedia(options?: {
   return res.json();
 }
 
-// 미디어 업로드
+// 미디어 업로드 (클라이언트에서 직접 Vercel Blob에 업로드)
 export async function uploadMedia(
   file: File,
   options?: {
     entryId?: string;
     dailyEntryId?: string;
   }
-): Promise<Media & { url: string }> {
-  const formData = new FormData();
-  formData.append("file", file);
-
-  if (options?.entryId) {
-    formData.append("entryId", options.entryId);
-  }
-  if (options?.dailyEntryId) {
-    formData.append("dailyEntryId", options.dailyEntryId);
-  }
-
-  const res = await fetch("/api/media", {
-    method: "POST",
-    body: formData,
+): Promise<{ url: string }> {
+  // 클라이언트에서 직접 Vercel Blob에 업로드
+  const blob = await upload(file.name, file, {
+    access: "public",
+    handleUploadUrl: "/api/media/upload",
   });
 
-  if (!res.ok) {
-    const error = await res.json();
-    throw new Error(error.error || "Failed to upload media");
-  }
-
-  return res.json();
+  return { url: blob.url };
 }
 
 // 미디어 삭제
