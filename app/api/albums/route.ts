@@ -29,6 +29,7 @@ export async function POST(request: NextRequest) {
   try {
     const user = await getCurrentUser();
     if (!user) {
+      console.error("POST /api/albums: Unauthorized - no user found");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -36,8 +37,11 @@ export async function POST(request: NextRequest) {
     const { name, blocks, notification } = body;
 
     if (!name) {
+      console.error("POST /api/albums: Name is required");
       return NextResponse.json({ error: "Name is required" }, { status: 400 });
     }
+
+    console.log("POST /api/albums: Creating album for user", user.id, "with name", name);
 
     const [newAlbum] = await db.insert(albums).values({
       userId: user.id,
@@ -47,9 +51,11 @@ export async function POST(request: NextRequest) {
       notification: notification || null,
     }).returning();
 
+    console.log("POST /api/albums: Album created successfully", newAlbum.id);
     return NextResponse.json(newAlbum, { status: 201 });
   } catch (error) {
-    console.error("Failed to create album:", error);
-    return NextResponse.json({ error: "Failed to create album" }, { status: 500 });
+    console.error("POST /api/albums: Failed to create album:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ error: "Failed to create album", details: errorMessage }, { status: 500 });
   }
 }
