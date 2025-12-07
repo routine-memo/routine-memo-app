@@ -4,6 +4,7 @@ import { useState, useCallback, useImperativeHandle, forwardRef, useRef, useEffe
 import { Plus, Trash2, Video, Play, Pause, Volume2, VolumeX, Maximize2, Minimize2, ChevronLeft, ChevronRight, Download, Loader2 } from 'lucide-react';
 import { VideoBlockDefault } from '../types';
 import { useCarousel } from '../hooks/useCarousel';
+import { uploadMedia } from '@/lib/api/media';
 
 interface VideoBlockEditorProps {
   initialValue?: VideoBlockDefault;
@@ -359,15 +360,35 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
     }, [showControlsWithTimer]);
 
     // 영상 다운로드
-    const handleDownload = useCallback((videoData: string, index: number) => {
-      const link = document.createElement('a');
-      link.href = videoData;
-      const mimeMatch = videoData.match(/data:video\/(\w+);/);
-      const ext = mimeMatch ? mimeMatch[1] : 'mp4';
-      link.download = `video_${index + 1}.${ext}`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+    const handleDownload = useCallback(async (videoData: string, index: number) => {
+      try {
+        // URL인 경우 fetch로 blob 가져오기
+        if (videoData.startsWith('http')) {
+          const response = await fetch(videoData);
+          const blob = await response.blob();
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          const ext = blob.type.split('/')[1] || 'mp4';
+          link.download = `video_${index + 1}.${ext}`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+        } else {
+          // base64인 경우 기존 방식
+          const link = document.createElement('a');
+          link.href = videoData;
+          const mimeMatch = videoData.match(/data:video\/(\w+);/);
+          const ext = mimeMatch ? mimeMatch[1] : 'mp4';
+          link.download = `video_${index + 1}.${ext}`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
+      } catch (error) {
+        console.error('Failed to download video:', error);
+      }
     }, []);
 
     // 영상 추가 핸들러
@@ -408,18 +429,24 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
         setDuration(0);
       }, 50);
 
-      // 3. 백그라운드에서 실제 영상 로드
-      fileArray.forEach((file, idx) => {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          const result = event.target?.result as string;
+      // 3. 백그라운드에서 Vercel Blob에 업로드
+      fileArray.forEach(async (file, idx) => {
+        try {
+          const result = await uploadMedia(file);
           setVideos(prev => {
             const updated = [...prev];
-            updated[newIndex + idx] = result;
+            updated[newIndex + idx] = result.url;
             return updated;
           });
-        };
-        reader.readAsDataURL(file);
+        } catch (error) {
+          console.error('Failed to upload video:', error);
+          // 업로드 실패 시 해당 플레이스홀더 제거
+          setVideos(prev => {
+            const updated = [...prev];
+            updated.splice(newIndex + idx, 1);
+            return updated;
+          });
+        }
       });
 
       e.target.value = '';

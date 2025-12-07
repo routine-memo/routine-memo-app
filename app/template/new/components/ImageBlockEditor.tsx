@@ -4,6 +4,7 @@ import { useState, useCallback, useImperativeHandle, forwardRef, useRef, useEffe
 import { Plus, Trash2, ImagePlus, Download, Loader2 } from 'lucide-react';
 import { ImageBlockDefault } from '../types';
 import { useCarousel } from '../hooks/useCarousel';
+import { uploadMedia } from '@/lib/api/media';
 
 interface ImageBlockEditorProps {
   initialValue?: ImageBlockDefault;
@@ -81,18 +82,24 @@ const ImageBlockEditorInner = forwardRef<ImageBlockEditorHandle, ImageBlockEdito
         setCurrentIndex(newIndex);
       }, 50);
 
-      // 3. 백그라운드에서 실제 이미지 로드
-      fileArray.forEach((file, idx) => {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          const result = event.target?.result as string;
+      // 3. 백그라운드에서 Vercel Blob에 업로드
+      fileArray.forEach(async (file, idx) => {
+        try {
+          const result = await uploadMedia(file);
           setImages(prev => {
             const updated = [...prev];
-            updated[newIndex + idx] = result;
+            updated[newIndex + idx] = result.url;
             return updated;
           });
-        };
-        reader.readAsDataURL(file);
+        } catch (error) {
+          console.error('Failed to upload image:', error);
+          // 업로드 실패 시 해당 플레이스홀더 제거
+          setImages(prev => {
+            const updated = [...prev];
+            updated.splice(newIndex + idx, 1);
+            return updated;
+          });
+        }
       });
 
       e.target.value = '';
@@ -104,16 +111,35 @@ const ImageBlockEditorInner = forwardRef<ImageBlockEditorHandle, ImageBlockEdito
     }, []);
 
     // 이미지 다운로드
-    const handleDownload = useCallback((imageData: string, index: number) => {
-      const link = document.createElement('a');
-      link.href = imageData;
-      // 확장자 추출 (base64 데이터에서)
-      const mimeMatch = imageData.match(/data:image\/(\w+);/);
-      const ext = mimeMatch ? mimeMatch[1] : 'png';
-      link.download = `image_${index + 1}.${ext}`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+    const handleDownload = useCallback(async (imageData: string, index: number) => {
+      try {
+        // URL인 경우 fetch로 blob 가져오기
+        if (imageData.startsWith('http')) {
+          const response = await fetch(imageData);
+          const blob = await response.blob();
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          const ext = blob.type.split('/')[1] || 'png';
+          link.download = `image_${index + 1}.${ext}`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+        } else {
+          // base64인 경우 기존 방식
+          const link = document.createElement('a');
+          link.href = imageData;
+          const mimeMatch = imageData.match(/data:image\/(\w+);/);
+          const ext = mimeMatch ? mimeMatch[1] : 'png';
+          link.download = `image_${index + 1}.${ext}`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
+      } catch (error) {
+        console.error('Failed to download image:', error);
+      }
     }, []);
 
     // 저장 함수
