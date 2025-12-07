@@ -8,6 +8,16 @@ import { blockPalette } from '@/app/template/new/blockPalette';
 import { iconMap } from '@/app/template/new/iconMap';
 import { BlockValue } from '@/lib/storage/entry';
 
+// 블록 프리뷰 컴포넌트들
+import { ProgressBlockPreview } from '@/app/template/new/components/ProgressBlockPreview';
+import { DateBlockPreview } from '@/app/template/new/components/DateBlockPreview';
+import { TimelineBlockPreview } from '@/app/template/new/components/TimelineBlockPreview';
+import { DataGraphBlockPreview } from '@/app/template/new/components/DataGraphBlockPreview';
+import { MapBlockPreview } from '@/app/template/new/components/MapBlockPreview';
+import { LinkBlockPreview } from '@/app/template/new/components/LinkBlockPreview';
+import { FileBlockPreview } from '@/app/template/new/components/FileBlockPreview';
+import { VideoBlockPreview } from '@/app/template/new/components/VideoBlockPreview';
+
 // 미리보기용 기록 데이터
 interface PreviewEntry {
   blocks: BlockPosition[];
@@ -429,22 +439,107 @@ function PreviewCardContent({ blocks, blockValues }: { blocks: BlockPosition[]; 
   const paletteItem = blockPalette.find(p => p.type === topLeftBlock.type);
   const Icon = iconMap[paletteItem?.icon || 'Type'];
 
-  // 블록 타입별 렌더링
-  return renderBlockPreview(topLeftBlock.type, value, Icon);
+  // 블록 타입별 렌더링 (값이 있든 없든 블록 타입에 맞게)
+  return renderBlockPreview(topLeftBlock.type, value, Icon, topLeftBlock);
 }
 
-// 블록 타입별 프리뷰 렌더링
+// 블록 타입별 프리뷰 렌더링 - 실제 BlockPreview 컴포넌트 사용
 function renderBlockPreview(
   type: string,
   value: BlockDefaultValue | undefined,
-  Icon: React.ComponentType<{ className?: string }>
+  Icon: React.ComponentType<{ className?: string }>,
+  block?: BlockPosition
 ) {
+  // 실제 값이 있는 경우 해당 블록 프리뷰 컴포넌트 사용
+
+  // 달성도 블록
+  if (type === 'progress') {
+    if (value?.type === 'progress') {
+      return <ProgressBlockPreview value={value.value} />;
+    }
+    if (block?.defaultValue?.type === 'progress') {
+      return <ProgressBlockPreview value={block.defaultValue.value} />;
+    }
+    return <ProgressBlockPreview />;
+  }
+
+  // 날짜 블록
+  if (type === 'date') {
+    if (value?.type === 'date') {
+      return <DateBlockPreview date={value.value} />;
+    }
+    if (block?.defaultValue?.type === 'date') {
+      return <DateBlockPreview date={block.defaultValue.value} />;
+    }
+    return <DateBlockPreview date={{ date: null }} />;
+  }
+
+  // 타임라인 블록
+  if (type === 'timeline') {
+    if (value?.type === 'timeline') {
+      return <TimelineBlockPreview value={value.value} />;
+    }
+    if (block?.defaultValue?.type === 'timeline') {
+      return <TimelineBlockPreview value={block.defaultValue.value} />;
+    }
+    return <TimelineBlockPreview />;
+  }
+
+  // 데이터 그래프 블록
+  if (type === 'dataGraph') {
+    if (value?.type === 'dataGraph') {
+      return <DataGraphBlockPreview value={value.value} />;
+    }
+    if (block?.defaultValue?.type === 'dataGraph') {
+      return <DataGraphBlockPreview value={block.defaultValue.value} />;
+    }
+    return <DataGraphBlockPreview />;
+  }
+
+  // 지도 블록
+  if (type === 'map') {
+    if (value?.type === 'map') {
+      return <MapBlockPreview value={value.value} />;
+    }
+    if (block?.defaultValue?.type === 'map') {
+      return <MapBlockPreview value={block.defaultValue.value} />;
+    }
+    return <MapBlockPreview />;
+  }
+
+  // 링크 블록
+  if (type === 'link') {
+    if (value?.type === 'link') {
+      return <LinkBlockPreview link={value.value} />;
+    }
+    if (block?.defaultValue?.type === 'link') {
+      return <LinkBlockPreview link={block.defaultValue.value} />;
+    }
+    return <LinkBlockPreview link={{ links: [] }} />;
+  }
+
+  // 파일 블록
+  if (type === 'file') {
+    if (value?.type === 'file') {
+      return <FileBlockPreview file={value.value} />;
+    }
+    if (block?.defaultValue?.type === 'file') {
+      return <FileBlockPreview file={block.defaultValue.value} />;
+    }
+    return <FileBlockPreview file={{ files: [] }} />;
+  }
+
+  // 비디오 블록
+  if (type === 'video' && value?.type === 'video' && value.value.videos?.length > 0) {
+    return <VideoBlockPreview videos={value.value.videos} />;
+  }
+
   // 텍스트 블록
   if (type === 'text' && value?.type === 'text' && value.value.richText) {
     const textContent = value.value.richText.replace(/<[^>]*>/g, '').trim();
     if (textContent) {
       return (
-        <div className="w-full h-full p-2 flex items-center justify-center bg-gray-50 overflow-hidden">
+        <div className="w-full h-full p-2 flex items-center justify-center bg-white overflow-hidden rounded-xl">
           <span className="text-[8px] leading-tight text-gray-700 text-center line-clamp-4">
             {textContent.slice(0, 50)}
           </span>
@@ -460,7 +555,7 @@ function renderBlockPreview(
       typhoon: '🌀', dusty: '😷', cold: '🥶', hot: '🥵'
     };
     return (
-      <div className="w-full h-full flex items-center justify-center bg-blue-50">
+      <div className="w-full h-full flex items-center justify-center bg-white rounded-xl">
         <span className="text-2xl">{weatherEmoji[value.value.weather] || '☀️'}</span>
       </div>
     );
@@ -475,133 +570,38 @@ function renderBlockPreview(
       anxious: '😰', unpleasant: '😣', embarrassed: '😳', regretful: '😔'
     };
     return (
-      <div className="w-full h-full flex items-center justify-center bg-amber-50">
+      <div className="w-full h-full flex items-center justify-center bg-white rounded-xl">
         <span className="text-2xl">{emotionEmoji[value.value.emotion] || '😐'}</span>
-      </div>
-    );
-  }
-
-  // 날짜 블록
-  if (type === 'date' && value?.type === 'date' && value.value.date) {
-    const date = new Date(value.value.date);
-    const month = date.getMonth() + 1;
-    const day = date.getDate();
-    return (
-      <div className="w-full h-full flex flex-col items-center justify-center bg-gray-50">
-        <span className="text-[8px] text-gray-500">{month}월</span>
-        <span className="text-lg font-bold text-gray-800">{day}</span>
       </div>
     );
   }
 
   // 체크리스트 블록
   if (type === 'checklist' && value?.type === 'checklist' && value.value.html) {
-    // 체크된 항목 수 계산
     const checkedCount = (value.value.html.match(/checked="true"/g) || []).length;
     const totalCount = (value.value.html.match(/<li/g) || []).length;
     return (
-      <div className="w-full h-full flex flex-col items-center justify-center bg-green-50">
-        <span className="text-lg font-bold text-green-700">{checkedCount}/{totalCount}</span>
-        <span className="text-[7px] text-green-600">완료</span>
+      <div className="w-full h-full flex flex-col items-center justify-center bg-white rounded-xl">
+        <span className="text-lg font-bold text-gray-900">{checkedCount}/{totalCount}</span>
+        <span className="text-[7px] text-gray-500">완료</span>
       </div>
     );
   }
 
-  // 달성도 블록
-  if (type === 'progress' && value?.type === 'progress') {
-    const { mode, title, targetDate, currentValue, targetValue } = value.value;
-    if (mode === 'dday' && targetDate) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const target = new Date(targetDate);
-      target.setHours(0, 0, 0, 0);
-      const diffDays = Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-      const displayText = diffDays === 0 ? 'D-Day' : diffDays > 0 ? `D-${diffDays}` : `D+${Math.abs(diffDays)}`;
-      return (
-        <div className="w-full h-full flex flex-col items-center justify-center bg-purple-50">
-          <span className="text-lg font-bold text-purple-700">{displayText}</span>
-          <span className="text-[6px] text-purple-500 text-center px-1 truncate w-full">{title}</span>
-        </div>
-      );
-    } else if (mode === 'percent' && targetValue) {
-      const percent = Math.round(((currentValue || 0) / targetValue) * 100);
-      return (
-        <div className="w-full h-full flex flex-col items-center justify-center bg-purple-50">
-          <span className="text-lg font-bold text-purple-700">{percent}%</span>
-          <span className="text-[6px] text-purple-500 text-center px-1 truncate w-full">{title}</span>
-        </div>
-      );
-    }
-  }
-
-  // 타임라인 블록
-  if (type === 'timeline' && value?.type === 'timeline' && value.value.items?.length > 0) {
-    const itemCount = value.value.items.length;
+  // customLabel이 있으면 표시
+  if (block?.customLabel) {
     return (
-      <div className="w-full h-full flex flex-col items-center justify-center bg-indigo-50">
-        <span className="text-lg font-bold text-indigo-700">{itemCount}</span>
-        <span className="text-[7px] text-indigo-500">일정</span>
-      </div>
-    );
-  }
-
-  // 데이터 그래프 블록
-  if (type === 'dataGraph' && value?.type === 'dataGraph' && value.value.values?.length > 0) {
-    const firstValue = value.value.values[0];
-    const field = value.value.fields?.find(f => f.id === firstValue.fieldId);
-    const displayValue = field?.format === 'percent' ? `${firstValue.value}%` : firstValue.value;
-    return (
-      <div className="w-full h-full flex flex-col items-center justify-center bg-cyan-50">
-        <span className="text-lg font-bold text-cyan-700">{displayValue}</span>
-        <span className="text-[6px] text-cyan-500 text-center px-1 truncate w-full">{field?.name || '데이터'}</span>
-      </div>
-    );
-  }
-
-  // 지도 블록
-  if (type === 'map' && value?.type === 'map' && value.value.markers?.length > 0) {
-    const markerCount = value.value.markers.length;
-    const firstName = value.value.markers[0].name;
-    return (
-      <div className="w-full h-full flex flex-col items-center justify-center bg-emerald-50">
-        <span className="text-lg">📍</span>
-        <span className="text-[7px] text-emerald-600 text-center px-1 truncate w-full">
-          {markerCount > 1 ? `${firstName} 외 ${markerCount - 1}` : firstName}
-        </span>
-      </div>
-    );
-  }
-
-  // 링크 블록
-  if (type === 'link' && value?.type === 'link' && value.value.links?.length > 0) {
-    const firstLink = value.value.links[0];
-    const title = firstLink.metadata?.title || new URL(firstLink.url).hostname;
-    return (
-      <div className="w-full h-full flex flex-col items-center justify-center bg-blue-50">
-        <span className="text-lg">🔗</span>
-        <span className="text-[6px] text-blue-600 text-center px-1 truncate w-full">{title}</span>
-      </div>
-    );
-  }
-
-  // 파일 블록
-  if (type === 'file' && value?.type === 'file' && value.value.files?.length > 0) {
-    const fileCount = value.value.files.length;
-    const firstName = value.value.files[0].name;
-    return (
-      <div className="w-full h-full flex flex-col items-center justify-center bg-orange-50">
-        <span className="text-lg">📎</span>
-        <span className="text-[6px] text-orange-600 text-center px-1 truncate w-full">
-          {fileCount > 1 ? `${fileCount}개 파일` : firstName}
-        </span>
+      <div className="w-full h-full flex flex-col items-center justify-center bg-gray-50 rounded-xl">
+        <Icon className="w-5 h-5 text-gray-400" />
+        <span className="text-[6px] text-gray-500 text-center px-1 truncate w-full mt-0.5">{block.customLabel}</span>
       </div>
     );
   }
 
   // 기본: 아이콘 표시
   return (
-    <div className="w-full h-full flex items-center justify-center bg-gray-100">
-      <Icon className="w-6 h-6 text-gray-400" />
+    <div className="w-full h-full flex items-center justify-center bg-gray-50 rounded-xl">
+      <Icon className="w-6 h-6 text-gray-300" />
     </div>
   );
 }
