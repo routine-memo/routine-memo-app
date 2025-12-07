@@ -1,9 +1,9 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { LineChart } from 'lucide-react';
-import { DataGraphBlockDefault, DataGraphField, DataGraphValue } from '../types';
-import { getEntriesByAlbum } from '@/lib/storage/entry';
+import { DataGraphBlockDefault, DataGraphField } from '../types';
+import { getEntries, Entry } from '@/lib/api/entries';
 
 interface DataGraphBlockPreviewProps {
   value?: DataGraphBlockDefault;
@@ -21,13 +21,28 @@ interface DataPoint {
 export const DataGraphBlockPreview = ({ value, albumId, blockId, entryDate }: DataGraphBlockPreviewProps) => {
   const fields = value?.fields || [];
   const currentValues = value?.values || [];
+  const [entries, setEntries] = useState<Entry[]>([]);
+
+  // 앨범의 기록 데이터 로드
+  useEffect(() => {
+    if (!albumId || !blockId) return;
+
+    const loadEntries = async () => {
+      try {
+        const data = await getEntries(albumId);
+        setEntries(data);
+      } catch (error) {
+        console.error('Failed to load entries:', error);
+      }
+    };
+    loadEntries();
+  }, [albumId, blockId]);
 
   // 앨범의 모든 기록에서 이 블록의 데이터 수집 (시간순)
   // entryDate가 있으면 해당 날짜까지의 데이터만 표시
   const historicalData = useMemo((): DataPoint[] => {
-    if (!albumId || !blockId) return [];
+    if (!albumId || !blockId || entries.length === 0) return [];
 
-    const entries = getEntriesByAlbum(albumId);
     // 시간순 정렬 (오래된 것 → 최신)
     let sortedEntries = [...entries].sort(
       (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
@@ -47,7 +62,7 @@ export const DataGraphBlockPreview = ({ value, albumId, blockId, entryDate }: Da
       const blockValue = entry.blockValues.find(bv => bv.blockId === blockId);
       if (blockValue?.value?.type === 'dataGraph' && blockValue.value.value.values) {
         const valuesMap = new Map<string, number>();
-        blockValue.value.value.values.forEach(v => {
+        blockValue.value.value.values.forEach((v: { fieldId: string; value: number }) => {
           valuesMap.set(v.fieldId, v.value);
         });
         if (valuesMap.size > 0) {
@@ -60,7 +75,7 @@ export const DataGraphBlockPreview = ({ value, albumId, blockId, entryDate }: Da
     }
 
     return dataPoints;
-  }, [albumId, blockId, entryDate]);
+  }, [albumId, blockId, entryDate, entries]);
 
   // 현재 입력중인 값도 포함한 전체 데이터
   // entryDate가 있으면 이미 저장된 기록을 보는 것이므로 currentValues 무시
