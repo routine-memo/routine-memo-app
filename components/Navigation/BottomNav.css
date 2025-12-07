@@ -1,0 +1,72 @@
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 72px;
+  background: #FFFFFF;
+  border-top: 2px solid #000000;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  padding: 0 16px;
+  z-index: 100;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+/* 다크모드 지원 (Tailwind class 기반) */
+:root.dark .bottom-nav {
+  background: #171717;
+  border-top-color: #404040;
+}
+
+.nav-item-wrapper {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+
+.nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 16px;
+  text-decoration: none;
+  color: #737373;
+  transition: color 0.2s ease;
+  cursor: pointer;
+}
+
+.nav-item:hover {
+  color: #000000;
+}
+
+:root.dark .nav-item:hover {
+  color: #FFFFFF;
+}
+
+.nav-item.active {
+  color: #000000;
+}
+
+:root.dark .nav-item.active {
+  color: #FFFFFF;
+}
+
+:root.dark .nav-item {
+  color: #A3A3A3;
+}
+
+.nav-icon {
+  flex-shrink: 0;
+}
+
+.nav-label {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.nav-item.active .nav-label {
+  font-weight: 600;
+}

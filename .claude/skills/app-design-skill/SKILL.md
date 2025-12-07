@@ -96,6 +96,18 @@ Pick a clear emotional tone that guides all design decisions:
 - Mobile: Tighter spacing (16px, 24px)
 - Desktop: More generous spacing (24px, 32px, 48px)
 
+**Icon System**
+- **NO EMOJIS**: Never use emoji for UI elements (❌ 🏠 📝 ✨)
+- **Wireframe Icons Only**: Use consistent wireframe/outline icons
+- **Icon Style Consistency**: Choose ONE style and stick to it throughout the entire app
+  - **Outline/Linear**: Thin stroke icons (e.g., Lucide, Heroicons outline)
+  - **Filled/Solid**: Solid filled icons (e.g., Heroicons solid, Font Awesome solid)
+  - **NEVER MIX**: If you start with outline icons, ALL icons must be outline
+- **Icon Library**: Use a single icon library (Lucide React recommended)
+- **Icon Size**: Consistent sizing - 20px, 24px, or 32px depending on context
+- **No Overlapping**: Ensure icons never visually clash or overlap with other UI elements
+- **Color**: Icons follow text color unless they need emphasis (primary color)
+
 **Motion Strategy**
 - **Page Transitions**: Fade or slide between routes
 - **Element Reveals**: Fade-up on scroll or mount

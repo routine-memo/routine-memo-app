@@ -1,0 +1,36 @@
+import {
+  Clock,
+  Type,
+  Image,
+  CheckSquare,
+  Smile,
+  Calendar,
+  Cloud,
+  ChevronDown,
+  LineChart,
+  Link as LinkIcon,
+  ListTodo,
+  Map,
+  Video,
+  File,
+  Target,
+} from 'lucide-react';
+import { IconMap } from './types';
+
+export const iconMap: IconMap = {
+  Clock,
+  Type,
+  Image,
+  CheckSquare,
+  Smile,
+  Calendar,
+  Cloud,
+  ChevronDown,
+  LineChart,
+  Link: LinkIcon,
+  ListTodo,
+  Map,
+  Video,
+  File,
+  Target,
+};
