@@ -100,12 +100,17 @@ export function PushProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      // registration이 없으면 직접 등록 시도
-      let reg = registration;
-      if (!reg) {
-        console.log("Registering service worker...");
+      // Service Worker 등록 (항상 최신 상태 확인)
+      console.log("Getting service worker registration...");
+      let reg: ServiceWorkerRegistration;
+      try {
         reg = await navigator.serviceWorker.register("/sw.js");
+        // Service Worker가 활성화될 때까지 대기
+        await navigator.serviceWorker.ready;
         setRegistration(reg);
+      } catch (swError) {
+        console.error("Service worker registration failed:", swError);
+        return false;
       }
 
       // 권한 확인
@@ -130,7 +135,6 @@ export function PushProvider({ children }: { children: React.ReactNode }) {
         } catch (e) {
           console.log("Failed to remove old subscription:", e);
         }
-        subscription = null;
       }
 
       // 새 구독 생성
@@ -140,12 +144,15 @@ export function PushProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
 
+      console.log("Creating new push subscription...");
       subscription = await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
       });
+      console.log("Push subscription created:", subscription.endpoint.slice(0, 50) + "...");
 
       // 서버에 구독 정보 전송
+      console.log("Sending subscription to server...");
       const response = await fetch("/api/push/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -163,8 +170,17 @@ export function PushProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (response.ok) {
+        console.log("Subscription saved to server");
         setIsSubscribed(true);
         return true;
+      }
+
+      const errorData = await response.json().catch(() => ({}));
+      console.error("Server subscription failed:", response.status, errorData);
+
+      // 401이면 세션 문제일 수 있음 - 페이지 새로고침 권유
+      if (response.status === 401) {
+        console.error("Authentication failed - user may need to re-login");
       }
 
       return false;
@@ -172,14 +188,26 @@ export function PushProvider({ children }: { children: React.ReactNode }) {
       console.error("Push subscription failed:", error);
       return false;
     }
-  }, [isSupported, registration]);
+  }, [isSupported]);
 
   // 푸시 구독 해제
   const unsubscribe = useCallback(async (): Promise<boolean> => {
-    if (!isSupported || !registration) return false;
+    if (!isSupported) return false;
 
     try {
-      const subscription = await registration.pushManager.getSubscription();
+      // registration이 없으면 다시 가져오기
+      let reg = registration;
+      if (!reg) {
+        try {
+          reg = await navigator.serviceWorker.ready;
+        } catch {
+          // Service Worker가 없으면 이미 구독 해제된 상태로 간주
+          setIsSubscribed(false);
+          return true;
+        }
+      }
+
+      const subscription = await reg.pushManager.getSubscription();
       if (!subscription) {
         setIsSubscribed(false);
         return true;

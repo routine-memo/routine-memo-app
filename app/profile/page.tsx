@@ -77,6 +77,7 @@ export default function ProfilePage() {
     categories: 0,
     streak: 0,
   });
+  const [isNotificationLoading, setIsNotificationLoading] = useState(false);
 
   // 알림 토글 핸들러
   const handleNotificationToggle = async () => {
@@ -85,22 +86,29 @@ export default function ProfilePage() {
       return;
     }
 
-    if (isSubscribed) {
-      // 구독 해제
-      const success = await unsubscribe();
-      if (!success) {
-        alert('알림 해제에 실패했습니다.');
-      }
-    } else {
-      // 구독
-      const success = await subscribe();
-      if (!success) {
-        if (permission === 'denied') {
-          alert('알림이 차단되어 있습니다. 브라우저 설정에서 알림을 허용해주세요.');
-        } else {
-          alert('알림 설정에 실패했습니다.');
+    if (isNotificationLoading) return; // 중복 클릭 방지
+    setIsNotificationLoading(true);
+
+    try {
+      if (isSubscribed) {
+        // 구독 해제
+        const success = await unsubscribe();
+        if (!success) {
+          alert('알림 해제에 실패했습니다.');
+        }
+      } else {
+        // 구독
+        const success = await subscribe();
+        if (!success) {
+          if (permission === 'denied') {
+            alert('알림이 차단되어 있습니다. 브라우저 설정에서 알림을 허용해주세요.');
+          } else {
+            alert('알림 설정에 실패했습니다. 페이지를 새로고침 후 다시 시도해주세요.');
+          }
         }
       }
+    } finally {
+      setIsNotificationLoading(false);
     }
   };
 
@@ -207,7 +215,7 @@ export default function ProfilePage() {
           {/* 알림 설정 */}
           <button
             onClick={handleNotificationToggle}
-            disabled={!isSupported}
+            disabled={!isSupported || isNotificationLoading}
             className="w-full px-4 py-4 bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-300 dark:border-gray-600 text-left flex items-center justify-between hover:border-black dark:hover:border-gray-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <div className="flex items-center gap-3">
@@ -221,7 +229,7 @@ export default function ProfilePage() {
                   푸시 알림
                 </span>
                 <span className="text-xs text-gray-500 dark:text-gray-400">
-                  {!isSupported ? '지원되지 않는 브라우저' : isSubscribed ? '알림 활성화됨' : '알림 비활성화'}
+                  {!isSupported ? '지원되지 않는 브라우저' : isNotificationLoading ? '처리 중...' : isSubscribed ? '알림 활성화됨' : '알림 비활성화'}
                 </span>
               </div>
             </div>
