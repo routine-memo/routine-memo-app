@@ -103,22 +103,31 @@ export function PushProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      // 기존 구독 확인
+      // 기존 구독 확인 및 삭제 (VAPID 키 불일치 문제 해결)
       let subscription = await reg.pushManager.getSubscription();
 
-      // 새 구독 생성
-      if (!subscription) {
-        const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-        if (!vapidPublicKey) {
-          console.error("VAPID public key not found");
-          return false;
+      // 기존 구독이 있으면 삭제 후 새로 생성 (VAPID 키 변경 대응)
+      if (subscription) {
+        try {
+          await subscription.unsubscribe();
+          console.log("Old subscription removed");
+        } catch (e) {
+          console.log("Failed to remove old subscription:", e);
         }
-
-        subscription = await reg.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
-        });
+        subscription = null;
       }
+
+      // 새 구독 생성
+      const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+      if (!vapidPublicKey) {
+        console.error("VAPID public key not found");
+        return false;
+      }
+
+      subscription = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+      });
 
       // 서버에 구독 정보 전송
       const response = await fetch("/api/push/subscribe", {
