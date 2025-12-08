@@ -50,9 +50,20 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
       scrollToIndex,
       handleScroll: baseHandleScroll,
       handleScrollEnd,
-      removeItem: handleRemoveVideo,
+      removeItem,
       getItemStyle,
     } = useCarousel<string>(initialValue?.videos || []);
+
+    // 영상 삭제 핸들러 (업로드 중인 경우 취소도 함께)
+    const handleRemoveVideo = useCallback((index: number) => {
+      const video = videos[index];
+      // 업로드 중인 placeholder인 경우 업로드 취소
+      if (video && video.startsWith('__uploading__')) {
+        const uploadId = video.replace('__uploading__', '');
+        uploadManager.cancelTask(uploadId);
+      }
+      removeItem(index);
+    }, [videos, removeItem]);
 
     // onChange를 ref로 관리해서 의존성 문제 해결
     const onChangeRef = useRef(onChange);
@@ -590,8 +601,8 @@ const VideoBlockEditorInner = forwardRef<VideoBlockEditorHandle, VideoBlockEdito
                         />
                       )}
 
-                      {/* 활성 영상일 때 컨트롤 */}
-                      {isActive && video && (
+                      {/* 활성 영상일 때 컨트롤 (업로드 완료 후에만 표시) */}
+                      {isActive && video && !video.startsWith('__uploading__') && (
                         <>
                           {/* 상단 버튼들 */}
                           <div className="absolute top-3 right-3 flex gap-2 z-10">

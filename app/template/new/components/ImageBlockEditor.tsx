@@ -31,9 +31,20 @@ const ImageBlockEditorInner = forwardRef<ImageBlockEditorHandle, ImageBlockEdito
       scrollToIndex,
       handleScroll,
       handleScrollEnd,
-      removeItem: handleRemoveImage,
+      removeItem,
       getItemStyle,
     } = useCarousel<string>(initialValue?.images || []);
+
+    // 이미지 삭제 핸들러 (업로드 중인 경우 취소도 함께)
+    const handleRemoveImage = useCallback((index: number) => {
+      const img = images[index];
+      // 업로드 중인 placeholder인 경우 업로드 취소
+      if (img && img.startsWith('__uploading__')) {
+        const uploadId = img.replace('__uploading__', '');
+        uploadManager.cancelTask(uploadId);
+      }
+      removeItem(index);
+    }, [images, removeItem]);
 
     // onChange를 ref로 관리해서 의존성 문제 해결
     const onChangeRef = useRef(onChange);
@@ -285,8 +296,8 @@ const ImageBlockEditorInner = forwardRef<ImageBlockEditorHandle, ImageBlockEdito
                         />
                       )}
 
-                      {/* 활성 이미지일 때 버튼들 */}
-                      {isActive && img && (
+                      {/* 활성 이미지일 때 버튼들 (업로드 완료 후에만 표시) */}
+                      {isActive && img && !img.startsWith('__uploading__') && (
                         <div className="absolute top-3 right-3 flex gap-2 z-10">
                           <button
                             onClick={(e) => {

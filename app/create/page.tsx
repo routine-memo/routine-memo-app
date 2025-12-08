@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Sparkles, Calendar, Copy, ArrowLeft } from 'lucide-react';
+import { Sparkles, Calendar, ArrowLeft } from 'lucide-react';
 
 export default function CreatePage() {
   const router = useRouter();
@@ -34,13 +34,6 @@ export default function CreatePage() {
           </p>
         </Link>
 
-        <button className="w-full p-6 rounded-xl border-2 border-black bg-white text-left hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] transition-all">
-          <Copy size={40} strokeWidth={1.5} className="mb-3 text-black" />
-          <h3 className="text-xl font-bold mb-1 text-black">앨범 복제하기</h3>
-          <p className="text-sm text-gray-600">
-            기존 앨범을 복제해 새 앨범 만들기
-          </p>
-        </button>
       </section>
     </main>
   );
