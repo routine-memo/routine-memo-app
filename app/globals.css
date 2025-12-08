@@ -260,19 +260,28 @@ body {
 input,
 textarea,
 [contenteditable="true"] {
-  -webkit-text-fill-color: currentColor;
-  opacity: 1;
-  color: inherit;
+  -webkit-text-fill-color: #000000 !important;
+  color: #000000 !important;
+  opacity: 1 !important;
 }
 
 input::placeholder,
 textarea::placeholder {
-  -webkit-text-fill-color: #9ca3af;
-  opacity: 1;
+  -webkit-text-fill-color: #9ca3af !important;
+  color: #9ca3af !important;
+  opacity: 1 !important;
 }
 
-/* iOS에서 disabled 상태가 아닌데도 회색으로 보이는 문제 수정 */
-input:not(:disabled),
-textarea:not(:disabled) {
-  -webkit-text-fill-color: inherit;
+/* 다크모드에서는 흰색 텍스트 */
+.dark input,
+.dark textarea,
+.dark [contenteditable="true"] {
+  -webkit-text-fill-color: #ffffff !important;
+  color: #ffffff !important;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  -webkit-text-fill-color: #6b7280 !important;
+  color: #6b7280 !important;
 }
