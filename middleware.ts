@@ -8,12 +8,13 @@ export default auth((req) => {
   // 로그인 페이지와 인증 API는 항상 접근 허용
   const isLoginPage = nextUrl.pathname === "/login";
   const isAuthApi = nextUrl.pathname.startsWith("/api/auth");
+  const isCronApi = nextUrl.pathname.startsWith("/api/cron");
   const isPublicAsset = nextUrl.pathname.startsWith("/_next") ||
                         nextUrl.pathname.startsWith("/favicon") ||
                         nextUrl.pathname.includes(".");
 
-  // 공개 경로는 항상 허용
-  if (isAuthApi || isPublicAsset) {
+  // 공개 경로는 항상 허용 (cron API는 자체 인증 사용)
+  if (isAuthApi || isCronApi || isPublicAsset) {
     return NextResponse.next();
   }
 
