@@ -2,11 +2,52 @@
 
 import { signIn } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
-import { Suspense } from 'react';
+import { Suspense, useState, useEffect } from 'react';
+import { Download } from 'lucide-react';
+
+// PWA 설치 프롬프트 타입
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+}
 
 function LoginContent() {
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get('callbackUrl') || '/';
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [isInstalled, setIsInstalled] = useState(false);
+
+  useEffect(() => {
+    // 이미 설치되었는지 확인
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      setIsInstalled(true);
+      return;
+    }
+
+    // 설치 프롬프트 이벤트 저장
+    const handleBeforeInstall = (e: Event) => {
+      e.preventDefault();
+      setInstallPrompt(e as BeforeInstallPromptEvent);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+    };
+  }, []);
+
+  const handleInstall = async () => {
+    if (!installPrompt) return;
+
+    await installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+
+    if (outcome === 'accepted') {
+      setIsInstalled(true);
+    }
+    setInstallPrompt(null);
+  };
 
   const handleGoogleSignIn = () => {
     signIn('google', { callbackUrl });
@@ -63,6 +104,23 @@ function LoginContent() {
             로그인하면 서비스 이용약관에 동의하게 됩니다
           </p>
         </div>
+
+        {/* 앱 설치 버튼 */}
+        {installPrompt && !isInstalled && (
+          <button
+            onClick={handleInstall}
+            className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl transition-colors"
+          >
+            <Download size={18} />
+            <span className="font-medium">앱으로 설치하기</span>
+          </button>
+        )}
+
+        {isInstalled && (
+          <p className="mt-4 text-center text-sm text-green-600 dark:text-green-400">
+            앱이 설치되었습니다
+          </p>
+        )}
 
         {/* 하단 문구 */}
         <p className="mt-8 text-center text-sm text-gray-500 dark:text-gray-400">
