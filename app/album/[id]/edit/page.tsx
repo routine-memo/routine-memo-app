@@ -4,6 +4,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft, Bell, Pencil, Check, X } from 'lucide-react';
 import { getAlbum, updateAlbum, Album, AlbumNotification } from '@/lib/api/albums';
+import { usePush } from '@/components/PushProvider';
 
 // Import types and utilities
 import { BlockPosition, BlockType, Step } from '@/app/template/new/types';
@@ -19,6 +20,7 @@ export default function EditAlbumPage() {
   const router = useRouter();
   const params = useParams();
   const albumId = params.id as string;
+  const { subscribe, isSupported, isSubscribed } = usePush();
 
   const [isLoading, setIsLoading] = useState(true);
   const [step, setStep] = useState<EditStep>('blocks');
@@ -33,6 +35,19 @@ export default function EditAlbumPage() {
 
   // 이름 편집 상태
   const [isEditingName, setIsEditingName] = useState(false);
+
+  // 알림 활성화 시 푸시 구독 요청
+  const handleNotificationToggle = async (enabled: boolean) => {
+    setNotification({ ...notification, enabled });
+
+    // 알림 활성화 시 푸시 구독 요청
+    if (enabled && isSupported && !isSubscribed) {
+      const success = await subscribe();
+      if (!success) {
+        console.log('푸시 알림 구독 실패 - 브라우저 설정을 확인해주세요');
+      }
+    }
+  };
   const [editingNameValue, setEditingNameValue] = useState('');
   const nameInputRef = useRef<HTMLInputElement>(null);
 
@@ -272,7 +287,7 @@ export default function EditAlbumPage() {
               <input
                 type="checkbox"
                 checked={notification.enabled}
-                onChange={(e) => setNotification({ ...notification, enabled: e.target.checked })}
+                onChange={(e) => handleNotificationToggle(e.target.checked)}
                 className="sr-only peer"
               />
               <div className={`w-full h-full rounded-full peer peer-checked:bg-amber-500 transition-colors ${notification.enabled ? 'bg-gray-700' : 'bg-gray-200'}`} />

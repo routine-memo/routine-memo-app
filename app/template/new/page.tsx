@@ -3,8 +3,8 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Bell } from 'lucide-react';
-import { NotificationSettings } from '@/types/template';
 import { createAlbum, AlbumNotification } from '@/lib/api/albums';
+import { usePush } from '@/components/PushProvider';
 
 // Import types and utilities
 import { BlockPosition, BlockType, Step } from './types';
@@ -16,6 +16,7 @@ import { DefaultsStep } from './components/DefaultsStep';
 
 export default function NewTemplatePage() {
   const router = useRouter();
+  const { subscribe, isSupported, isSubscribed } = usePush();
   const [step, setStep] = useState<Step>('name');
   const [templateName, setTemplateName] = useState('');
   const [blockPositions, setBlockPositions] = useState<BlockPosition[]>([]);
@@ -26,6 +27,19 @@ export default function NewTemplatePage() {
   const [isSaving, setIsSaving] = useState(false);
   const [gridWidth, setGridWidth] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // 알림 활성화 시 푸시 구독 요청
+  const handleNotificationToggle = async (enabled: boolean) => {
+    setNotification({ ...notification, enabled });
+
+    // 알림 활성화 시 푸시 구독 요청
+    if (enabled && isSupported && !isSubscribed) {
+      const success = await subscribe();
+      if (!success) {
+        console.log('푸시 알림 구독 실패 - 브라우저 설정을 확인해주세요');
+      }
+    }
+  };
 
   // 컨테이너 너비 감지 - ref 콜백 + useEffect 조합
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
@@ -209,7 +223,7 @@ export default function NewTemplatePage() {
               <input
                 type="checkbox"
                 checked={notification.enabled}
-                onChange={(e) => setNotification({ ...notification, enabled: e.target.checked })}
+                onChange={(e) => handleNotificationToggle(e.target.checked)}
                 className="sr-only peer"
               />
               <div className={`w-full h-full rounded-full peer peer-checked:bg-amber-500 transition-colors ${notification.enabled ? 'bg-gray-700' : 'bg-gray-200'}`} />
