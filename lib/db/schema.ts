@@ -3,8 +3,8 @@ import { pgTable, text, timestamp, uuid, jsonb, integer } from "drizzle-orm/pg-c
 // 사용자 테이블
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
-  googleId: text("google_id").unique().notNull(),
-  email: text("email").notNull(),
+  googleId: text("google_id").notNull(), // unique 제거 (동일 이메일이면 같은 사용자)
+  email: text("email").unique().notNull(), // email을 unique로 변경
   name: text("name"),
   image: text("image"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
