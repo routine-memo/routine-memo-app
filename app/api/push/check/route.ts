@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { pushSubscriptions } from "@/lib/db/schema";
+import { getCurrentUser } from "@/lib/db/users";
 import { eq, and } from "drizzle-orm";
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
+    const user = await getCurrentUser();
+    if (!user) {
       return NextResponse.json({ subscribed: false });
     }
 
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
       .from(pushSubscriptions)
       .where(
         and(
-          eq(pushSubscriptions.userId, session.user.id),
+          eq(pushSubscriptions.userId, user.id),
           eq(pushSubscriptions.endpoint, endpoint)
         )
       )
