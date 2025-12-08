@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { pushSubscriptions } from "@/lib/db/schema";
 import { getCurrentUser } from "@/lib/db/users";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 // POST: 푸시 알림 구독
 export async function POST(request: NextRequest) {
@@ -22,30 +22,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 이미 존재하는 구독인지 확인
-    const existing = await db
-      .select()
-      .from(pushSubscriptions)
-      .where(
-        and(
-          eq(pushSubscriptions.userId, user.id),
-          eq(pushSubscriptions.endpoint, endpoint)
-        )
-      )
-      .limit(1);
-
-    if (existing.length > 0) {
-      // 이미 구독 중이면 업데이트
-      await db
-        .update(pushSubscriptions)
-        .set({
-          p256dh: keys.p256dh,
-          auth: keys.auth,
-        })
-        .where(eq(pushSubscriptions.id, existing[0].id));
-
-      return NextResponse.json({ message: "Subscription updated" });
-    }
+    // 기존 구독 모두 삭제 후 새로 생성 (VAPID 키 변경이나 재구독 시 endpoint가 바뀌므로)
+    await db
+      .delete(pushSubscriptions)
+      .where(eq(pushSubscriptions.userId, user.id));
 
     // 새 구독 생성
     await db.insert(pushSubscriptions).values({

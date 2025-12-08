@@ -24,7 +24,18 @@
       "Skill(claude-self-review-loop)",
       "Bash(\"c:\\Users\\ghpjj\\OneDrive\\Desktop\\project\\routine-memo\\app\\template\\new\\blockUtils\\moveToRowSide_temp.ts\")",
       "Bash(taskkill:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(git stash:*)",
+      "Bash(git merge:*)",
+      "Bash(npx auth secret:*)",
+      "Bash(npm run db:push:*)",
+      "Bash(npx drizzle-kit execute:*)",
+      "Bash(npx tsx:*)",
+      "Bash(git fetch:*)",
+      "Bash(npx web-push generate-vapid-keys)",
+      "Bash(npm i:*)",
+      "Bash(npx drizzle-kit:*)",
+      "Bash(npm run build:*)"
     ],
     "deny": [],
     "ask": []

@@ -56,9 +56,25 @@ export function PushProvider({ children }: { children: React.ReactNode }) {
         const reg = await navigator.serviceWorker.register("/sw.js");
         setRegistration(reg);
 
-        // 기존 구독 확인
+        // 기존 구독 확인 - 브라우저와 서버 모두 확인
         const subscription = await reg.pushManager.getSubscription();
-        setIsSubscribed(!!subscription);
+        if (subscription) {
+          // 서버에도 구독이 있는지 확인
+          try {
+            const response = await fetch("/api/push/check", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ endpoint: subscription.endpoint }),
+            });
+            const data = await response.json();
+            setIsSubscribed(data.subscribed);
+          } catch {
+            // 서버 확인 실패 시 브라우저 구독 기준으로
+            setIsSubscribed(true);
+          }
+        } else {
+          setIsSubscribed(false);
+        }
       } catch (error) {
         console.error("Service Worker registration failed:", error);
       }
