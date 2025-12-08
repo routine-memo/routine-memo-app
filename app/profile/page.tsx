@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { useSession, signOut } from 'next-auth/react';
-import { User, FileText, FolderOpen, Calendar, Moon, Sun, LogOut } from 'lucide-react';
+import { User, FileText, FolderOpen, Calendar, Moon, Sun, LogOut, Bell, BellOff } from 'lucide-react';
 import Image from 'next/image';
 import { useDarkMode } from '@/components/DarkModeProvider';
+import { usePush } from '@/components/PushProvider';
 import { getAlbums } from '@/lib/api/albums';
 import { getEntries, Entry } from '@/lib/api/entries';
 import { getDailyEntries, DailyEntry } from '@/lib/api/dailyEntries';
@@ -70,11 +71,38 @@ function calculateStreak(entries: Entry[], dailyEntries: DailyEntry[]): number {
 export default function ProfilePage() {
   const { data: session, status } = useSession();
   const { isDarkMode, toggleDarkMode } = useDarkMode();
+  const { isSupported, isSubscribed, subscribe, unsubscribe, permission } = usePush();
   const [stats, setStats] = useState({
     totalRecords: 0,
     categories: 0,
     streak: 0,
   });
+
+  // 알림 토글 핸들러
+  const handleNotificationToggle = async () => {
+    if (!isSupported) {
+      alert('이 브라우저는 푸시 알림을 지원하지 않습니다.');
+      return;
+    }
+
+    if (isSubscribed) {
+      // 구독 해제
+      const success = await unsubscribe();
+      if (!success) {
+        alert('알림 해제에 실패했습니다.');
+      }
+    } else {
+      // 구독
+      const success = await subscribe();
+      if (!success) {
+        if (permission === 'denied') {
+          alert('알림이 차단되어 있습니다. 브라우저 설정에서 알림을 허용해주세요.');
+        } else {
+          alert('알림 설정에 실패했습니다.');
+        }
+      }
+    }
+  };
 
   useEffect(() => {
     const loadStats = async () => {
@@ -176,6 +204,33 @@ export default function ProfilePage() {
       <section>
         <h2 className="text-xl font-semibold mb-4 text-black dark:text-white pb-2 border-b-1 border-gray-300 dark:border-gray-700">설정</h2>
         <div className="space-y-2">
+          {/* 알림 설정 */}
+          <button
+            onClick={handleNotificationToggle}
+            disabled={!isSupported}
+            className="w-full px-4 py-4 bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-300 dark:border-gray-600 text-left flex items-center justify-between hover:border-black dark:hover:border-gray-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <div className="flex items-center gap-3">
+              {isSubscribed ? (
+                <Bell size={20} strokeWidth={2} className="text-amber-500" />
+              ) : (
+                <BellOff size={20} strokeWidth={2} className="text-gray-500 dark:text-gray-400" />
+              )}
+              <div>
+                <span className="text-black dark:text-white font-medium block">
+                  푸시 알림
+                </span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  {!isSupported ? '지원되지 않는 브라우저' : isSubscribed ? '알림 활성화됨' : '알림 비활성화'}
+                </span>
+              </div>
+            </div>
+            <div className={`w-12 h-6 rounded-full transition-colors ${isSubscribed ? 'bg-amber-500' : 'bg-gray-300 dark:bg-gray-600'}`}>
+              <div className={`w-5 h-5 rounded-full bg-white shadow-md transform transition-transform mt-0.5 ${isSubscribed ? 'translate-x-6' : 'translate-x-0.5'}`} />
+            </div>
+          </button>
+
+          {/* 다크모드 설정 */}
           <button
             onClick={toggleDarkMode}
             className="w-full px-4 py-4 bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-300 dark:border-gray-600 text-left flex items-center justify-between hover:border-black dark:hover:border-gray-400 transition-colors"
