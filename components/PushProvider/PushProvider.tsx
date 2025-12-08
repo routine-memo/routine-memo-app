@@ -64,6 +64,7 @@ export function PushProvider({ children }: { children: React.ReactNode }) {
             const response = await fetch("/api/push/check", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
+              credentials: "include",
               body: JSON.stringify({ endpoint: subscription.endpoint }),
             });
             const data = await response.json();
@@ -156,6 +157,7 @@ export function PushProvider({ children }: { children: React.ReactNode }) {
       const response = await fetch("/api/push/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include", // PWA에서 세션 쿠키 전달을 위해 필요
         body: JSON.stringify({
           endpoint: subscription.endpoint,
           keys: {
@@ -217,6 +219,7 @@ export function PushProvider({ children }: { children: React.ReactNode }) {
       await fetch("/api/push/unsubscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ endpoint: subscription.endpoint }),
       });
 
