@@ -255,3 +255,50 @@ body {
 .animate-slide-up {
   animation: slideUp 0.3s ease-out forwards;
 }
+
+/* 모바일 입력 필드 텍스트 색상 수정 (iOS/Android) */
+input,
+textarea,
+[contenteditable="true"] {
+  -webkit-text-fill-color: #000000 !important;
+  color: #000000 !important;
+  opacity: 1 !important;
+}
+
+input::placeholder,
+textarea::placeholder {
+  -webkit-text-fill-color: #9ca3af !important;
+  color: #9ca3af !important;
+  opacity: 1 !important;
+}
+
+/* 다크모드에서는 흰색 텍스트 */
+.dark input,
+.dark textarea,
+.dark [contenteditable="true"] {
+  -webkit-text-fill-color: #ffffff !important;
+  color: #ffffff !important;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  -webkit-text-fill-color: #6b7280 !important;
+  color: #6b7280 !important;
+}
+
+/* 어두운 배경의 입력 필드 (bg-gray-800, bg-gray-900 등) */
+.bg-gray-800 input,
+.bg-gray-900 input,
+.bg-gray-800 textarea,
+.bg-gray-900 textarea {
+  -webkit-text-fill-color: #ffffff !important;
+  color: #ffffff !important;
+}
+
+.bg-gray-800 input::placeholder,
+.bg-gray-900 input::placeholder,
+.bg-gray-800 textarea::placeholder,
+.bg-gray-900 textarea::placeholder {
+  -webkit-text-fill-color: #9ca3af !important;
+  color: #9ca3af !important;
+}

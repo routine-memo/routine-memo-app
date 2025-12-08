@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react';
 import { Plus, Settings, ChevronRight, Pencil, Check, X, Clock, Trash2, Bell, BellOff } from 'lucide-react';
 import { Album, AlbumNotification, updateAlbum, deleteAlbum } from '@/lib/api/albums';
+import { usePush } from '@/components/PushProvider';
 import { BlockPosition, BlockDefaultValue } from '@/app/template/new/types';
 import { blockPalette } from '@/app/template/new/blockPalette';
 import { iconMap } from '@/app/template/new/iconMap';
@@ -51,6 +52,7 @@ export function AlbumCard({
   const [isEditingName, setIsEditingName] = useState(false);
   const [editingNameValue, setEditingNameValue] = useState('');
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const { subscribe, isSupported, isSubscribed } = usePush();
 
   // 알림 설정 상태 (로컬)
   const [notification, setNotification] = useState<AlbumNotification>(
@@ -91,8 +93,18 @@ export function AlbumCard({
 
   // 알림 설정 변경
   const toggleNotification = async () => {
-    const newNotification = { ...notification, enabled: !notification.enabled };
+    const newEnabled = !notification.enabled;
+    const newNotification = { ...notification, enabled: newEnabled };
     setNotification(newNotification);
+
+    // 알림 활성화 시 푸시 구독 요청
+    if (newEnabled && isSupported && !isSubscribed) {
+      const success = await subscribe();
+      if (!success) {
+        console.log('푸시 알림 구독 실패 - 브라우저 설정을 확인해주세요');
+      }
+    }
+
     try {
       await updateAlbum(album.id, { notification: newNotification });
       onNotificationChange?.(newNotification);

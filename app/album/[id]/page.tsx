@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowLeft, Plus, Calendar } from 'lucide-react';
+import { ArrowLeft, Plus, Calendar, Clock } from 'lucide-react';
 import { getAlbum, Album } from '@/lib/api/albums';
 import { getEntries, Entry, deleteEntry } from '@/lib/api/entries';
 import { EntryCarousel } from './components/EntryCarousel';
@@ -105,7 +105,7 @@ export default function AlbumEntriesPage() {
       {/* 헤더 */}
       <div className="flex-none bg-white border-b border-gray-200 px-4 py-3">
         <div className="flex items-center gap-3">
-          <button onClick={() => router.back()} className="text-gray-900">
+          <button onClick={() => router.push('/records')} className="text-gray-900">
             <ArrowLeft className="w-6 h-6" />
           </button>
           <div className="flex-1 min-w-0">

@@ -78,17 +78,33 @@ export function PushProvider({ children }: { children: React.ReactNode }) {
 
   // 푸시 구독
   const subscribe = useCallback(async (): Promise<boolean> => {
-    if (!isSupported || !registration) return false;
+    if (!isSupported) {
+      console.log("Push notifications not supported");
+      return false;
+    }
 
     try {
+      // registration이 없으면 직접 등록 시도
+      let reg = registration;
+      if (!reg) {
+        console.log("Registering service worker...");
+        reg = await navigator.serviceWorker.register("/sw.js");
+        setRegistration(reg);
+      }
+
       // 권한 확인
       if (Notification.permission !== "granted") {
-        const perm = await requestPermission();
-        if (perm !== "granted") return false;
+        console.log("Requesting notification permission...");
+        const perm = await Notification.requestPermission();
+        setPermission(perm);
+        if (perm !== "granted") {
+          console.log("Notification permission denied");
+          return false;
+        }
       }
 
       // 기존 구독 확인
-      let subscription = await registration.pushManager.getSubscription();
+      let subscription = await reg.pushManager.getSubscription();
 
       // 새 구독 생성
       if (!subscription) {
@@ -98,7 +114,7 @@ export function PushProvider({ children }: { children: React.ReactNode }) {
           return false;
         }
 
-        subscription = await registration.pushManager.subscribe({
+        subscription = await reg.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
         });
@@ -131,7 +147,7 @@ export function PushProvider({ children }: { children: React.ReactNode }) {
       console.error("Push subscription failed:", error);
       return false;
     }
-  }, [isSupported, registration, requestPermission]);
+  }, [isSupported, registration]);
 
   // 푸시 구독 해제
   const unsubscribe = useCallback(async (): Promise<boolean> => {
