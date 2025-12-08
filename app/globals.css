@@ -285,3 +285,20 @@ textarea::placeholder {
   -webkit-text-fill-color: #6b7280 !important;
   color: #6b7280 !important;
 }
+
+/* 어두운 배경의 입력 필드 (bg-gray-800, bg-gray-900 등) */
+.bg-gray-800 input,
+.bg-gray-900 input,
+.bg-gray-800 textarea,
+.bg-gray-900 textarea {
+  -webkit-text-fill-color: #ffffff !important;
+  color: #ffffff !important;
+}
+
+.bg-gray-800 input::placeholder,
+.bg-gray-900 input::placeholder,
+.bg-gray-800 textarea::placeholder,
+.bg-gray-900 textarea::placeholder {
+  -webkit-text-fill-color: #9ca3af !important;
+  color: #9ca3af !important;
+}

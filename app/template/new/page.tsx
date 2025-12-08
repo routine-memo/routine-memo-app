@@ -190,11 +190,20 @@ export default function NewTemplatePage() {
           앨범 알림을 받고 싶으신가요?
         </p>
 
-        <div className="bg-gray-50 rounded-2xl p-6 mb-6 border border-gray-200">
-          <div className="flex items-center justify-between mb-4">
+        <div
+          className={`rounded-2xl p-6 mb-6 border transition-all duration-300 ease-in-out ${
+            notification.enabled
+              ? 'bg-gray-900 border-gray-900'
+              : 'bg-gray-50 border-gray-200'
+          }`}
+        >
+          {/* 알림 받기 토글 */}
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Bell className="w-5 h-5 text-gray-700" />
-              <span className="font-medium text-gray-900">알림 받기</span>
+              <Bell className={`w-5 h-5 transition-colors duration-300 ${notification.enabled ? 'text-white' : 'text-gray-700'}`} />
+              <span className={`font-medium transition-colors duration-300 ${notification.enabled ? 'text-white' : 'text-gray-900'}`}>
+                알림 받기
+              </span>
             </div>
             <label className="relative inline-block w-12 h-6">
               <input
@@ -203,9 +212,53 @@ export default function NewTemplatePage() {
                 onChange={(e) => setNotification({ ...notification, enabled: e.target.checked })}
                 className="sr-only peer"
               />
-              <div className="w-full h-full bg-gray-200 rounded-full peer peer-checked:bg-gray-900 transition-colors" />
+              <div className={`w-full h-full rounded-full peer peer-checked:bg-amber-500 transition-colors ${notification.enabled ? 'bg-gray-700' : 'bg-gray-200'}`} />
               <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform peer-checked:translate-x-6" />
             </label>
+          </div>
+
+          {/* 알림 상세 설정 (활성화 시 애니메이션으로 확장) */}
+          <div
+            className={`overflow-hidden transition-all duration-300 ease-in-out ${
+              notification.enabled ? 'max-h-96 opacity-100 mt-6' : 'max-h-0 opacity-0 mt-0'
+            }`}
+          >
+            {/* 알림 시간 */}
+            <div className="mb-4">
+              <label className="text-sm text-white block mb-2">알림 시간</label>
+              <input
+                type="time"
+                value={notification.time || '09:00'}
+                onChange={(e) => setNotification({ ...notification, time: e.target.value })}
+                className="w-full px-4 py-3 bg-gray-800 text-white rounded-xl border border-gray-700 focus:border-gray-500 focus:outline-none"
+              />
+            </div>
+
+            {/* 반복 요일 */}
+            <div>
+              <label className="text-sm text-white block mb-2">반복 요일</label>
+              <div className="flex gap-2">
+                {['일', '월', '화', '수', '목', '금', '토'].map((dayLabel, dayIndex) => (
+                  <button
+                    key={dayIndex}
+                    onClick={() => {
+                      const currentDays = notification.days || [];
+                      const newDays = currentDays.includes(dayIndex)
+                        ? currentDays.filter(d => d !== dayIndex)
+                        : [...currentDays, dayIndex];
+                      setNotification({ ...notification, days: newDays });
+                    }}
+                    className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      (notification.days || []).includes(dayIndex)
+                        ? 'bg-white text-gray-900'
+                        : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                    }`}
+                  >
+                    {dayLabel}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 
