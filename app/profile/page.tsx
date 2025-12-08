@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSession, signOut } from 'next-auth/react';
-import { User, FileText, FolderOpen, Calendar, Moon, Sun, LogOut, Bell, BellOff } from 'lucide-react';
+import { User, FileText, FolderOpen, Calendar, Moon, Sun, LogOut, Bell, BellOff, X, Settings, ExternalLink } from 'lucide-react';
 import Image from 'next/image';
 import { useDarkMode } from '@/components/DarkModeProvider';
 import { usePush } from '@/components/PushProvider';
