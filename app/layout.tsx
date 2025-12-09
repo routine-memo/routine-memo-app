@@ -4,14 +4,14 @@ import { ClientProviders } from "@/components/ClientProviders";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "꾸모리",
+  title: "Routine Memo",
   description: "어떠한 한 가지에 관한 기록을 꾸준히 하는 앱",
   manifest: "/manifest.json",
   themeColor: "#f59e0b",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "꾸모리",
+    title: "Routine Memo",
   },
 };
 
