@@ -11,11 +11,15 @@ export const ProgressBlockPreview = ({ value }: ProgressBlockPreviewProps) => {
   const mode = value?.mode || 'dday';
   const title = value?.title || '';
   const targetDate = value?.targetDate || '';
+  const savedDDay = value?.savedDDay;
   const currentValue = value?.currentValue ?? 0;
   const targetValue = value?.targetValue ?? 100;
 
-  // D-Day 계산
+  // D-Day 계산 (savedDDay가 있으면 저장된 값 사용)
   const calculateDDay = () => {
+    // savedDDay가 있으면 저장 시점의 값 사용 (기록 조회 시)
+    if (savedDDay !== undefined) return savedDDay;
+    // 없으면 현재 기준으로 계산 (템플릿 편집/미리보기 시)
     if (!targetDate) return null;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
