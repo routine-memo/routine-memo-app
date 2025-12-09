@@ -231,69 +231,75 @@ export const GridLayoutBlocks = ({
         }
         /* 리사이즈 핸들 영역 확장 (모바일 터치 최적화) */
         .react-resizable-handle {
-          position: absolute;
+          position: absolute !important;
           touch-action: none;
           z-index: 10;
+          width: 48px !important;
+          height: 48px !important;
+          background-image: none !important;
+          background-repeat: no-repeat !important;
+          background-position: center !important;
+          background-size: 12px 12px !important;
+          margin: 0 !important;
+          padding: 0 !important;
+        }
+        .react-resizable-handle::after {
+          display: none !important;
+          content: none !important;
+        }
+        .react-resizable-handle::before {
+          display: none !important;
+          content: none !important;
         }
         .react-resizable-handle-s {
-          bottom: -8px;
-          left: 50%;
-          transform: translateX(-50%);
-          width: 80%;
-          height: 32px;
-          cursor: s-resize;
-        }
-        .react-resizable-handle-n {
-          top: -8px;
-          left: 50%;
-          transform: translateX(-50%);
-          width: 80%;
-          height: 32px;
-          cursor: n-resize;
+          bottom: 0 !important;
+          top: auto !important;
+          left: 50% !important;
+          right: auto !important;
+          transform: translateX(-50%) !important;
+          cursor: s-resize !important;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2 4 L6 8 L10 4' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
+          background-position: center calc(100% - 2px) !important;
         }
         .react-resizable-handle-e {
-          right: -8px;
-          top: 50%;
-          transform: translateY(-50%);
-          width: 32px;
-          height: 80%;
-          cursor: e-resize;
+          right: 0 !important;
+          left: auto !important;
+          top: 50% !important;
+          bottom: auto !important;
+          transform: translateY(-50%) !important;
+          cursor: e-resize !important;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M4 2 L8 6 L4 10' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
+          background-position: calc(100% - 2px) center !important;
         }
         .react-resizable-handle-w {
-          left: -8px;
-          top: 50%;
-          transform: translateY(-50%);
-          width: 32px;
-          height: 80%;
-          cursor: w-resize;
+          left: 0 !important;
+          right: auto !important;
+          top: 50% !important;
+          bottom: auto !important;
+          transform: translateY(-50%) !important;
+          cursor: w-resize !important;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M8 2 L4 6 L8 10' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
+          background-position: 2px center !important;
         }
         .react-resizable-handle-se {
-          bottom: -8px;
-          right: -8px;
-          width: 40px;
-          height: 40px;
-          cursor: se-resize;
+          bottom: 0 !important;
+          top: auto !important;
+          right: 0 !important;
+          left: auto !important;
+          transform: none !important;
+          cursor: se-resize !important;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M3 9 L9 9 L9 3' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
+          background-position: calc(100% - 2px) calc(100% - 2px) !important;
         }
         .react-resizable-handle-sw {
-          bottom: -8px;
-          left: -8px;
-          width: 40px;
-          height: 40px;
-          cursor: sw-resize;
-        }
-        .react-resizable-handle-ne {
-          top: -8px;
-          right: -8px;
-          width: 40px;
-          height: 40px;
-          cursor: ne-resize;
-        }
-        .react-resizable-handle-nw {
-          top: -8px;
-          left: -8px;
-          width: 40px;
-          height: 40px;
-          cursor: nw-resize;
+          bottom: 0 !important;
+          top: auto !important;
+          left: 0 !important;
+          right: auto !important;
+          transform: none !important;
+          cursor: sw-resize !important;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M9 9 L3 9 L3 3' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
+          background-position: 2px calc(100% - 2px) !important;
         }
       `}</style>
       <GridLayout
@@ -312,7 +318,7 @@ export const GridLayoutBlocks = ({
         compactType="vertical"
         preventCollision={false}
         useCSSTransforms={true}
-        resizeHandles={['s', 'w', 'e', 'n', 'sw', 'nw', 'se', 'ne']}
+        resizeHandles={['s', 'w', 'e', 'sw', 'se']}
         onResizeStart={handleResizeStart}
         onResizeStop={handleResizeStop}
       >
