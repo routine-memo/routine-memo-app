@@ -64,7 +64,42 @@ export async function uploadMedia(
     handleUploadUrl: "/api/media/upload",
   });
 
+  // 업로드 완료 후 media 테이블에 저장 (onUploadCompleted 웹훅이 실패할 수 있으므로)
+  try {
+    await saveMediaToDb({
+      blobUrl: blob.url,
+      fileName: file.name,
+      fileType: file.type.startsWith("image/") ? "image" :
+                file.type.startsWith("video/") ? "video" : null,
+      fileSize: file.size,
+      entryId: options?.entryId,
+      dailyEntryId: options?.dailyEntryId,
+    });
+  } catch (e) {
+    console.error("Failed to save media to DB:", e);
+    // 업로드는 성공했으므로 에러 무시
+  }
+
   return { url: blob.url };
+}
+
+// media 테이블에 저장하는 API 호출
+async function saveMediaToDb(data: {
+  blobUrl: string;
+  fileName: string;
+  fileType: string | null;
+  fileSize: number;
+  entryId?: string;
+  dailyEntryId?: string;
+}): Promise<void> {
+  const res = await fetch("/api/media/save", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    throw new Error("Failed to save media to DB");
+  }
 }
 
 // 미디어 삭제
