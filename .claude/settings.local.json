@@ -36,7 +36,8 @@
       "Bash(npm i:*)",
       "Bash(npx drizzle-kit:*)",
       "Bash(npm run build:*)",
-      "Bash(npx vercel:*)"
+      "Bash(npx vercel:*)",
+      "Bash(node scripts/generate-icons.mjs:*)"
     ],
     "deny": [],
     "ask": []
