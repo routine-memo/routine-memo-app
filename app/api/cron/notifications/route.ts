@@ -95,7 +95,7 @@ export async function GET(request: NextRequest) {
       const payload = JSON.stringify({
         title: album.name,
         body: `${album.name}에 새 기록을 작성할 시간이에요!`,
-        url: `/album/${album.id}/new`,
+        url: `/album/${album.id}/entry`,
         albumId: album.id,
         tag: `album-${album.id}`,
       });

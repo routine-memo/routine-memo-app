@@ -107,18 +107,29 @@ function LoginContent() {
 
         {/* 앱 설치 버튼 */}
         {installPrompt && !isInstalled && (
-          <button
-            onClick={handleInstall}
-            className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl transition-colors"
-          >
-            <Download size={18} />
-            <span className="font-medium">앱으로 설치하기</span>
-          </button>
+          <div className="mt-4">
+            <button
+              onClick={handleInstall}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl transition-colors"
+            >
+              <Download size={18} />
+              <span className="font-medium">앱으로 설치하기</span>
+            </button>
+            <p className="mt-2 text-xs text-center text-gray-500 dark:text-gray-400">
+              앱을 설치하면 푸시 알림을 받을 수 있어요
+            </p>
+          </div>
+        )}
+
+        {!installPrompt && !isInstalled && (
+          <p className="mt-4 text-xs text-center text-gray-500 dark:text-gray-400">
+            💡 앱을 설치하면 푸시 알림을 받을 수 있어요
+          </p>
         )}
 
         {isInstalled && (
           <p className="mt-4 text-center text-sm text-green-600 dark:text-green-400">
-            앱이 설치되었습니다
+            ✓ 앱이 설치되었습니다
           </p>
         )}
 
