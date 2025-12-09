@@ -32,7 +32,8 @@
       "Bash(npx web-push generate-vapid-keys)",
       "Bash(npm i:*)",
       "Bash(npx drizzle-kit:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(npx vercel:*)"
     ],
     "deny": [],
     "ask": []
