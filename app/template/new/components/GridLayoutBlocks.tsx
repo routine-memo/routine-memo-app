@@ -69,8 +69,9 @@ export const GridLayoutBlocks = ({
   onLayoutChange,
   onRemove,
 }: GridLayoutBlocksProps) => {
-  // 드래그 상태
+  // 드래그/리사이즈 상태
   const [isDragging, setIsDragging] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
   const [isOverTrash, setIsOverTrash] = useState(false);
   const draggingBlockId = useRef<string | null>(null);
   const lastMouseY = useRef<number>(0);
@@ -169,6 +170,16 @@ export const GridLayoutBlocks = ({
     layoutBeforeDrag.current = null;
   }, [onLayoutChange, onRemove]);
 
+  // 리사이즈 시작
+  const handleResizeStart = useCallback(() => {
+    setIsResizing(true);
+  }, []);
+
+  // 리사이즈 종료
+  const handleResizeStop = useCallback(() => {
+    setIsResizing(false);
+  }, []);
+
   // 블록이 없을 때는 빈 상태 표시 (gridWidth와 무관)
   if (blockPositions.length === 0) {
     return (
@@ -203,76 +214,85 @@ export const GridLayoutBlocks = ({
   };
 
   return (
-    <div className={`grid-layout-container w-full ${isDragging ? 'is-dragging' : ''}`} style={gridBackground}>
+    <div className={`grid-layout-container w-full ${isDragging ? 'is-dragging' : ''} ${isResizing ? 'is-resizing' : ''}`} style={gridBackground}>
       {/* 드래그 중인 블록 z-index 높이기 + 리사이즈 핸들 영역 확장 */}
       <style>{`
         .is-dragging .react-grid-item.react-draggable-dragging {
           z-index: 50 !important;
         }
+        /* 리사이즈/드래그 중 pull-to-refresh 방지 */
+        .grid-layout-container {
+          touch-action: pan-x pan-y;
+        }
+        .grid-layout-container.is-dragging,
+        .grid-layout-container.is-resizing {
+          touch-action: none;
+          overscroll-behavior: none;
+        }
         /* 리사이즈 핸들 영역 확장 (모바일 터치 최적화) */
         .react-resizable-handle {
           position: absolute;
-          width: 20px;
-          height: 20px;
+          touch-action: none;
+          z-index: 10;
         }
         .react-resizable-handle-s {
-          bottom: -4px;
+          bottom: -8px;
           left: 50%;
           transform: translateX(-50%);
-          width: 60%;
-          height: 16px;
+          width: 80%;
+          height: 32px;
           cursor: s-resize;
         }
         .react-resizable-handle-n {
-          top: -4px;
+          top: -8px;
           left: 50%;
           transform: translateX(-50%);
-          width: 60%;
-          height: 16px;
+          width: 80%;
+          height: 32px;
           cursor: n-resize;
         }
         .react-resizable-handle-e {
-          right: -4px;
+          right: -8px;
           top: 50%;
           transform: translateY(-50%);
-          width: 16px;
-          height: 60%;
+          width: 32px;
+          height: 80%;
           cursor: e-resize;
         }
         .react-resizable-handle-w {
-          left: -4px;
+          left: -8px;
           top: 50%;
           transform: translateY(-50%);
-          width: 16px;
-          height: 60%;
+          width: 32px;
+          height: 80%;
           cursor: w-resize;
         }
         .react-resizable-handle-se {
-          bottom: -4px;
-          right: -4px;
-          width: 24px;
-          height: 24px;
+          bottom: -8px;
+          right: -8px;
+          width: 40px;
+          height: 40px;
           cursor: se-resize;
         }
         .react-resizable-handle-sw {
-          bottom: -4px;
-          left: -4px;
-          width: 24px;
-          height: 24px;
+          bottom: -8px;
+          left: -8px;
+          width: 40px;
+          height: 40px;
           cursor: sw-resize;
         }
         .react-resizable-handle-ne {
-          top: -4px;
-          right: -4px;
-          width: 24px;
-          height: 24px;
+          top: -8px;
+          right: -8px;
+          width: 40px;
+          height: 40px;
           cursor: ne-resize;
         }
         .react-resizable-handle-nw {
-          top: -4px;
-          left: -4px;
-          width: 24px;
-          height: 24px;
+          top: -8px;
+          left: -8px;
+          width: 40px;
+          height: 40px;
           cursor: nw-resize;
         }
       `}</style>
@@ -293,6 +313,8 @@ export const GridLayoutBlocks = ({
         preventCollision={false}
         useCSSTransforms={true}
         resizeHandles={['s', 'w', 'e', 'n', 'sw', 'nw', 'se', 'ne']}
+        onResizeStart={handleResizeStart}
+        onResizeStop={handleResizeStop}
       >
         {blockPositions.map((block) => {
           const Icon = iconMap[blockPalette.find(p => p.type === block.type)?.icon || 'Type'];
