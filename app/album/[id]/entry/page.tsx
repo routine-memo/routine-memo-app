@@ -368,6 +368,30 @@ export default function EntryPage() {
             value: { type: 'video', value: { videos: resolvedVideos } }
           });
         }
+        // 달성도 블록: D-Day 모드일 때 savedDDay 값 계산해서 저장
+        else if (value.type === 'progress' && value.value.mode === 'dday' && value.value.targetDate) {
+          // 수정 모드이고 이미 savedDDay가 있으면 유지, 아니면 새로 계산
+          if (isEditMode && value.value.savedDDay !== undefined) {
+            entryBlockValues.push({ blockId, value });
+          } else {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const target = new Date(value.value.targetDate);
+            target.setHours(0, 0, 0, 0);
+            const diff = Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+            entryBlockValues.push({
+              blockId,
+              value: {
+                type: 'progress',
+                value: {
+                  ...value.value,
+                  savedDDay: diff  // 저장 시점의 D-Day 값 고정
+                }
+              }
+            });
+          }
+        }
         else {
           entryBlockValues.push({ blockId, value });
         }

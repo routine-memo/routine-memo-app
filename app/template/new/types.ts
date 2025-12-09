@@ -176,6 +176,7 @@ export interface ProgressBlockDefault {
   title: string;             // 목표 제목
   // D-Day 모드
   targetDate?: string;       // 목표 날짜 (ISO 8601, YYYY-MM-DD)
+  savedDDay?: number;        // 저장 시점의 D-Day 값 (기록 조회 시 변경되지 않도록)
   // % 모드
   currentValue?: number;     // 현재 값
   targetValue?: number;      // 목표 값

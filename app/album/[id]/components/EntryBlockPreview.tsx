@@ -474,11 +474,17 @@ function MapContent({ markers }: { markers: MapMarker[] }) {
 // 달성도
 function ProgressContent({ value }: { value: any }) {
   if (value.mode === 'dday' && value.targetDate) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const target = new Date(value.targetDate);
-    target.setHours(0, 0, 0, 0);
-    const diff = Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    // savedDDay가 있으면 저장된 값 사용, 없으면 (이전 기록 호환) 현재 기준으로 계산
+    let diff: number;
+    if (value.savedDDay !== undefined) {
+      diff = value.savedDDay;
+    } else {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const target = new Date(value.targetDate);
+      target.setHours(0, 0, 0, 0);
+      diff = Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    }
 
     return (
       <div className="text-center py-2">
