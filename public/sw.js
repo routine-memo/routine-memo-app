@@ -11,8 +11,8 @@ self.addEventListener("push", (event) => {
 
     const options = {
       body: data.body || "새로운 기록을 작성할 시간이에요!",
-      icon: "/icon-192x192.png",
-      badge: "/icon-72x72.png",
+      icon: "/icons/icon-192x192.png",
+      badge: "/icons/badge-96x96.png",
       vibrate: [100, 50, 100],
       data: {
         url: data.url || "/",
@@ -33,7 +33,7 @@ self.addEventListener("push", (event) => {
     };
 
     event.waitUntil(
-      self.registration.showNotification(data.title || "Routine Memo", options)
+      self.registration.showNotification(data.title || "꾸모리", options)
     );
   } catch (error) {
     console.error("Push event error:", error);

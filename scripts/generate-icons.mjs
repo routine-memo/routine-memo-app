@@ -7,7 +7,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = join(__dirname, '..');
 
 const sizes = [72, 96, 128, 144, 152, 192, 384, 512];
-const inputPath = join(projectRoot, 'ggumori.png');
+const inputPath = join(projectRoot, 'ggumori_app.png');
 const outputDir = join(projectRoot, 'public', 'icons');
 
 async function generateIcons() {
@@ -31,6 +31,13 @@ async function generateIcons() {
     .resize(32, 32)
     .toFile(join(projectRoot, 'public', 'favicon.png'));
   console.log('Generated: favicon.png');
+
+  // Generate badge icon from circle version (for push notifications)
+  const circleInputPath = join(projectRoot, 'ggumori_circle.png');
+  await sharp(circleInputPath)
+    .resize(96, 96)
+    .toFile(join(outputDir, 'badge-96x96.png'));
+  console.log('Generated: badge-96x96.png');
 
   console.log('All icons generated successfully!');
 }
